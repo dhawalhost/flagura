@@ -1,0 +1,82 @@
+package views
+
+templ ThreeCanvas() {
+	<div class="fixed inset-0 pointer-events-none z-0 overflow-hidden" id="three-canvas-container">
+		<canvas id="three-bg-canvas" class="w-full h-full opacity-45"></canvas>
+	</div>
+	<script>
+		document.addEventListener('DOMContentLoaded', () => {
+			const canvas = document.getElementById('three-bg-canvas');
+			if (!canvas || !window.THREE) return;
+
+			const scene = new THREE.Scene();
+			const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+			camera.position.z = 24;
+
+			const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+			// Create dynamic particles in a sphere ring
+			const particlesCount = 800;
+			const positions = new Float32Array(particlesCount * 3);
+			const colors = new Float32Array(particlesCount * 3);
+
+			const color1 = new THREE.Color('#3B82F6');
+			const color2 = new THREE.Color('#38BDF8');
+
+			for (let i = 0; i < particlesCount; i++) {
+				const i3 = i * 3;
+				const radius = 9 + Math.random() * 6;
+				const theta = Math.random() * Math.PI * 2;
+				const phi = Math.acos((Math.random() * 2) - 1);
+
+				positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+				positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+				positions[i3 + 2] = radius * Math.cos(phi);
+
+				const mixedColor = color1.clone().lerp(color2, Math.random());
+				colors[i3] = mixedColor.r;
+				colors[i3 + 1] = mixedColor.g;
+				colors[i3 + 2] = mixedColor.b;
+			}
+
+			const geometry = new THREE.BufferGeometry();
+			geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+			geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+			const material = new THREE.PointsMaterial({
+				size: 0.14,
+				vertexColors: true,
+				transparent: true,
+				opacity: 0.7,
+				blending: THREE.AdditiveBlending
+			});
+
+			const particles = new THREE.Points(geometry, material);
+			scene.add(particles);
+
+			let mouseX = 0, mouseY = 0;
+			window.addEventListener('mousemove', (e) => {
+				mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+				mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+			});
+
+			const animate = () => {
+				requestAnimationFrame(animate);
+				particles.rotation.y += 0.0015;
+				particles.rotation.x += 0.0008;
+				particles.rotation.y += mouseX * 0.003;
+				particles.rotation.x -= mouseY * 0.003;
+				renderer.render(scene, camera);
+			};
+			animate();
+
+			window.addEventListener('resize', () => {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(window.innerWidth, window.innerHeight);
+			});
+		});
+	</script>
+}

@@ -1,0 +1,47 @@
+package views
+
+import (
+	"github.com/dhawalhost/flagura/internal/domain"
+)
+
+templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, driverName string) {
+	@Layout("Developer Console") {
+		<div class="min-h-screen flex bg-slate-50/60">
+			<!-- Docked Left Sidebar -->
+			@Sidebar(user, flags, auditLogs)
+
+			<!-- Main Content Viewport -->
+			<div class="flex-1 flex flex-col min-w-0">
+				<!-- Docked Top Header Bar -->
+				@HeaderBar(user, flags, "production")
+
+				<!-- Spacious Workspace Canvas -->
+				<main class="flex-1 p-6 sm:p-8 lg:p-10 max-w-7xl mx-auto w-full space-y-8">
+					<!-- VIEW 1: Overview Dashboard -->
+					@BentoOverview(flags, auditLogs, driverName)
+
+					<!-- VIEW 2: Flags & Rollouts Matrix -->
+					@FlagMatrix(flags)
+
+					<!-- VIEW 3: Dedicated Analytics & Telemetry -->
+					@AnalyticsDashboard(flags)
+
+					<!-- VIEW 4: Live Evaluation Sandbox -->
+					@LiveEvaluator(flags)
+
+					<!-- VIEW 5: Latency Benchmark Suite -->
+					@BenchmarkModal()
+
+					<!-- VIEW 6: Audit Logs Trail -->
+					@AuditModal(auditLogs)
+
+					<!-- VIEW 7: SDK Integration & API -->
+					@SDKModal()
+
+					<!-- VIEW 8: Flag Editor & Rule Creator -->
+					@FlagEditorModal()
+				</main>
+			</div>
+		</div>
+	}
+}

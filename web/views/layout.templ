@@ -1,0 +1,609 @@
+package views
+
+templ Layout(title string) {
+	<!DOCTYPE html>
+	<html lang="en" class="h-full">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ title } — Flagura</title>
+			<link rel="icon" href="/static/img/flagura-logo-circle.svg"/>
+			<!-- Google Fonts -->
+			<link rel="preconnect" href="https://fonts.googleapis.com"/>
+			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+			<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+			<!-- Tailwind CSS CDN -->
+			<script src="https://cdn.tailwindcss.com"></script>
+			<script>
+				tailwind.config = {
+					theme: {
+						extend: {
+							fontFamily: {
+								sans: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
+								display: ['"Plus Jakarta Sans"', 'sans-serif'],
+								syne: ['"Syne"', 'sans-serif'],
+								mono: ['"JetBrains Mono"', 'monospace'],
+							}
+						}
+					}
+				}
+			</script>
+			<!-- App CSS from zip -->
+			<link rel="stylesheet" href="/static/app.css"/>
+			<!-- Alpine.js & HTMX -->
+			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.10/dist/cdn.min.js"></script>
+			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+			<!-- Lucide Icons -->
+			<script src="https://unpkg.com/lucide@latest"></script>
+			<!-- Chart.js & Three.js & GSAP -->
+			<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+		</head>
+		<body 
+			class="h-full antialiased text-slate-900 bg-slate-50 selection:bg-blue-600 selection:text-white"
+			x-data="globalApp()"
+		>
+			<!-- Ambient Atmosphere Backdrop -->
+			<div 
+				class="fixed inset-0 z-0 bg-cover bg-center bg-fixed transition-all duration-700 pointer-events-none opacity-40"
+				:style="'background-image: url(' + selectedWallpaper + ');'"
+			>
+				<div class="absolute inset-0 bg-slate-900/10 backdrop-blur-2xl"></div>
+			</div>
+
+			<!-- Three.js Canvas Layer -->
+			@ThreeCanvas()
+
+			<!-- Custom Magnetic Cursor -->
+			@CustomCursor()
+
+			<!-- Toast Notification Manager -->
+			<div class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none">
+				<template x-for="toast in toasts" :key="toast.id">
+					<div 
+						class="pointer-events-auto px-4 py-2.5 rounded-xl text-xs font-mono font-semibold flex items-center gap-2 shadow-lg border transition-all duration-300"
+						:class="toast.type === 'error' ? 'text-rose-700 bg-rose-50 border-rose-200' : 'text-slate-900 bg-white border-slate-200'"
+						x-transition
+					>
+						<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600" x-show="toast.type !== 'error'"></i>
+						<i data-lucide="alert-circle" class="w-4 h-4 text-rose-600" x-show="toast.type === 'error'"></i>
+						<span x-text="toast.message"></span>
+					</div>
+				</template>
+			</div>
+
+			<!-- Main Content Slot -->
+			<div class="relative z-10 min-h-full">
+				{ children... }
+			</div>
+
+			<script>
+				// Micro Audio Synthesizer
+				class MicroAudioSynth {
+					constructor() {
+						this.ctx = null;
+						this.enabled = true;
+					}
+					init() {
+						if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
+							const AudioCtx = window.AudioContext || window.webkitAudioContext;
+							this.ctx = new AudioCtx();
+						}
+						if (this.ctx && this.ctx.state === 'suspended') {
+							this.ctx.resume();
+						}
+					}
+					playClick(freq = 580, dur = 0.04) {
+						if (!this.enabled) return;
+						try {
+							this.init();
+							if (!this.ctx) return;
+							const osc = this.ctx.createOscillator();
+							const gain = this.ctx.createGain();
+							osc.type = 'sine';
+							osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+							osc.frequency.exponentialRampToValueAtTime(140, this.ctx.currentTime + dur);
+							gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+							gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + dur);
+							osc.connect(gain);
+							gain.connect(this.ctx.destination);
+							osc.start();
+							osc.stop(this.ctx.currentTime + dur);
+						} catch(e) {}
+					}
+					playSwitch(state) {
+						if (!this.enabled) return;
+						try {
+							this.init();
+							if (!this.ctx) return;
+							const osc = this.ctx.createOscillator();
+							const gain = this.ctx.createGain();
+							osc.type = 'triangle';
+							const startFreq = state ? 420 : 640;
+							const endFreq = state ? 920 : 280;
+							osc.frequency.setValueAtTime(startFreq, this.ctx.currentTime);
+							osc.frequency.exponentialRampToValueAtTime(endFreq, this.ctx.currentTime + 0.06);
+							gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+							gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.06);
+							osc.connect(gain);
+							gain.connect(this.ctx.destination);
+							osc.start();
+							osc.stop(this.ctx.currentTime + 0.06);
+						} catch(e) {}
+					}
+				}
+				window.synth = new MicroAudioSynth();
+
+				// FNV-1a Hash helper
+				function getStickyBucketJs(key, salt = '') {
+					const FNV_OFFSET = 0xcbf29ce484222325n;
+					const FNV_PRIME = 0x100000001b3n;
+					let hash = FNV_OFFSET;
+					const str = key + ':' + salt;
+					for (let i = 0; i < str.length; i++) {
+						hash = hash ^ BigInt(str.charCodeAt(i));
+						hash = (hash * FNV_PRIME) & 0xffffffffffffffffn;
+					}
+					const bucket = Number((hash % 10000n)) / 100;
+					return { bucket: Number(bucket.toFixed(2)), hashRaw: hash.toString(16).padStart(16, '0') };
+				}
+
+				document.addEventListener('alpine:init', () => {
+					// Global App Root State
+					Alpine.data('globalApp', () => ({
+						toasts: [],
+						soundOn: true,
+						currentEnv: 'production',
+						activeView: 'overview',
+						previousView: 'overview',
+						searchQuery: '',
+						isMobileSidebarOpen: false,
+						selectedWallpaper: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=2560&q=85',
+						wallpapers: [
+							{ id: 'slate-waves', name: 'Sober Slate Waves', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=2560&q=85' },
+							{ id: 'modern-architecture', name: 'Architectural Monolith', url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=2560&q=85' },
+							{ id: 'nordic-mist', name: 'Nordic Mist Horizon', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2560&q=85' },
+							{ id: 'charcoal-dunes', name: 'Charcoal Minimal Curves', url: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=2560&q=85' },
+							{ id: 'warm-stone', name: 'Warm Stone Dunes', url: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=2560&q=85' }
+						],
+						currentUser: { id: 'dev-1', name: 'Dhawal (Developer)', email: 'dhawal@flagura.dev', role: 'developer' },
+						toggleSound() {
+							this.soundOn = !this.soundOn;
+							window.synth.enabled = this.soundOn;
+							if (this.soundOn) window.synth.playClick(720);
+							this.showToast(this.soundOn ? 'Sound synthesizer enabled' : 'Sound muted');
+						},
+						showToast(msg, type = 'info') {
+							const id = Date.now();
+							this.toasts.push({ id, message: msg, type });
+							setTimeout(() => {
+								this.toasts = this.toasts.filter(t => t.id !== id);
+							}, 3500);
+						},
+						getViewTitle() {
+							const titles = {
+								overview: 'Overview',
+								flags: 'Flags & Rollouts',
+								analytics: 'Analytics & Telemetry',
+								evaluator: 'Live Evaluator',
+								benchmark: 'Latency Benchmark',
+								audit: 'Audit Trail',
+								sdk: 'SDK Integration',
+								editor: 'Flag Editor'
+							};
+							return titles[this.activeView] || 'Console';
+						},
+						openNewFlagEditor() {
+							this.previousView = this.activeView;
+							this.$dispatch('populate-editor', { isEditing: false });
+							this.activeView = 'editor';
+						},
+						openEditFlagEditor(id, key, name, description, type) {
+							this.previousView = this.activeView;
+							this.$dispatch('populate-editor', { isEditing: true, id, key, name, description, type });
+							this.activeView = 'editor';
+						},
+						openEvaluatorForFlag(flagKey) {
+							this.$dispatch('select-evaluator-flag', flagKey);
+							this.activeView = 'evaluator';
+						},
+						async toggleFlagStatus(key, isEnabled) {
+							window.synth.playSwitch(isEnabled);
+							try {
+								const res = await fetch('/api/v1/flags/' + key + '/toggle', {
+									method: 'PATCH',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({ environment: this.currentEnv, enabled: isEnabled, actor: this.currentUser.email })
+								});
+								if (res.ok) {
+									this.showToast('Flag ' + key + ' ' + (isEnabled ? 'ENABLED' : 'DISABLED (Kill-Switch)'));
+								}
+							} catch(e) {
+								this.showToast('Toggle failed', 'error');
+							}
+						},
+						updateRollout(key, pct) {
+							window.synth.playClick(440);
+							fetch('/api/v1/flags/' + key + '/rollout', {
+								method: 'PATCH',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({ environment: this.currentEnv, percentage: Number(pct), actor: this.currentUser.email })
+							}).then(() => {
+								this.showToast('Rollout for ' + key + ' set to ' + pct + '%');
+							});
+						},
+						async deleteFlagRow(key) {
+							if (confirm('Permanently remove feature flag ' + key + '?')) {
+								const res = await fetch('/api/v1/flags/' + key, { method: 'DELETE' });
+								if (res.ok) {
+									const card = document.getElementById('flag-card-' + key);
+									if (card) card.remove();
+									this.showToast('Deleted flag ' + key);
+								}
+							}
+						},
+						async resetSeedData() {
+							if (confirm('Reset entire flag database to default initial state?')) {
+								const res = await fetch('/api/v1/reset', { method: 'POST' });
+								if (res.ok) {
+									this.showToast('Database reset to default seed!');
+									setTimeout(() => window.location.reload(), 600);
+								}
+							}
+						},
+						async logout() {
+							window.synth.playClick(400);
+							try {
+								await fetch('/api/v1/auth/logout', { method: 'POST' });
+								this.showToast('Logged out');
+								setTimeout(() => {
+									window.location.href = '/auth';
+								}, 300);
+							} catch(e) {
+								window.location.href = '/auth';
+							}
+						},
+						async checkAuth() {
+							if (window.location.pathname.startsWith('/dashboard')) {
+								try {
+									const res = await fetch('/api/v1/auth/me');
+									if (res.ok) {
+										const u = await res.json();
+										this.currentUser = u;
+									}
+								} catch(e) {}
+							}
+						},
+						init() {
+							this.checkAuth();
+						}
+					}));
+
+					// Flag Matrix View Component
+					Alpine.data('flagMatrixViewComponent', () => ({
+						statusFilter: 'all',
+						selectedTag: 'all',
+						matchesFilter(key, name, tags, isEnabled, rulesCount, strategy) {
+							// Status filter
+							if (this.statusFilter === 'enabled' && !isEnabled) return false;
+							if (this.statusFilter === 'disabled' && isEnabled) return false;
+							if (this.statusFilter === 'rollout' && (!isEnabled || strategy !== 'percentage')) return false;
+							if (this.statusFilter === 'rules' && (!isEnabled || rulesCount === 0)) return false;
+
+							// Tag filter
+							if (this.selectedTag !== 'all' && !tags.includes(this.selectedTag)) return false;
+
+							// Search query
+							const q = (this.searchQuery || '').toLowerCase().trim();
+							if (!q) return true;
+							return key.toLowerCase().includes(q) || name.toLowerCase().includes(q) || tags.toLowerCase().includes(q);
+						}
+					}));
+
+					// Live Evaluator View Component
+					Alpine.data('liveEvaluatorComponent', () => ({
+						selectedFlagKey: 'all',
+						evaluating: false,
+						evalResults: {},
+						copiedCurl: false,
+						currentBucket: 50,
+						context: {
+							user_id: 'usr_dhawal_01',
+							email: 'dhawal@flagura.dev',
+							country: 'US',
+							role: 'admin',
+							tier: 'enterprise'
+						},
+						customJson: '{\n  "app_version": "2.4.0",\n  "beta_group": "alpha"\n}',
+						init() {
+							this.evaluateNow();
+							this.$watch('context.user_id', () => {
+								const b = getStickyBucketJs(this.context.user_id || 'anon', 'salt');
+								this.currentBucket = b.bucket;
+							});
+							window.addEventListener('select-evaluator-flag', (e) => {
+								this.selectedFlagKey = e.detail;
+								this.evaluateNow();
+							});
+						},
+						applyPreset(uid, email, country, role, tier) {
+							this.context.user_id = uid;
+							this.context.email = email;
+							this.context.country = country;
+							this.context.role = role;
+							this.context.tier = tier;
+							this.evaluateNow();
+							this.showToast('Applied test persona: ' + uid);
+						},
+						async evaluateNow() {
+							this.evaluating = true;
+							window.synth.playClick(620);
+							try {
+								let parsedCustom = {};
+								try { if (this.customJson.trim()) parsedCustom = JSON.parse(this.customJson); } catch(e) {}
+								const flagsList = this.selectedFlagKey === 'all' ? [] : [this.selectedFlagKey];
+
+								const res = await fetch('/api/v1/evaluate', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({
+										flags: flagsList,
+										context: { ...this.context, ...parsedCustom, environment: this.currentEnv }
+									})
+								});
+								const data = await res.json();
+								this.evalResults = data.results || {};
+							} finally {
+								this.evaluating = false;
+							}
+						},
+						getCurlCommand() {
+							const flagsArg = this.selectedFlagKey === 'all' ? '["*"]' : `["${this.selectedFlagKey}"]`;
+							return `curl -X POST ${window.location.origin}/api/v1/evaluate \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "flags": ${flagsArg},\n    "context": {\n      "user_id": "${this.context.user_id}",\n      "email": "${this.context.email}",\n      "country": "${this.context.country}",\n      "role": "${this.context.role}",\n      "tier": "${this.context.tier}",\n      "environment": "${this.currentEnv}"\n    }\n  }'`;
+						},
+						copyCurl() {
+							navigator.clipboard.writeText(this.getCurlCommand());
+							this.copiedCurl = true;
+							setTimeout(() => this.copiedCurl = false, 2000);
+						}
+					}));
+
+					// Analytics View Component
+					Alpine.data('analyticsViewComponent', () => ({
+						selectedAnalyticsFlag: 'all',
+						chart: null,
+						init() {
+							this.$nextTick(() => this.renderChart());
+						},
+						updateAnalyticsChart() {
+							this.renderChart();
+						},
+						renderChart() {
+							const ctx = document.getElementById('analyticsChartCanvas');
+							if (!ctx) return;
+							if (this.chart) this.chart.destroy();
+
+							const hours = ['00:00', '02:00', '04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'];
+							const points = [14200, 11500, 9800, 18400, 42100, 78900, 114000, 128500, 134200, 119000, 89400, 48200];
+
+							this.chart = new Chart(ctx, {
+								type: 'line',
+								data: {
+									labels: hours,
+									datasets: [{
+										label: '24h Evaluations Throughput',
+										data: points,
+										borderColor: '#2563eb',
+										backgroundColor: 'rgba(37, 99, 235, 0.08)',
+										fill: true,
+										tension: 0.35,
+										borderWidth: 2.5,
+										pointBackgroundColor: '#2563eb',
+										pointRadius: 3
+									}]
+								},
+								options: {
+									responsive: true,
+									maintainAspectRatio: false,
+									plugins: { legend: { display: false } },
+									scales: {
+										x: { grid: { color: 'rgba(0, 0, 0, 0.04)' }, ticks: { color: '#64748b', font: { size: 10 } } },
+										y: { grid: { color: 'rgba(0, 0, 0, 0.04)' }, ticks: { color: '#64748b', font: { size: 10 } } }
+									}
+								}
+							});
+						}
+					}));
+
+					// Benchmark View Component
+					Alpine.data('benchmarkViewComponent', () => ({
+						iterations: 10000,
+						isRunning: false,
+						metrics: null,
+						chart: null,
+						init() {
+							this.$nextTick(() => {
+								if (!this.metrics) this.runStressTest();
+							});
+						},
+						async runStressTest() {
+							this.isRunning = true;
+							window.synth.playClick(750);
+							try {
+								const res = await fetch('/api/v1/benchmark', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({ iterations: Number(this.iterations), environment: this.currentEnv })
+								});
+								const data = await res.json();
+								this.metrics = data;
+								this.$nextTick(() => this.renderHistogram(data.hashBuckets || []));
+							} finally {
+								this.isRunning = false;
+							}
+						},
+						renderHistogram(buckets) {
+							const ctx = document.getElementById('benchmarkHistogramCanvas');
+							if (!ctx) return;
+							if (this.chart) this.chart.destroy();
+							const labels = Array.from({ length: 100 }, (_, i) => i + '%');
+							this.chart = new Chart(ctx, {
+								type: 'bar',
+								data: {
+									labels: labels,
+									datasets: [{
+										data: buckets,
+										backgroundColor: 'rgba(37, 99, 235, 0.65)',
+										borderColor: '#2563eb',
+										borderWidth: 1,
+										borderRadius: 2
+									}]
+								},
+								options: {
+									responsive: true,
+									maintainAspectRatio: false,
+									plugins: { legend: { display: false } },
+									scales: {
+										x: { display: false },
+										y: { grid: { color: 'rgba(0, 0, 0, 0.05)' }, ticks: { color: '#64748b', font: { size: 10 } } }
+									}
+								}
+							});
+						}
+					}));
+
+					// Audit View Component
+					Alpine.data('auditViewComponent', () => ({
+						loading: false,
+						async fetchLogs() {
+							this.loading = true;
+							try {
+								await fetch('/api/v1/audit-logs');
+								this.showToast('Audit trail refreshed');
+							} finally {
+								this.loading = false;
+							}
+						}
+					}));
+
+					// SDK View Component
+					Alpine.data('sdkViewComponent', () => ({
+						sdkTab: 'go',
+						copied: false,
+						getSdkSnippet() {
+							if (this.sdkTab === 'go') {
+								return `package main\n\nimport (\n    "context"\n    "fmt"\n    "github.com/dhawalhost/flagura/pkg/client"\n)\n\nfunc main() {\n    c := client.New("${window.location.origin}")\n    res, _ := c.Evaluate(context.Background(), "ai-smart-search", client.Context{\n        UserID: "usr_dhawal_01",\n        Email:  "dhawal@flagura.dev",\n    })\n    fmt.Printf("Enabled: %v | Latency: %v ns\\n", res.Enabled, res.EvaluationLatencyNs)\n}`;
+							} else if (this.sdkTab === 'ts') {
+								return `import { FlaguraClient } from '@flagura/sdk';\n\nconst client = new FlaguraClient({ endpoint: '${window.location.origin}' });\nconst { enabled, variant } = await client.evaluate('ai-smart-search', {\n  userId: 'usr_dhawal_01',\n  email: 'dhawal@flagura.dev',\n});\nconsole.log({ enabled, variant });`;
+							} else if (this.sdkTab === 'python') {
+								return `from flagura import Client\n\nclient = Client("${window.location.origin}")\nres = client.evaluate("ai-smart-search", user_id="usr_dhawal_01", email="dhawal@flagura.dev")\nprint(res.enabled, res.variant)`;
+							}
+							return `curl -X POST ${window.location.origin}/api/v1/evaluate \\\n  -H "Content-Type: application/json" \\\n  -d '{"flags":["ai-smart-search"],"context":{"user_id":"usr_dhawal_01","email":"dhawal@flagura.dev"}}'`;
+						},
+						copySnippet() {
+							navigator.clipboard.writeText(this.getSdkSnippet());
+							this.copied = true;
+							setTimeout(() => this.copied = false, 2000);
+						}
+					}));
+
+					// Flag Editor View Component
+					Alpine.data('flagEditorComponent', () => ({
+						isEditing: false,
+						envTab: 'production',
+						saving: false,
+						form: {
+							id: '',
+							key: '',
+							name: '',
+							description: '',
+							type: 'boolean',
+							tagsInput: 'frontend, checkout',
+							environments: {
+								production: { enabled: true, strategy: 'percentage', percentage: 50, rules: [] },
+								staging: { enabled: true, strategy: 'percentage', percentage: 100, rules: [] },
+								development: { enabled: true, strategy: 'boolean', percentage: 100, rules: [] }
+							}
+						},
+						init() {
+							window.addEventListener('populate-editor', (e) => {
+								const d = e.detail;
+								this.isEditing = d.isEditing;
+								if (d.isEditing) {
+									this.form.id = d.id || d.key;
+									this.form.key = d.key;
+									this.form.name = d.name;
+									this.form.description = d.description;
+									this.form.type = d.type || 'boolean';
+								} else {
+									this.form.id = 'flag_' + Date.now();
+									this.form.key = '';
+									this.form.name = '';
+									this.form.description = '';
+									this.form.type = 'boolean';
+									this.form.tagsInput = 'frontend, experimental';
+								}
+							});
+						},
+						addRule() {
+							this.form.environments[this.envTab].rules.push({
+								id: 'rule_' + Date.now(),
+								name: 'Custom Rule #' + (this.form.environments[this.envTab].rules.length + 1),
+								attribute: 'email',
+								operator: 'ends_with',
+								valuesInput: '@flagura.dev',
+								action: 'force_enabled'
+							});
+						},
+						removeRule(idx) {
+							this.form.environments[this.envTab].rules.splice(idx, 1);
+						},
+						syncEnvConfigToAll() {
+							const cfg = JSON.parse(JSON.stringify(this.form.environments[this.envTab]));
+							this.form.environments.production = JSON.parse(JSON.stringify(cfg));
+							this.form.environments.staging = JSON.parse(JSON.stringify(cfg));
+							this.form.environments.development = JSON.parse(JSON.stringify(cfg));
+							this.showToast('Synchronized ' + this.envTab + ' config to all environments');
+						},
+						async saveFlag() {
+							this.saving = true;
+							try {
+								const tags = this.form.tagsInput.split(',').map(t => t.trim()).filter(Boolean);
+								const payload = {
+									id: this.form.id || this.form.key,
+									key: this.form.key,
+									name: this.form.name,
+									description: this.form.description,
+									type: this.form.type,
+									tags: tags,
+									environments: this.form.environments
+								};
+								const res = await fetch('/api/v1/flags', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify(payload)
+								});
+								if (res.ok) {
+									this.showToast('Saved flag ' + this.form.key + ' successfully!');
+									setTimeout(() => window.location.reload(), 600);
+								}
+							} finally {
+								this.saving = false;
+							}
+						}
+					}));
+				});
+
+				// Initialize Lucide Icons
+				document.addEventListener('DOMContentLoaded', () => {
+					if (window.lucide) window.lucide.createIcons();
+				});
+				document.addEventListener('alpine:initialized', () => {
+					if (window.lucide) window.lucide.createIcons();
+				});
+			</script>
+		</body>
+	</html>
+}

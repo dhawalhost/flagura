@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Install Templ Compiler
+        run: go install github.com/a-h/templ/cmd/templ@latest
+
+      - name: Verify & Generate Templates
+        run: templ generate
+
+      - name: Go Vet & Lint Check
+        run: go vet ./...
+
+      - name: Run Test Suite
+        run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+      - name: Compile Flagura Binary
+        run: go build -v -o bin/flagura main.go
+
+      - name: Upload Test Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-report
+          path: coverage.txt
+          if-no-files-found: ignore
