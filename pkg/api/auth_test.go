@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/store"
@@ -161,7 +162,7 @@ func TestProtectedDashboard(t *testing.T) {
 	_ = memStore.CreateSession(context.Background(), domain.Session{
 		Token:     token,
 		UserID:    user.ID,
-		ExpiresAt: user.CreatedAt.Add(24 * 3600),
+		ExpiresAt: time.Now().Add(24 * time.Hour),
 	})
 
 	// Authenticated dashboard access should return 200 OK
