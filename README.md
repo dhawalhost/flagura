@@ -212,84 +212,145 @@ curl -X POST http://localhost:3000/api/v1/evaluate \
 
 ---
 
-## 💻 Polyglot SDK Quickstart
+## 💻 SDK & Integration Quickstart
 
-### 1. Go SDK
+### 1. Official Go SDK (`pkg/client`)
+
+The built-in Go client supports **sub-microsecond in-memory evaluations** (cached in-process) and remote evaluations:
+
+```bash
+go get github.com/dhawalhost/flagura/pkg/client
+```
 
 ```go
 package main
 
 import (
-    "context"
-    "fmt"
-    "github.com/dhawalhost/flagura/pkg/domain"
-    "github.com/dhawalhost/flagura/pkg/engine"
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/dhawalhost/flagura/pkg/client"
 )
 
 func main() {
-    evaluator := engine.NewEvaluator()
+	// Initialize Flagura client with background local synchronization
+	c := client.New("https://flagura.dhawalhost.com",
+		client.WithLocalEvaluation(true),
+		client.WithSyncInterval(30*time.Second),
+	)
+	defer c.Close()
 
-    res := evaluator.Evaluate(myFlag, domain.EvaluationContext{
-        UserID:      "usr_dhawal_01",
-        Email:       "dhawal@flagura.dev",
-        Environment: "production",
-    })
+	// Evaluate flag locally in ~400 nanoseconds
+	result, err := c.Evaluate(context.Background(), "ai-smart-search", client.Context{
+		UserID:  "usr_dhawal_01",
+		Email:   "dhawal@flagura.dev",
+		Country: "US",
+		Role:    "admin",
+	})
+	if err != nil {
+		panic(err)
+	}
 
-    if res.Enabled {
-        fmt.Printf("Flag ENABLED: variant=%s, resolved in %.2f µs\n", res.Variant, res.EvaluationLatencyUs)
-    }
+	fmt.Printf("Flag: %s | Enabled: %v | Variant: %s (in %d ns)\n",
+		result.FlagKey, result.Enabled, result.Variant, result.EvaluationLatencyNs)
 }
 ```
 
-### 2. React / Next.js Hook
+---
 
-```tsx
-import React from "react";
-import { useFeatureFlag } from "@flagura/react";
+### 2. TypeScript / JavaScript (Node.js, Next.js, Browser)
 
-export function SmartSearch() {
-  const { isEnabled, variant, loading } = useFeatureFlag("ai-smart-search", {
-    userId: "usr_dhawal_01",
-    tier: "enterprise",
-  });
+Zero-dependency standard `fetch` helper for full-stack JavaScript:
 
-  if (loading) return <div>Loading...</div>;
-  return isEnabled ? <AISmartSearch variant={variant} /> : <StandardSearch />;
+```typescript
+interface FlagEvaluation {
+  flag_key: string;
+  enabled: boolean;
+  variant: string;
+  value: any;
+  reason: string;
 }
-```
 
-### 3. Node.js / Express Middleware
-
-```javascript
-import { FlaguraClient } from "@flagura/node";
-
-const client = new FlaguraClient({ endpoint: "http://localhost:3000" });
-
-app.get("/api/checkout", async (req, res) => {
-  const isEligible = await client.evaluate("new-checkout-flow", {
-    userId: req.user.id,
-    country: req.user.country,
+export async function evaluateFlag(
+  flagKey: string,
+  context: { userId: string; email?: string; country?: string; role?: string; environment?: string },
+  endpoint = "https://flagura.dhawalhost.com"
+): Promise<FlagEvaluation> {
+  const res = await fetch(`${endpoint}/api/v1/evaluate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      flags: [flagKey],
+      context: {
+        user_id: context.userId,
+        email: context.email,
+        country: context.country,
+        role: context.role,
+        environment: context.environment || "production",
+      },
+    }),
   });
 
-  res.json({ modernCheckout: isEligible });
+  if (!res.ok) throw new Error(`Flagura API error: ${res.statusText}`);
+  const data = await res.json();
+  return data.results[flagKey];
+}
+
+// Example Usage
+const flag = await evaluateFlag("ai-smart-search", {
+  userId: "usr_123",
+  email: "user@flagura.dev",
 });
+if (flag.enabled) {
+  console.log("Feature active! Variant:", flag.variant);
+}
 ```
 
-### 4. Python
+---
+
+### 3. Python (FastAPI, Django, AI Agents)
 
 ```python
 import requests
 
-def check_flag(flag_key: str, user_id: str, email: str = "") -> bool:
-    res = requests.post("http://localhost:3000/api/v1/evaluate", json={
-        "flags": [flag_key],
-        "context": {
-            "user_id": user_id,
-            "email": email,
-            "environment": "production"
-        }
-    })
-    return res.json().get("results", {}).get(flag_key, {}).get("enabled", False)
+def evaluate_flag(flag_key: str, user_id: str, email: str = "", endpoint: str = "https://flagura.dhawalhost.com") -> bool:
+    try:
+        response = requests.post(f"{endpoint}/api/v1/evaluate", json={
+            "flags": [flag_key],
+            "context": {
+                "user_id": user_id,
+                "email": email,
+                "environment": "production"
+            }
+        }, timeout=2.0)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("results", {}).get(flag_key, {}).get("enabled", False)
+    except Exception as e:
+        print(f"[WARN] Flag evaluation fallback to false: {e}")
+        return False
+
+# Example Usage
+if evaluate_flag("ai-smart-search", user_id="usr_dhawal_01", email="dhawal@flagura.dev"):
+    print("AI Smart Search is enabled!")
+```
+
+---
+
+### 4. cURL / REST API
+
+```bash
+curl -X POST https://flagura.dhawalhost.com/api/v1/evaluate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "flags": ["ai-smart-search"],
+    "context": {
+      "user_id": "usr_dhawal_01",
+      "email": "dhawal@flagura.dev",
+      "environment": "production"
+    }
+  }'
 ```
 
 ---
