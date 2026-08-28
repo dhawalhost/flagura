@@ -3,7 +3,7 @@ name: GoReleaser & GitHub Packages
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
 
 permissions:
@@ -15,9 +15,9 @@ jobs:
     name: Release to GitHub Packages & Releases
     runs-on: ubuntu-latest
 
-    # Optional Environment approval gate for release tagging
+    # Environment approval gate for release tagging
     environment:
-      name: production
+      name: Production
       url: https://github.com/dhawalhost/flagura/releases
 
     steps:
@@ -29,7 +29,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
           cache: true
 
       - name: Install Templ Compiler
@@ -63,7 +63,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: '~> v2'
+          version: "~> v2"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

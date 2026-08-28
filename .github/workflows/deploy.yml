@@ -14,9 +14,9 @@ jobs:
     name: Deploy to Vercel Production
     runs-on: ubuntu-latest
 
-    # Requires Owner / Maintainer manual approval in GitHub Environments ('production')
+    # Requires Owner / Maintainer manual approval in GitHub Environments ('Production')
     environment:
-      name: production
+      name: Production
       url: https://flagura.dhawalhost.com
 
     steps:
