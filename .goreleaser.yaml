@@ -1,0 +1,110 @@
+version: 2
+
+project_name: flagura
+
+before:
+  hooks:
+    - go install github.com/a-h/templ/cmd/templ@latest
+    - templ generate
+    - go mod tidy
+
+builds:
+  - id: flagura
+    main: ./main.go
+    binary: flagura
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version=v{{.Version}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: flagura-archive
+    name_template: "{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - README.md
+      - LICENSE
+      - supabase/schema.sql
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+dockers:
+  - id: flagura-docker-amd64
+    goos: linux
+    goarch: amd64
+    image_templates:
+      - "ghcr.io/dhawalhost/flagura:v{{ .Version }}-amd64"
+      - "ghcr.io/dhawalhost/flagura:{{ .Major }}.{{ .Minor }}-amd64"
+      - "ghcr.io/dhawalhost/flagura:latest-amd64"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.description=Sub-microsecond feature flagging and release engine"
+      - "--label=org.opencontainers.image.version=v{{ .Version }}"
+      - "--label=org.opencontainers.image.source=https://github.com/dhawalhost/flagura"
+
+  - id: flagura-docker-arm64
+    goos: linux
+    goarch: arm64
+    image_templates:
+      - "ghcr.io/dhawalhost/flagura:v{{ .Version }}-arm64"
+      - "ghcr.io/dhawalhost/flagura:{{ .Major }}.{{ .Minor }}-arm64"
+      - "ghcr.io/dhawalhost/flagura:latest-arm64"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.description=Sub-microsecond feature flagging and release engine"
+      - "--label=org.opencontainers.image.version=v{{ .Version }}"
+      - "--label=org.opencontainers.image.source=https://github.com/dhawalhost/flagura"
+
+docker_manifests:
+  - name_template: "ghcr.io/dhawalhost/flagura:v{{ .Version }}"
+    image_templates:
+      - "ghcr.io/dhawalhost/flagura:v{{ .Version }}-amd64"
+      - "ghcr.io/dhawalhost/flagura:v{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/dhawalhost/flagura:{{ .Major }}.{{ .Minor }}"
+    image_templates:
+      - "ghcr.io/dhawalhost/flagura:{{ .Major }}.{{ .Minor }}-amd64"
+      - "ghcr.io/dhawalhost/flagura:{{ .Major }}.{{ .Minor }}-arm64"
+
+  - name_template: "ghcr.io/dhawalhost/flagura:latest"
+    image_templates:
+      - "ghcr.io/dhawalhost/flagura:latest-amd64"
+      - "ghcr.io/dhawalhost/flagura:latest-arm64"
+
+release:
+  github:
+    owner: dhawalhost
+    name: flagura
+  draft: false
+  prerelease: auto
+  mode: replace
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - Merge pull request
+      - Merge branch

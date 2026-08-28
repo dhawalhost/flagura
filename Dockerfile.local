@@ -1,0 +1,32 @@
+# Multi-stage Dockerfile for local development and self-hosted source builds
+FROM golang:1.26-alpine AS builder
+
+WORKDIR /app
+RUN apk add --no-cache git
+
+# Install Templ compiler
+RUN go install github.com/a-h/templ/cmd/templ@latest
+
+# Cache dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source and generate templates
+COPY . .
+RUN templ generate
+
+# Compile statically linked binary
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /bin/flagura main.go
+
+# Production runtime image
+FROM alpine:3.19
+
+RUN apk add --no-cache ca-certificates tzdata
+WORKDIR /app
+
+COPY --from=builder /bin/flagura /app/flagura
+
+EXPOSE 3000
+USER nobody:nobody
+
+ENTRYPOINT ["/app/flagura"]

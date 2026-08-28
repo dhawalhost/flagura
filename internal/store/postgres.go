@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -17,7 +18,25 @@ import (
 )
 
 type PostgresStore struct {
-	db *sql.DB
+	db         *sql.DB
+	driverName string
+}
+
+func detectDriverName(databaseURL string) string {
+	lower := strings.ToLower(databaseURL)
+	if strings.Contains(lower, "supabase.co") || strings.Contains(lower, "supabase.com") {
+		return "Supabase PostgreSQL"
+	}
+	if strings.Contains(lower, "neon.tech") {
+		return "Neon PostgreSQL"
+	}
+	if strings.Contains(lower, "rds.amazonaws.com") {
+		return "AWS RDS PostgreSQL"
+	}
+	if strings.Contains(lower, "localhost") || strings.Contains(lower, "127.0.0.1") || strings.Contains(lower, "postgres:5432") {
+		return "Local PostgreSQL"
+	}
+	return "PostgreSQL"
 }
 
 func NewPostgresStore(databaseURL string) (*PostgresStore, error) {
@@ -37,7 +56,10 @@ func NewPostgresStore(databaseURL string) (*PostgresStore, error) {
 		return nil, fmt.Errorf("failed to ping postgres: %w", err)
 	}
 
-	store := &PostgresStore{db: db}
+	store := &PostgresStore{
+		db:         db,
+		driverName: detectDriverName(databaseURL),
+	}
 	if err := store.autoMigrate(ctx); err != nil {
 		return nil, fmt.Errorf("auto-migration failed: %w", err)
 	}
@@ -46,7 +68,10 @@ func NewPostgresStore(databaseURL string) (*PostgresStore, error) {
 }
 
 func (s *PostgresStore) DriverName() string {
-	return "Supabase PostgreSQL"
+	if s.driverName != "" {
+		return s.driverName
+	}
+	return "PostgreSQL"
 }
 
 func (s *PostgresStore) Ping(ctx context.Context) error {

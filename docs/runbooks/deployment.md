@@ -25,6 +25,9 @@ This runbook covers procedures for building, deploying, verifying, and rolling b
 
 Flagura includes a native serverless entrypoint in [`api/index.go`](../../api/index.go) and rewrite rules in [`vercel.json`](../../vercel.json).
 
+> [!TIP]
+> For a full walkthrough on creating Supabase and Vercel accounts, setting up repository secrets, and configuring custom domains, refer to the **[Supabase & Vercel Integration Guide](../integrations/supabase-vercel-setup.md)**.
+
 #### Automated GitHub Actions Workflow
 Deployments are automatically triggered on push to `main` branch via [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml).
 

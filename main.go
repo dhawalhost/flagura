@@ -25,10 +25,10 @@ func main() {
 	if dbURL != "" {
 		pgStore, err := store.NewPostgresStore(dbURL)
 		if err != nil {
-			log.Printf("[WARN] Failed to connect to Supabase PostgreSQL: %v. Falling back to in-memory store.\n", err)
+			log.Printf("[WARN] Failed to connect to PostgreSQL: %v. Falling back to in-memory store.\n", err)
 			st = store.NewMemoryStore()
 		} else {
-			log.Printf("[INFO] Connected to Supabase PostgreSQL successfully.\n")
+			log.Printf("[INFO] Connected to %s successfully.\n", pgStore.DriverName())
 			st = pgStore
 		}
 	} else {

@@ -42,3 +42,9 @@ This directory contains the operational runbooks and standard operating procedur
    - Session & API Key Rotation
    - SAST / SCA Vulnerability Triage (Gosec, Govulncheck, Dependabot)
    - HTTP Security Headers & DoS Defense Verification
+
+5. **[Supabase & Vercel Cloud Integration Guide](file:///Users/dhawal.dyavanpalli/go/src/flagura/docs/integrations/supabase-vercel-setup.md)**
+   - End-to-end Supabase project creation & connection pooler setup
+   - Vercel Serverless Function import and environment variables
+   - GitHub Actions automated continuous deployment pipeline
+   - Self-hosting and local PostgreSQL Docker Compose guide

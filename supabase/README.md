@@ -2,6 +2,9 @@
 
 This guide covers setting up **Supabase PostgreSQL** for persistent storage and configuring **Vercel** with **GitHub Actions CI/CD** for zero-downtime serverless deployments.
 
+> [!NOTE]
+> For the comprehensive step-by-step setup guide with screenshots, connection pooler configuration, and GitHub repository secrets walkthrough, see **[Supabase & Vercel Integration Guide](../docs/integrations/supabase-vercel-setup.md)**.
+
 ---
 
 ## 1. Supabase Setup (Database Storage)
