@@ -3,7 +3,9 @@ package handler
 import (
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/dhawalhost/flagura/internal/api"
@@ -44,13 +46,28 @@ func initServer() {
 func Handler(w http.ResponseWriter, r *http.Request) {
 	serverOnce.Do(initServer)
 
-	// Restore original request path from Vercel rewrite headers
-	if matchedPath := r.Header.Get("x-matched-path"); matchedPath != "" {
+	// 1. Primary: Extract path from __path query parameter passed by vercel.json rewrite
+	q := r.URL.Query()
+	if qPath := q.Get("__path"); qPath != "" {
+		if !strings.HasPrefix(qPath, "/") {
+			qPath = "/" + qPath
+		}
+		// Clean internal __path param from query string
+		q.Del("__path")
+		r.URL.RawQuery = q.Encode()
+		r.URL.Path = qPath
+	} else if matchedPath := r.Header.Get("x-matched-path"); matchedPath != "" {
+		// 2. Secondary: Vercel edge matched path header
 		r.URL.Path = matchedPath
 	} else if vercelPath := r.Header.Get("x-vercel-matched-path"); vercelPath != "" {
 		r.URL.Path = vercelPath
 	} else if forwardedURI := r.Header.Get("x-forwarded-uri"); forwardedURI != "" {
 		r.URL.Path = forwardedURI
+	} else if r.RequestURI != "" && r.RequestURI != "/api" && r.RequestURI != "/api/" && !strings.HasPrefix(r.RequestURI, "/api?") && !strings.HasPrefix(r.RequestURI, "/api/index.go") {
+		// 3. Tertiary: Parse raw RequestURI
+		if u, err := url.ParseRequestURI(r.RequestURI); err == nil && u.Path != "" {
+			r.URL.Path = u.Path
+		}
 	} else if r.URL.Path == "/api" || r.URL.Path == "/api/" || r.URL.Path == "/api/index" || r.URL.Path == "/api/index.go" {
 		r.URL.Path = "/"
 	}
