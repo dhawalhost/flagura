@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dhawalhost/flagura/internal/api"
-	"github.com/dhawalhost/flagura/internal/store"
+	"github.com/dhawalhost/flagura/pkg/api"
+	"github.com/dhawalhost/flagura/pkg/store"
 )
 
 func main() {

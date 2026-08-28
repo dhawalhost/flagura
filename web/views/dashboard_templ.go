@@ -9,7 +9,7 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"github.com/dhawalhost/flagura/internal/domain"
+	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
 func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, driverName string) templ.Component {

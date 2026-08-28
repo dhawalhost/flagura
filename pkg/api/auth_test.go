@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/dhawalhost/flagura/internal/domain"
-	"github.com/dhawalhost/flagura/internal/store"
+	"github.com/dhawalhost/flagura/pkg/domain"
+	"github.com/dhawalhost/flagura/pkg/store"
 )
 
 func TestAuthFlow(t *testing.T) {

@@ -222,8 +222,8 @@ package main
 import (
     "context"
     "fmt"
-    "github.com/dhawalhost/flagura/internal/domain"
-    "github.com/dhawalhost/flagura/internal/engine"
+    "github.com/dhawalhost/flagura/pkg/domain"
+    "github.com/dhawalhost/flagura/pkg/engine"
 )
 
 func main() {

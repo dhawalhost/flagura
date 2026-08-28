@@ -10,7 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"fmt"
-	"github.com/dhawalhost/flagura/internal/domain"
+	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
 func BentoOverview(flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, driverName string) templ.Component {

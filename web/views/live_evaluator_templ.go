@@ -10,7 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"fmt"
-	"github.com/dhawalhost/flagura/internal/domain"
+	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
 func LiveEvaluator(flags []domain.FeatureFlag) templ.Component {

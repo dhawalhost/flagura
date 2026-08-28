@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dhawalhost/flagura/internal/domain"
-	"github.com/dhawalhost/flagura/internal/store"
+	"github.com/dhawalhost/flagura/pkg/domain"
+	"github.com/dhawalhost/flagura/pkg/store"
 )
 
 func TestSecurityHeaders(t *testing.T) {

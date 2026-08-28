@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/dhawalhost/flagura/internal/domain"
+	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
 type contextKey string

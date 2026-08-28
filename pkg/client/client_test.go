@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dhawalhost/flagura/internal/domain"
+	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/client"
 )
 

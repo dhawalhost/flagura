@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dhawalhost/flagura/internal/domain"
+	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
 // FNV1a64 computes deterministic 64-bit FNV-1a hash

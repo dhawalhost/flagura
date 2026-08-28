@@ -3,7 +3,7 @@ package store
 import (
 	"context"
 
-	"github.com/dhawalhost/flagura/internal/domain"
+	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
 type Store interface {

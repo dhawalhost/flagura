@@ -5,8 +5,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/dhawalhost/flagura/internal/domain"
-	"github.com/dhawalhost/flagura/internal/store"
+	"github.com/dhawalhost/flagura/pkg/domain"
+	"github.com/dhawalhost/flagura/pkg/store"
 	"github.com/dhawalhost/flagura/web/views"
 )
 
