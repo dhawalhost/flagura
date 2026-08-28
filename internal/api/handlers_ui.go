@@ -7,7 +7,7 @@ import (
 )
 
 func (s *Server) handleLanding(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
+	if r.URL.Path != "/" && r.URL.Path != "/api" && r.URL.Path != "/api/" {
 		http.NotFound(w, r)
 		return
 	}

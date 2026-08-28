@@ -43,5 +43,17 @@ func initServer() {
 // Handler is the Vercel serverless function entrypoint
 func Handler(w http.ResponseWriter, r *http.Request) {
 	serverOnce.Do(initServer)
+
+	// Restore original request path from Vercel rewrite headers
+	if matchedPath := r.Header.Get("x-matched-path"); matchedPath != "" {
+		r.URL.Path = matchedPath
+	} else if vercelPath := r.Header.Get("x-vercel-matched-path"); vercelPath != "" {
+		r.URL.Path = vercelPath
+	} else if forwardedURI := r.Header.Get("x-forwarded-uri"); forwardedURI != "" {
+		r.URL.Path = forwardedURI
+	} else if r.URL.Path == "/api" || r.URL.Path == "/api/" || r.URL.Path == "/api/index" || r.URL.Path == "/api/index.go" {
+		r.URL.Path = "/"
+	}
+
 	server.ServeHTTP(w, r)
 }
