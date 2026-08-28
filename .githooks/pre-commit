@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+echo "🔍 Running pre-commit security verification..."
+
+echo "1. Checking Go vulnerability database (govulncheck)..."
+go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+echo "2. Running Go tests with race detector..."
+go test -race ./...
+
+echo "✅ All pre-commit security checks passed!"
