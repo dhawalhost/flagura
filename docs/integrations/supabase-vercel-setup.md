@@ -127,10 +127,18 @@ Option B: From Vercel Dashboard:
 | `VERCEL_ORG_ID` | Your Vercel Team / Account ID |
 | `VERCEL_PROJECT_ID` | Your Vercel Project ID |
 
-3. Now, whenever code is pushed to `main`, GitHub Actions will:
-   - Run tests & security scans (`ci.yml`)
-   - Generate template files (`templ generate`)
-   - Prebuild and deploy directly to Vercel Production (`deploy.yml`)
+---
+
+### Step 3.3: Enforce Owner & Maintainer Production Approvals
+Flagura's deployment workflow is bound to the `production` GitHub Environment. To require manual owner/maintainer sign-off before any code is pushed to production:
+
+1. In your GitHub repository, open **Settings** $\rightarrow$ **Environments**.
+2. Click **New environment**, name it `production`, and click **Configure environment**.
+3. Under **Deployment protection rules**, check **Required reviewers**.
+4. Add the repository owner(s) and lead maintainers as required reviewers.
+5. Click **Save protection rules**.
+
+Now, whenever a push to `main` triggers a deployment or release, GitHub Actions will pause and send a review notification to the maintainers, requiring explicit approval before deploying!
 
 ---
 

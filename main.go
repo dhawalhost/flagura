@@ -28,6 +28,7 @@ func main() {
 			log.Printf("[WARN] Failed to connect to PostgreSQL: %v. Falling back to in-memory store.\n", err)
 			st = store.NewMemoryStore()
 		} else {
+			// #nosec G706 -- DriverName returns a trusted constant enumerated string
 			log.Printf("[INFO] Connected to %s successfully.\n", pgStore.DriverName())
 			st = pgStore
 		}

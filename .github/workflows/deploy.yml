@@ -1,14 +1,24 @@
-name: Deploy to Vercel
+name: Deploy to Vercel Production
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
-    name: Deploy Production
+    name: Deploy to Vercel Production
     runs-on: ubuntu-latest
+
+    # Requires Owner / Maintainer manual approval in GitHub Environments ('production')
+    environment:
+      name: production
+      url: https://flagura.dhawalhost.com
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -16,7 +26,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
           cache: true
 
       - name: Install Templ Compiler
@@ -24,6 +34,14 @@ jobs:
 
       - name: Generate Templ Files
         run: templ generate
+
+      - name: Pre-Deployment Automated Tests
+        run: go test -v -race ./...
+
+      - name: Pre-Deployment Vulnerability Scan (govulncheck)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest

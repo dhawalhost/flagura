@@ -15,6 +15,11 @@ jobs:
     name: Release to GitHub Packages & Releases
     runs-on: ubuntu-latest
 
+    # Optional Environment approval gate for release tagging
+    environment:
+      name: production
+      url: https://github.com/dhawalhost/flagura/releases
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -32,6 +37,14 @@ jobs:
 
       - name: Generate Templ Files
         run: templ generate
+
+      - name: Pre-Release Automated Tests
+        run: go test -v -race ./...
+
+      - name: Pre-Release Vulnerability Scan (govulncheck)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3

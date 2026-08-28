@@ -24,6 +24,7 @@ func initServer() {
 			log.Printf("[WARN] Failed to connect to PostgreSQL: %v. Falling back to in-memory store.", err)
 			st = store.NewMemoryStore()
 		} else {
+			// #nosec G706 -- DriverName returns a trusted constant enumerated string
 			log.Printf("[INFO] Successfully connected to %s", pgStore.DriverName())
 			st = pgStore
 		}
