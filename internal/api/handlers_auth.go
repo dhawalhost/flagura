@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -24,7 +25,16 @@ func generateSessionToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-func (s *Server) setSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
+func (s *Server) setSessionCookie(w http.ResponseWriter, r *http.Request, token string, expiresAt time.Time) {
+	isSecure := false
+	if r != nil && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https") {
+		isSecure = true
+	}
+	if os.Getenv("ENVIRONMENT") == "production" || os.Getenv("SECURE_COOKIE") == "true" {
+		isSecure = true
+	}
+
+	// #nosec G124 -- dynamic secure flag based on TLS and environment
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,
 		Value:    token,
@@ -32,11 +42,20 @@ func (s *Server) setSessionCookie(w http.ResponseWriter, token string, expiresAt
 		Expires:  expiresAt,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   false, // set to true in HTTPS production environments
+		Secure:   isSecure,
 	})
 }
 
-func (s *Server) clearSessionCookie(w http.ResponseWriter) {
+func (s *Server) clearSessionCookie(w http.ResponseWriter, r *http.Request) {
+	isSecure := false
+	if r != nil && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https") {
+		isSecure = true
+	}
+	if os.Getenv("ENVIRONMENT") == "production" || os.Getenv("SECURE_COOKIE") == "true" {
+		isSecure = true
+	}
+
+	// #nosec G124 -- dynamic secure flag based on TLS and environment
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,
 		Value:    "",
@@ -45,6 +64,7 @@ func (s *Server) clearSessionCookie(w http.ResponseWriter) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
+		Secure:   isSecure,
 	})
 }
 
@@ -154,7 +174,7 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.setSessionCookie(w, token, expiresAt)
+	s.setSessionCookie(w, r, token, expiresAt)
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusCreated)
@@ -213,7 +233,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.setSessionCookie(w, token, expiresAt)
+	s.setSessionCookie(w, r, token, expiresAt)
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(domain.AuthResponse{
@@ -228,7 +248,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		_ = s.store.DeleteSession(r.Context(), cookie.Value)
 	}
 
-	s.clearSessionCookie(w)
+	s.clearSessionCookie(w, r)
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

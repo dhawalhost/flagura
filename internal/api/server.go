@@ -5,13 +5,15 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/dhawalhost/flagura/internal/domain"
 	"github.com/dhawalhost/flagura/internal/store"
 	"github.com/dhawalhost/flagura/web"
 )
 
 type Server struct {
-	store store.Store
-	mux   *http.ServeMux
+	store   store.Store
+	mux     *http.ServeMux
+	handler http.Handler
 }
 
 func NewServer(st store.Store) (*Server, error) {
@@ -20,6 +22,7 @@ func NewServer(st store.Store) (*Server, error) {
 		mux:   http.NewServeMux(),
 	}
 	s.routes()
+	s.handler = SecurityHeadersMiddleware(MaxBytesMiddleware(1<<20, s.mux))
 	return s, nil
 }
 
@@ -48,7 +51,7 @@ func (s *Server) routes() {
 		case http.MethodGet:
 			s.handleGetFlags(w, r)
 		case http.MethodPost:
-			s.handleCreateFlag(w, r)
+			s.RequireAuth(s.handleCreateFlag)(w, r)
 		default:
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		}
@@ -58,22 +61,22 @@ func (s *Server) routes() {
 		path := r.URL.Path
 		if strings.HasSuffix(path, "/toggle") {
 			if r.Method == http.MethodPatch || r.Method == http.MethodPost {
-				s.handleToggleFlag(w, r)
+				s.RequireAuth(s.handleToggleFlag)(w, r)
 				return
 			}
 		}
 		if strings.HasSuffix(path, "/rollout") {
 			if r.Method == http.MethodPatch || r.Method == http.MethodPost {
-				s.handleUpdateRollout(w, r)
+				s.RequireAuth(s.handleUpdateRollout)(w, r)
 				return
 			}
 		}
 
 		switch r.Method {
 		case http.MethodPut, http.MethodPatch, http.MethodPost:
-			s.handleUpdateFlag(w, r)
+			s.RequireAuth(s.handleUpdateFlag)(w, r)
 		case http.MethodDelete:
-			s.handleDeleteFlag(w, r)
+			s.RequireAuth(s.RequireRole(domain.RoleAdmin, s.handleDeleteFlag))(w, r)
 		default:
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		}
@@ -96,7 +99,13 @@ func (s *Server) routes() {
 	})
 
 	s.mux.HandleFunc("/api/v1/audit-logs", s.handleGetAuditLogs)
-	s.mux.HandleFunc("/api/v1/reset", s.handleReset)
+	s.mux.HandleFunc("/api/v1/reset", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.RequireAuth(s.RequireRole(domain.RoleAdmin, s.handleReset))(w, r)
+	})
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -110,5 +119,5 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.mux.ServeHTTP(w, r)
+	s.handler.ServeHTTP(w, r)
 }

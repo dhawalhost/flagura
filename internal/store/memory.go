@@ -2,8 +2,9 @@ package store
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -415,7 +416,9 @@ func (s *MemoryStore) CreateUser(ctx context.Context, user domain.User) (*domain
 	}
 
 	if user.ID == "" {
-		user.ID = fmt.Sprintf("usr_%d_%x", time.Now().UnixNano(), rand.Int31())
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		user.ID = fmt.Sprintf("usr_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
 	}
 	now := time.Now().UTC()
 	user.CreatedAt = now
@@ -541,7 +544,9 @@ func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 
 	if !found {
 		if flag.ID == "" {
-			flag.ID = fmt.Sprintf("flag_%d_%x", time.Now().Unix(), rand.Int31())
+			b := make([]byte, 4)
+			_, _ = rand.Read(b)
+			flag.ID = fmt.Sprintf("flag_%d_%s", time.Now().Unix(), hex.EncodeToString(b))
 		}
 		flag.CreatedAt = now
 		flag.UpdatedAt = now

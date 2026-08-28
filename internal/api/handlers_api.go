@@ -39,6 +39,22 @@ func (s *Server) handleGetFlags(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) getActorFromRequest(r *http.Request, fallback string) string {
+	if u := UserFromContext(r.Context()); u != nil && u.Email != "" {
+		return u.Email
+	}
+	if a := r.Header.Get("X-Actor"); a != "" {
+		return a
+	}
+	if a := r.URL.Query().Get("actor"); a != "" {
+		return a
+	}
+	if fallback != "" {
+		return fallback
+	}
+	return "developer@flagura.dev"
+}
+
 func (s *Server) handleCreateFlag(w http.ResponseWriter, r *http.Request) {
 	var flag domain.FeatureFlag
 	if err := json.NewDecoder(r.Body).Decode(&flag); err != nil {
@@ -50,10 +66,7 @@ func (s *Server) handleCreateFlag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actor := r.Header.Get("X-Actor")
-	if actor == "" {
-		actor = "developer@flagura.dev"
-	}
+	actor := s.getActorFromRequest(r, "developer@flagura.dev")
 
 	log, err := s.store.SaveFlag(r.Context(), flag, actor)
 	if err != nil {
@@ -82,10 +95,7 @@ func (s *Server) handleUpdateFlag(w http.ResponseWriter, r *http.Request) {
 		flag.Key = id
 	}
 
-	actor := r.Header.Get("X-Actor")
-	if actor == "" {
-		actor = "developer@flagura.dev"
-	}
+	actor := s.getActorFromRequest(r, "developer@flagura.dev")
 
 	log, err := s.store.SaveFlag(r.Context(), flag, actor)
 	if err != nil {
@@ -104,10 +114,7 @@ func (s *Server) handleDeleteFlag(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/api/v1/flags/")
 	id = strings.Split(id, "/")[0]
 
-	actor := r.URL.Query().Get("actor")
-	if actor == "" {
-		actor = "admin@flagura.dev"
-	}
+	actor := s.getActorFromRequest(r, "admin@flagura.dev")
 
 	log, err := s.store.DeleteFlag(r.Context(), id, actor)
 	if err != nil {
@@ -143,7 +150,9 @@ func (s *Server) handleToggleFlag(w http.ResponseWriter, r *http.Request) {
 		req.Environment = domain.EnvProduction
 	}
 
-	flag, log, err := s.store.ToggleFlag(r.Context(), id, req.Environment, req.Enabled, req.Actor)
+	actor := s.getActorFromRequest(r, req.Actor)
+
+	flag, log, err := s.store.ToggleFlag(r.Context(), id, req.Environment, req.Enabled, actor)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -182,7 +191,9 @@ func (s *Server) handleUpdateRollout(w http.ResponseWriter, r *http.Request) {
 		req.Environment = domain.EnvProduction
 	}
 
-	flag, log, err := s.store.UpdateRollout(r.Context(), id, req.Environment, req.Percentage, req.Actor)
+	actor := s.getActorFromRequest(r, req.Actor)
+
+	flag, log, err := s.store.UpdateRollout(r.Context(), id, req.Environment, req.Percentage, actor)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

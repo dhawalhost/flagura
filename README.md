@@ -12,7 +12,7 @@
 **Ship feature flags at the speed of thought without breaking production.**  
 _Deterministic in-memory evaluation, gradual percentage rollouts, and instant kill-switch circuit breakers._
 
-[Live Demo & Console](#-quickstart) • [Architecture](#-architecture) • [API Reference](#-rest-api-reference) • [SDK Integration](#-polyglot-sdk-quickstart) • [Deployment](#-deployment-options)
+[Live Demo & Console](#-quickstart) • [Architecture](#-architecture) • [API Reference](#-rest-api-reference) • [SDK Integration](#-polyglot-sdk-quickstart) • [Deployment](#-deployment-options) • [Runbooks](docs/runbooks/README.md)
 
 </div>
 
@@ -330,6 +330,17 @@ templ generate
 # Build production binary
 go build -o bin/flagura main.go
 ```
+
+---
+
+## 📚 Operations & Runbooks
+
+Comprehensive SRE, emergency response, and operational runbooks are available in the [`docs/runbooks/`](docs/runbooks/README.md) directory:
+
+- 🚀 **[Deployment & Release Management](docs/runbooks/deployment.md)**: Standalone binary, Docker, Vercel serverless, and rollback procedures.
+- 🚨 **[Incident Response & Emergency Operations](docs/runbooks/incident-response.md)**: 1-click kill switch, database outage fallback, latency debugging, and audit forensics.
+- 🗄️ **[Database Operations & Disaster Recovery](docs/runbooks/database-operations.md)**: Supabase PostgreSQL schema, connection pool tuning, and PITR backup/recovery.
+- 🛡️ **[Security & Access Management](docs/runbooks/security-and-access.md)**: RBAC provisioning, credential rotation, and automated vulnerability triage.
 
 ---
 

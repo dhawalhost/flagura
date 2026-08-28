@@ -2,10 +2,11 @@ package store
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -199,7 +200,9 @@ func (s *PostgresStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, a
 		actor = "developer@flagura.dev"
 	}
 	if flag.ID == "" {
-		flag.ID = fmt.Sprintf("flag_%d_%x", time.Now().Unix(), rand.Int31())
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		flag.ID = fmt.Sprintf("flag_%d_%s", time.Now().Unix(), hex.EncodeToString(b))
 	}
 	now := time.Now().UTC()
 	flag.UpdatedAt = now
@@ -412,7 +415,9 @@ func (s *PostgresStore) Reset(ctx context.Context) error {
 
 func (s *PostgresStore) CreateUser(ctx context.Context, user domain.User) (*domain.User, error) {
 	if user.ID == "" {
-		user.ID = fmt.Sprintf("usr_%d_%x", time.Now().UnixNano(), rand.Int31())
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		user.ID = fmt.Sprintf("usr_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
 	}
 	now := time.Now().UTC()
 	user.CreatedAt = now

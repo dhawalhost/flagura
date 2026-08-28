@@ -16,7 +16,7 @@ import (
 // FNV1a64 computes deterministic 64-bit FNV-1a hash
 func FNV1a64(input string) uint64 {
 	h := fnv.New64a()
-	h.Write([]byte(input))
+	_, _ = h.Write([]byte(input))
 	return h.Sum64()
 }
 

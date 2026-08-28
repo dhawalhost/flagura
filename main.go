@@ -42,11 +42,12 @@ func main() {
 	}
 
 	httpServer := &http.Server{
-		Addr:         ":" + port,
-		Handler:      server,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              ":" + port,
+		Handler:           server,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	go func() {
