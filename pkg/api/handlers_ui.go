@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/dhawalhost/flagura/web/views"
 )
@@ -11,6 +12,20 @@ func (s *Server) handleLanding(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+
+	// 1. If user is already authenticated, redirect directly to dashboard
+	if user, err := s.getUserFromRequest(r); err == nil && user != nil {
+		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+		return
+	}
+
+	// 2. Default: Landing page is disabled by default for self-hosted instances (redirect to /auth)
+	// Only enabled when explicitly configured (e.g. ENABLE_LANDING_PAGE=true on our official cloud/demo deployment)
+	if os.Getenv("ENABLE_LANDING_PAGE") != "true" && os.Getenv("SHOW_LANDING_PAGE") != "true" {
+		http.Redirect(w, r, "/auth", http.StatusSeeOther)
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	component := views.LandingPage()
 	if err := component.Render(r.Context(), w); err != nil {
@@ -25,8 +40,10 @@ func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	showLanding := os.Getenv("ENABLE_LANDING_PAGE") == "true" || os.Getenv("SHOW_LANDING_PAGE") == "true"
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	component := views.AuthPage()
+	component := views.AuthPage(showLanding)
 	if err := component.Render(r.Context(), w); err != nil {
 		http.Error(w, "Templ Render Error: "+err.Error(), http.StatusInternalServerError)
 	}

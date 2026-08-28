@@ -65,18 +65,56 @@ func TestEvaluateFlag(t *testing.T) {
 	}
 }
 
-func BenchmarkEvaluateFlag(b *testing.B) {
+func BenchmarkEvaluateFlag_PercentageRollout(b *testing.B) {
 	flag := sampleFlag()
 	ctx := domain.EvaluationContext{
 		UserID:      "bench_usr_123",
-		Email:       "user@example.com",
+		Email:       "user@external.com",
 		Country:     "US",
-		Tier:        "enterprise",
 		Environment: domain.EnvProduction,
 	}
 
+	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = EvaluateFlag(flag, ctx)
 	}
 }
+
+func BenchmarkEvaluateFlag_TargetingRuleMatch(b *testing.B) {
+	flag := sampleFlag()
+	ctx := domain.EvaluationContext{
+		UserID:      "bench_usr_staff",
+		Email:       "alice@flagship.dev",
+		Environment: domain.EnvProduction,
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = EvaluateFlag(flag, ctx)
+	}
+}
+
+func BenchmarkFNV1a_HashOnly(b *testing.B) {
+	input := "usr_dhawal_01:ai-smart-search"
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = FNV1a64(input)
+	}
+}
+
+func BenchmarkGetStickyBucket(b *testing.B) {
+	userID := "usr_dhawal_01"
+	flagKey := "ai-smart-search"
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = GetStickyBucket(userID, flagKey)
+	}
+}
+
+

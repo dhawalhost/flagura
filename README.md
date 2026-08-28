@@ -37,6 +37,22 @@ Flagura solves this by evaluating rules and percentage rollouts locally in-memor
 
 ---
 
+## ⚖️ How Flagura Compares
+
+| Feature / Metric | ⚡ Flagura | LaunchDarkly | Unleash | Flagsmith | GrowthBook |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Core Architecture** | **Go (Native Binary)** | Cloud SaaS / Daemon | Node.js / TypeScript | Python (Django) | TypeScript / Next.js |
+| **P50 Evaluation Latency** | **`123 nanoseconds`** | ~25 µs (SDK) / ~35ms | ~25 µs | ~50 µs | ~30 µs |
+| **Memory Footprint** | **`~35 MB`** | High (Relay Daemon) | `~450 MB – 800 MB` | `~400 MB – 1 GB` | `~350 MB – 600 MB` |
+| **Pricing Model** | **100% Free & Open Source** | **$500 – $5,000+/mo** | Freemium ($80+/mo) | Freemium ($45+/mo) | Freemium ($20+/mo) |
+| **Zero DB I/O on Evaluation** | **✅ Yes (In-Memory)** | ⚠️ Requires Proxy | ⚠️ Requires Redis/Proxy | ❌ Queries DB/Cache | ⚠️ Requires Cache |
+| **Data Privacy (Self-Hostable)** | **✅ 100% (Your DB)** | ❌ 3rd-Party SaaS | ✅ Yes | ✅ Yes | ✅ Yes |
+| **Deployment Model** | **Single Binary / Docker / Vercel** | Cloud SaaS Only | Multi-tier (Node + Redis + DB) | Multi-tier (Django + DB) | Multi-tier (Next + DB) |
+
+[👉 Read full architectural comparison in documentation](docs/product/comparison.md)
+
+---
+
 ## 🏗️ Architecture
 
 Flagura is engineered for maximum execution speed, zero runtime overhead, and simple deployment:

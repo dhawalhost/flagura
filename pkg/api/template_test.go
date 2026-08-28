@@ -3,6 +3,9 @@ package api
 import (
 	"bytes"
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
@@ -49,6 +52,37 @@ func TestTemplComponents(t *testing.T) {
 		}
 		if buf.Len() == 0 {
 			t.Fatalf("Dashboard output is empty")
+		}
+	})
+
+	t.Run("SelfHostedDefaultRedirectToAuth", func(t *testing.T) {
+		_ = os.Unsetenv("ENABLE_LANDING_PAGE")
+		_ = os.Unsetenv("SHOW_LANDING_PAGE")
+
+		server, _ := NewServer(mem)
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("expected 303 redirect to /auth, got %d", rec.Code)
+		}
+		if loc := rec.Header().Get("Location"); loc != "/auth" {
+			t.Fatalf("expected Location /auth, got %s", loc)
+		}
+	})
+
+	t.Run("OfficialDeploymentLandingPageEnabled", func(t *testing.T) {
+		_ = os.Setenv("ENABLE_LANDING_PAGE", "true")
+		defer os.Unsetenv("ENABLE_LANDING_PAGE")
+
+		server, _ := NewServer(mem)
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK for official landing page, got %d", rec.Code)
 		}
 	})
 }

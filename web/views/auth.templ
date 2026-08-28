@@ -1,6 +1,6 @@
 package views
 
-templ AuthPage() {
+templ AuthPage(showLanding ...bool) {
 	@Layout("Authentication — Flagura Console") {
 		<div class="min-h-screen flex items-center justify-center p-4 sm:p-6" x-data="authPageComponent()">
 			<div class="console-card p-8 sm:p-10 w-full max-w-md space-y-6 shadow-xl">
@@ -148,12 +148,14 @@ templ AuthPage() {
 					</button>
 				</form>
 
-				<div class="text-center pt-2 border-t border-slate-100">
-					<a href="/" class="text-xs text-slate-500 hover:text-slate-800 font-medium flex items-center justify-center gap-1.5 transition">
-						<i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
-						<span>Back to Product Overview</span>
-					</a>
-				</div>
+				if len(showLanding) > 0 && showLanding[0] {
+					<div class="text-center pt-2 border-t border-slate-100">
+						<a href="/" class="text-xs text-slate-500 hover:text-slate-800 font-medium flex items-center justify-center gap-1.5 transition">
+							<i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+							<span>Back to Product Overview</span>
+						</a>
+					</div>
+				}
 			</div>
 		</div>
 

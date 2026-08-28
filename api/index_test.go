@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
 
@@ -10,12 +11,20 @@ func TestVercelHandlerRouting(t *testing.T) {
 	tests := []struct {
 		name           string
 		target         string
+		enableLanding  bool
 		expectedStatus int
 		expectedHeader string
 	}{
 		{
-			name:           "Root Landing Page",
+			name:           "Root URL (Default Self-Hosted Redirect to /auth)",
 			target:         "/",
+			enableLanding:  false,
+			expectedStatus: http.StatusSeeOther,
+		},
+		{
+			name:           "Root Landing Page (Official Cloud Demo ENABLE_LANDING_PAGE=true)",
+			target:         "/",
+			enableLanding:  true,
 			expectedStatus: http.StatusOK,
 			expectedHeader: "text/html",
 		},
@@ -40,6 +49,13 @@ func TestVercelHandlerRouting(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.enableLanding {
+				_ = os.Setenv("ENABLE_LANDING_PAGE", "true")
+				defer os.Unsetenv("ENABLE_LANDING_PAGE")
+			} else {
+				_ = os.Unsetenv("ENABLE_LANDING_PAGE")
+			}
+
 			req := httptest.NewRequest(http.MethodGet, tt.target, nil)
 			rec := httptest.NewRecorder()
 
