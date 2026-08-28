@@ -30,7 +30,27 @@ templ LandingPage() {
 					</nav>
 
 					<!-- Action Controls -->
-					<div class="flex items-center gap-3">
+					<div class="flex items-center gap-2 sm:gap-3">
+						<a
+							href="https://github.com/dhawalhost/flagura/tree/main/docs"
+							target="_blank"
+							rel="noopener noreferrer"
+							class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all"
+						>
+							<i data-lucide="book-open" class="h-3.5 w-3.5 text-blue-600"></i>
+							<span>Docs</span>
+						</a>
+
+						<a
+							href="https://github.com/dhawalhost/flagura"
+							target="_blank"
+							rel="noopener noreferrer"
+							class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all"
+						>
+							<i data-lucide="star" class="h-3.5 w-3.5 text-amber-500"></i>
+							<span>GitHub</span>
+						</a>
+
 						<button
 							@click="toggleSound()"
 							class="p-2 rounded-xl border border-slate-200 bg-white/80 hover:bg-white text-slate-600 hover:text-slate-900 transition-all cursor-pointer shadow-2xs"
@@ -197,8 +217,9 @@ templ LandingPage() {
 											<span class="font-bold text-slate-500 uppercase tracking-wider text-[10px] font-mono">
 												Computed Evaluation
 											</span>
-											<span class="text-[11px] font-bold text-emerald-800 bg-emerald-100/80 border border-emerald-200 px-2 py-0.5 rounded font-mono">
-												Latency: &lt; 0.08ms
+											<span class="text-[11px] font-bold text-emerald-800 bg-emerald-100/80 border border-emerald-200 px-2.5 py-0.5 rounded font-mono flex items-center gap-1">
+												<i data-lucide="zap" class="h-3 w-3 text-emerald-600"></i>
+												<span>Latency: ~123ns (0 B/op)</span>
 											</span>
 										</div>
 
@@ -565,32 +586,32 @@ templ LandingPage() {
 
 								<div class="flex items-center gap-1.5 text-xs">
 									<button
-										@click="sdkLang = 'react'"
-										class="px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold uppercase text-[11px]"
-										:class="sdkLang === 'react' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'"
-									>
-										React
-									</button>
-									<button
-										@click="sdkLang = 'node'"
-										class="px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold uppercase text-[11px]"
-										:class="sdkLang === 'node' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'"
-									>
-										Node
-									</button>
-									<button
 										@click="sdkLang = 'go'"
 										class="px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold uppercase text-[11px]"
 										:class="sdkLang === 'go' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'"
 									>
-										Go
+										Go SDK
 									</button>
 									<button
-										@click="sdkLang = 'rust'"
+										@click="sdkLang = 'react'"
 										class="px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold uppercase text-[11px]"
-										:class="sdkLang === 'rust' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'"
+										:class="sdkLang === 'react' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'"
 									>
-										Rust
+										TypeScript
+									</button>
+									<button
+										@click="sdkLang = 'python'"
+										class="px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold uppercase text-[11px]"
+										:class="sdkLang === 'python' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'"
+									>
+										Python
+									</button>
+									<button
+										@click="sdkLang = 'curl'"
+										class="px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold uppercase text-[11px]"
+										:class="sdkLang === 'curl' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'"
+									>
+										cURL
 									</button>
 
 									<button
@@ -620,52 +641,76 @@ templ LandingPage() {
 					<div class="space-y-10">
 						<div class="text-center space-y-3 max-w-2xl mx-auto">
 							<div class="text-xs font-bold text-blue-700 uppercase tracking-wider bg-blue-50 px-3 py-1 rounded-full border border-blue-200 inline-block font-mono">
-								07 // Architecture & Reliability
+								07 // Why Flagura
 							</div>
 							<h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight font-display">
-								Engineered for Massive Scale and Reliability.
+								How Flagura Compares in the Market
 							</h2>
 							<p class="text-sm sm:text-base text-slate-600">
-								Compare architectural capabilities between Flagura and traditional feature management stacks.
+								Sub-microsecond evaluation, zero Monthly Active User bill shock, and 100% data sovereignty in your own database.
 							</p>
 						</div>
 
 						<!-- Table -->
-						<div class="glass-dashboard p-6 max-w-4xl mx-auto w-full">
+						<div class="glass-dashboard p-6 max-w-5xl mx-auto w-full">
 							<div class="overflow-x-auto">
 								<table class="w-full text-left text-xs">
 									<thead>
 										<tr class="border-b border-slate-200 text-slate-500 font-bold uppercase font-mono text-[10px]">
-											<th class="pb-3 px-3">Evaluation Method</th>
-											<th class="pb-3 px-3">Resolution Path</th>
-											<th class="pb-3 px-3">Network I/O</th>
-											<th class="pb-3 px-3">Offline Resilient</th>
+											<th class="pb-3 px-3">Platform</th>
+											<th class="pb-3 px-3">Architecture</th>
+											<th class="pb-3 px-3">P50 Latency</th>
+											<th class="pb-3 px-3">Memory Footprint</th>
+											<th class="pb-3 px-3">Software Cost</th>
+											<th class="pb-3 px-3">Data Sovereignty</th>
 										</tr>
 									</thead>
 									<tbody class="divide-y divide-slate-100 font-mono">
 										<tr class="bg-blue-50/70 font-semibold text-slate-900">
-											<td class="py-3 px-3 flex items-center gap-2 text-blue-700">
+											<td class="py-3 px-3 flex items-center gap-2 text-blue-700 font-bold">
 												<i data-lucide="zap" class="h-4 w-4"></i>
-												<span>Local In-Memory (Flagura)</span>
+												<span>Flagura</span>
 											</td>
-											<td class="py-3 px-3 text-slate-800">In-Process Memory</td>
-											<td class="py-3 px-3 text-emerald-700 font-bold">None</td>
-											<td class="py-3 px-3 text-emerald-700 font-bold">Yes</td>
+											<td class="py-3 px-3 text-slate-800">Go (Native Binary)</td>
+											<td class="py-3 px-3 text-emerald-700 font-bold">~123 ns (0 B/op)</td>
+											<td class="py-3 px-3 text-emerald-700 font-bold">~35 MB</td>
+											<td class="py-3 px-3 text-emerald-700 font-bold">100% Free (MIT)</td>
+											<td class="py-3 px-3 text-emerald-700 font-bold">100% Private (Your DB)</td>
 										</tr>
 										<tr class="text-slate-600">
-											<td class="py-3 px-3 font-medium text-slate-800">Remote API Evaluation</td>
-											<td class="py-3 px-3">HTTP Roundtrip</td>
-											<td class="py-3 px-3 text-slate-600">1 Request per Eval</td>
-											<td class="py-3 px-3 text-rose-600">No</td>
+											<td class="py-3 px-3 font-medium text-slate-800">LaunchDarkly</td>
+											<td class="py-3 px-3">Cloud SaaS / Relay</td>
+											<td class="py-3 px-3">~25 µs (SDK) / ~35ms</td>
+											<td class="py-3 px-3 text-slate-600">High (Relay Daemon)</td>
+											<td class="py-3 px-3 text-rose-600 font-semibold">$500 – $5,000+/mo</td>
+											<td class="py-3 px-3 text-slate-600">Third-Party Cloud SaaS</td>
 										</tr>
 										<tr class="text-slate-600">
-											<td class="py-3 px-3 font-medium text-slate-800">Direct Database Queries</td>
-											<td class="py-3 px-3">Database Connection</td>
-											<td class="py-3 px-3 text-slate-600">1 Query per Eval</td>
-											<td class="py-3 px-3 text-rose-600">No</td>
+											<td class="py-3 px-3 font-medium text-slate-800">Unleash</td>
+											<td class="py-3 px-3">Node.js / TypeScript</td>
+											<td class="py-3 px-3">~25 µs</td>
+											<td class="py-3 px-3 text-slate-600">~450 MB – 800 MB</td>
+											<td class="py-3 px-3 text-slate-700">Freemium ($80+/mo)</td>
+											<td class="py-3 px-3 text-emerald-700 font-bold">Self-Hostable</td>
+										</tr>
+										<tr class="text-slate-600">
+											<td class="py-3 px-3 font-medium text-slate-800">Flagsmith</td>
+											<td class="py-3 px-3">Python (Django)</td>
+											<td class="py-3 px-3">~50 µs</td>
+											<td class="py-3 px-3 text-slate-600">~400 MB – 1 GB</td>
+											<td class="py-3 px-3 text-slate-700">Freemium ($45+/mo)</td>
+											<td class="py-3 px-3 text-emerald-700 font-bold">Self-Hostable</td>
 										</tr>
 									</tbody>
 								</table>
+							</div>
+
+							<div class="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 font-mono gap-2">
+								<span>Reproducible benchmark: <code>go test -bench=. ./pkg/engine</code></span>
+								<a href="https://github.com/dhawalhost/flagura/blob/main/docs/product/comparison.md" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1">
+									<span>Read full architectural comparison</span>
+									<i data-lucide="arrow-right" class="h-3 w-3"></i>
+								</a>
 							</div>
 						</div>
 
@@ -710,8 +755,12 @@ templ LandingPage() {
 							<img src="/static/img/flagura-logo.png" alt="Flagura" class="h-4 w-4 rounded" />
 							<span>Flagura — Feature Flags & Releases</span>
 						</div>
-						<div class="flex items-center gap-4 text-slate-500 font-medium">
-							<span>&copy; Flagura. Open-source feature release management.</span>
+						<div class="flex flex-wrap items-center gap-4 text-slate-500 font-medium">
+							<a href="https://github.com/dhawalhost/flagura/tree/main/docs" target="_blank" rel="noopener noreferrer" class="hover:text-blue-600 transition">Documentation</a>
+							<a href="https://github.com/dhawalhost/flagura/blob/main/docs/architecture/system-design.md" target="_blank" rel="noopener noreferrer" class="hover:text-blue-600 transition">Architecture</a>
+							<a href="https://github.com/dhawalhost/flagura" target="_blank" rel="noopener noreferrer" class="hover:text-blue-600 transition">GitHub</a>
+							<span>•</span>
+							<span>MIT License</span>
 						</div>
 					</div>
 				</footer>
@@ -727,7 +776,7 @@ templ LandingPage() {
 					heroBucket: 87,
 					isHeroActive: false,
 					killSwitchOn: false,
-					sdkLang: 'react',
+					sdkLang: 'go',
 					copiedCode: false,
 					hashStep: 4,
 					hashChars: ['s', 'a', 'r', 'a', 'h', '@', 'e', 'x'],
@@ -792,14 +841,15 @@ templ LandingPage() {
 						});
 					},
 					getSdkSnippet() {
-						if (this.sdkLang === 'react') {
-							return `// 1. React / Next.js Component Hook\nimport { useFeatureFlag } from '@flagura/react';\n\nexport function SearchComponent() {\n  const { isEnabled } = useFeatureFlag('ai-smart-search', {\n    userId: user.id,\n    tier: user.tier,\n  });\n\n  return isEnabled ? <SmartAISearch /> : <LegacySearch />;\n}`;
-						} else if (this.sdkLang === 'node') {
-							return `// 2. Node.js Express Middleware\nimport { FlaguraClient } from '@flagura/node';\n\nconst client = new FlaguraClient({ endpoint: '${window.location.origin}' });\n\napp.get('/api/search', async (req, res) => {\n  const enabled = await client.evaluate('ai-smart-search', { userId: req.user.id });\n  return res.json({ useAISearch: enabled });\n});`;
-						} else if (this.sdkLang === 'go') {
-							return `// 3. High-Performance Go Microservice\npackage main\n\nimport "flagura/pkg/client"\n\nfunc HandleSearch(w http.ResponseWriter, r *http.Request) {\n    c := client.New("${window.location.origin}")\n    res, _ := c.Evaluate(r.Context(), "ai-smart-search", client.Context{ UserID: "usr_123" })\n    if res.Enabled {\n        ServeSmartAISearch(w, r)\n    }\n}`;
+						const origin = window.location.origin || 'http://localhost:3000';
+						if (this.sdkLang === 'go') {
+							return `// 1. Official Go In-Memory SDK (123 ns / Zero Network Latency)\npackage main\n\nimport (\n    "context"\n    "log"\n    "github.com/dhawalhost/flagura/pkg/client"\n)\n\nfunc main() {\n    // Caches flag rules in RAM and background syncs every 30s\n    c := client.New("${origin}", client.WithLocalEvaluation(true))\n    defer c.Close()\n\n    res, err := c.Evaluate(context.Background(), "ai-smart-search", client.Context{\n        UserID: "usr_alex_42",\n        Attributes: map[string]interface{}{\n            "email": "alex@company.com",\n            "tier":  "enterprise",\n        },\n    })\n    if err == nil && res.Enabled {\n        log.Printf("Treatment Enabled: %v (Bucket: %v%%)", res.Enabled, res.Bucket)\n    }\n}`;
+						} else if (this.sdkLang === 'react') {
+							return `// 2. TypeScript / React Feature Flag Client\nexport async function isFeatureEnabled(flagKey: string, userId: string, tier = "starter"): Promise<boolean> {\n  try {\n    const res = await fetch("${origin}/api/v1/evaluate", {\n      method: "POST",\n      headers: { "Content-Type": "application/json" },\n      body: JSON.stringify({\n        flag_key: flagKey,\n        context: { user_id: userId, tier }\n      })\n    });\n    const data = await res.json();\n    return data.enabled ?? false;\n  } catch {\n    return false; // Safe control group fallback\n  }\n}`;
+						} else if (this.sdkLang === 'python') {
+							return `# 3. Python Fast Evaluation Client\nimport requests\n\ndef is_feature_enabled(flag_key: str, user_id: str, tier: str = "starter") -> bool:\n    try:\n        res = requests.post(\n            "${origin}/api/v1/evaluate",\n            json={"flag_key": flag_key, "context": {"user_id": user_id, "tier": tier}},\n            timeout=0.5,\n        )\n        return res.json().get("enabled", False)\n    except Exception:\n        return False  # Safe control group fallback`;
 						}
-						return `// 4. Rust / Edge Worker Engine\nuse flagura_engine::{Engine, Context};\n\nlet engine = Engine::load("./flags.json")?;\nif engine.is_enabled("ai-smart-search", &Context::new("usr_123")) {\n    serve_ai_search();\n}`;
+						return `# 4. Zero-Dependency cURL / REST API\ncurl -X POST "${origin}/api/v1/evaluate" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "flag_key": "ai-smart-search",\n    "context": {\n      "user_id": "usr_sarah_99",\n      "email": "sarah@company.com",\n      "country": "US",\n      "tier": "enterprise"\n    }\n  }'`;
 					},
 					copyCode() {
 						window.synth.playClick(720);
