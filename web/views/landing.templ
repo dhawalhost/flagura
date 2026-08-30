@@ -244,13 +244,19 @@ templ LandingPage() {
 				<!-- MARQUEE FEATURES STRIP -->
 				<div class="w-full overflow-hidden py-3.5 border-y border-slate-200/80 bg-white/70 backdrop-blur-md">
 					<div class="flex whitespace-nowrap animate-marquee text-sm font-semibold text-slate-700">
+						<span class="mx-6 text-slate-900 flex items-center gap-2"><i data-lucide="zap" class="h-4 w-4 text-blue-600"></i> Real-Time SSE Sync (&lt;5ms)</span>
+						<span class="mx-6 text-slate-300">•</span>
+						<span class="mx-6 text-slate-900 flex items-center gap-2"><i data-lucide="terminal" class="h-4 w-4 text-blue-600"></i> Flagura Developer CLI</span>
+						<span class="mx-6 text-slate-300">•</span>
+						<span class="mx-6 text-slate-900 flex items-center gap-2"><i data-lucide="trash-2" class="h-4 w-4 text-blue-600"></i> Stale Flag Technical Debt Detector</span>
+						<span class="mx-6 text-slate-300">•</span>
 						<span class="mx-6 text-slate-900 flex items-center gap-2"><i data-lucide="check-circle-2" class="h-4 w-4 text-blue-600"></i> Deterministic Percentage Rollouts</span>
 						<span class="mx-6 text-slate-300">•</span>
 						<span class="mx-6 text-slate-900 flex items-center gap-2"><i data-lucide="check-circle-2" class="h-4 w-4 text-blue-600"></i> Attribute Targeting Rules</span>
 						<span class="mx-6 text-slate-300">•</span>
 						<span class="mx-6 text-slate-900 flex items-center gap-2"><i data-lucide="check-circle-2" class="h-4 w-4 text-blue-600"></i> Master Kill-Switch Protection</span>
 						<span class="mx-6 text-slate-300">•</span>
-						<span class="mx-6 text-slate-900 flex items-center gap-2"><i data-lucide="check-circle-2" class="h-4 w-4 text-blue-600"></i> Multi-Environment Support</span>
+						<span class="mx-6 text-slate-900 flex items-center gap-2"><i data-lucide="check-circle-2" class="h-4 w-4 text-blue-600"></i> Multi-Environment Staging ➔ Prod</span>
 						<span class="mx-6 text-slate-300">•</span>
 						<span class="mx-6 text-slate-900 flex items-center gap-2"><i data-lucide="check-circle-2" class="h-4 w-4 text-blue-600"></i> Immutable Audit Logging</span>
 						<span class="mx-6 text-slate-300">•</span>
@@ -593,6 +599,13 @@ templ LandingPage() {
 										OpenFeature
 									</button>
 									<button
+										@click="sdkLang = 'cli'"
+										class="px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold uppercase text-[11px]"
+										:class="sdkLang === 'cli' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'"
+									>
+										CLI
+									</button>
+									<button
 										@click="sdkLang = 'go'"
 										class="px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold uppercase text-[11px]"
 										:class="sdkLang === 'go' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'"
@@ -881,8 +894,24 @@ func main() {
     enabled, _ := ofClient.BooleanValue(context.Background(), "ai-smart-search", false, evalCtx)
     log.Printf("Feature Enabled: %v", enabled)
 }`;
+						} else if (this.sdkLang === 'cli') {
+							return `# ⚡ Flagura Developer CLI (Single Binary)
+# 1. List all active flags & health status
+flagura list --endpoint="${origin}"
+
+# 2. Evaluate flag with step-by-step visual execution trace
+flagura evaluate ai-smart-search --user=usr_alex_42 --trace
+
+# 3. Instant master kill-switch toggle (<5ms SSE broadcast)
+flagura toggle ai-smart-search --env=production
+
+# 4. Gradual rollout percentage adjustment
+flagura rollout ai-smart-search 50% --env=production
+
+# 5. Scan codebase for technical debt & stale flags
+flagura clean-up`;
 						} else if (this.sdkLang === 'go') {
-							return `// 2. Official Go Native SDK (123 ns / In-Memory Evaluation)\npackage main\n\nimport (\n    "context"\n    "log"\n    "time"\n    "github.com/dhawalhost/flagura/pkg/client"\n)\n\nfunc main() {\n    // Caches flag rules in RAM and background syncs every 30s\n    c := client.New("${origin}", client.WithLocalEvaluation(30*time.Second))\n    defer c.Close()\n\n    res, err := c.Evaluate(context.Background(), "ai-smart-search", client.Context{\n        UserID: "usr_alex_42",\n        Email:  "alex@company.com",\n        Tier:   "enterprise",\n    })\n    if err == nil && res.Enabled {\n        log.Printf("Treatment Enabled: %v (Bucket: %v%%)", res.Enabled, res.Bucket)\n    }\n}`;
+							return `// 2. Official Go Native SDK (123 ns / In-Memory Evaluation)\npackage main\n\nimport (\n    "context"\n    "log"\n    "time"\n    "github.com/dhawalhost/flagura/pkg/client"\n)\n\nfunc main() {\n    // Caches flag rules in RAM, auto-syncs over SSE in <5ms\n    c := client.New("${origin}", client.WithLocalEvaluation(30*time.Second), client.WithStreaming(true))\n    defer c.Close()\n\n    res, err := c.Evaluate(context.Background(), "ai-smart-search", client.Context{\n        UserID: "usr_alex_42",\n        Email:  "alex@company.com",\n        Tier:   "enterprise",\n    })\n    if err == nil && res.Enabled {\n        log.Printf("Treatment Enabled: %v (Bucket: %v%%)", res.Enabled, res.Bucket)\n    }\n}`;
 						} else if (this.sdkLang === 'react') {
 							return `// 3. TypeScript / React Feature Flag Client\nexport async function isFeatureEnabled(flagKey: string, userId: string, tier = "starter"): Promise<boolean> {\n  try {\n    const res = await fetch("${origin}/api/v1/evaluate", {\n      method: "POST",\n      headers: { "Content-Type": "application/json" },\n      body: JSON.stringify({\n        flags: [flagKey],\n        context: { user_id: userId, tier }\n      })\n    });\n    const data = await res.json();\n    return data.results?.[flagKey]?.enabled ?? false;\n  } catch {\n    return false; // Safe control group fallback\n  }\n}`;
 						} else if (this.sdkLang === 'python') {
