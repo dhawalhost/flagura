@@ -522,6 +522,10 @@ templ Layout(title string) {
 								return `import { FlaguraClient } from '@flagura/sdk';\n\nconst client = new FlaguraClient({ endpoint: '${window.location.origin}' });\nconst { enabled, variant } = await client.evaluate('ai-smart-search', {\n  userId: 'usr_dhawal_01',\n  email: 'dhawal@flagura.dev',\n});\nconsole.log({ enabled, variant });`;
 							} else if (this.sdkTab === 'python') {
 								return `from flagura import Client\n\nclient = Client("${window.location.origin}")\nres = client.evaluate("ai-smart-search", user_id="usr_dhawal_01", email="dhawal@flagura.dev")\nprint(res.enabled, res.variant)`;
+							} else if (this.sdkTab === 'rust') {
+								return `use flagura::{FlaguraClient, EvaluationContext};\n\n#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n    let client = FlaguraClient::new("${window.location.origin}");\n    let ctx = EvaluationContext::new("usr_alex_42").with_email("alex@company.com");\n\n    if client.is_enabled("ai-smart-search", &ctx).await {\n        println!("✨ AI Smart Search is active!");\n    }\n    Ok(())\n}`;
+							} else if (this.sdkTab === 'cli') {
+								return `# Install or run Flagura Developer CLI\nflagura list\nflagura rollout ai-smart-search 50% --env=production\nflagura evaluate ai-smart-search --user=usr_alex_42 --trace\nflagura canary ai-smart-search --stages="5%:5m,25%:30m,50%:1h,100%"\nflagura change-request list`;
 							}
 							return `curl -X POST ${window.location.origin}/api/v1/evaluate \\\n  -H "Content-Type: application/json" \\\n  -d '{"flags":["ai-smart-search"],"context":{"user_id":"usr_dhawal_01","email":"dhawal@flagura.dev"}}'`;
 						},

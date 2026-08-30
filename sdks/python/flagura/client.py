@@ -5,6 +5,7 @@ import urllib.error
 import json
 import threading
 import time
+import datetime
 
 
 @dataclass
@@ -179,6 +180,36 @@ class FlaguraClient:
                 return results
         except Exception as e:
             raise RuntimeError(f"Flagura evaluation request failed: {e}") from e
+
+    def track(self, flag_key: str, variant: str, metric_name: str, value: float = 1.0, user_id: str = "") -> None:
+        """Track an experiment conversion or numeric metric event."""
+        payload = {
+            "event": {
+                "flag_key": flag_key,
+                "variant": variant,
+                "metric_name": metric_name,
+                "value": value,
+                "user_id": user_id,
+                "environment": self.default_environment,
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            }
+        }
+        req_data = json.dumps(payload).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        req = urllib.request.Request(
+            f"{self.endpoint}/api/v1/events",
+            data=req_data,
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout):
+                pass
+        except Exception:
+            pass
 
     def close(self) -> None:
         """Close active background stream threads."""

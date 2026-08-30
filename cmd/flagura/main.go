@@ -109,6 +109,39 @@ func main() {
 			os.Exit(1)
 		}
 		runPromote(fs.Arg(0), *fromFlag, *toFlag)
+	case "experiment", "exp":
+		metricFlag := fs.String("metric", "conversion", "Metric name to analyze")
+		controlFlag := fs.String("control", "control", "Control/baseline variant key")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
+		if fs.NArg() < 1 {
+			fmt.Fprintf(os.Stderr, "Usage: flagura experiment <flag-key> [--metric=conversion] [--control=control]\n")
+			os.Exit(1)
+		}
+		runExperiment(fs.Arg(0), *metricFlag, *controlFlag)
+	case "canary":
+		stagesFlag := fs.String("stages", "5%:5m,25%:30m,50%:1h,100%:0s", "Progressive stages (<pct>:<duration>,...)")
+		rollbackFlag := fs.Bool("rollback", false, "Trigger immediate health guardrail rollback to 0%")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
+		if fs.NArg() < 1 {
+			fmt.Fprintf(os.Stderr, "Usage: flagura canary <flag-key> [--stages=<stages>] [--rollback]\n")
+			os.Exit(1)
+		}
+		runCanary(fs.Arg(0), *stagesFlag, *rollbackFlag)
+	case "change-request", "cr":
+		statusFlag := fs.String("status", "", "Filter status: PENDING, APPROVED, REJECTED, APPLIED")
+		commentsFlag := fs.String("comments", "", "Review comments")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
+		subCmd := "list"
+		if fs.NArg() > 0 {
+			subCmd = fs.Arg(0)
+		}
+		runChangeRequest(subCmd, fs.Args(), *statusFlag, *commentsFlag)
 	case "clean-up", "cleanup":
 		if err := fs.Parse(os.Args[2:]); err != nil {
 			os.Exit(1)
@@ -141,6 +174,10 @@ Commands:
   rollout <key> <pct>       Adjust gradual rollout percentage (0-100%%)
   evaluate <key>            Execute real-time flag evaluation in terminal
   promote <key>             Promote configuration from Staging to Production
+  experiment <key>          Calculate A/B statistical significance and lift
+  canary <key>              Manage automated progressive canary ramp & guardrails
+  change-request [list|approve|reject|apply]
+                            Enforce 4-Eyes principle change approval governance
   clean-up                  Scan and report technical debt & stale flags
   health                    Check connection to the Flagura control plane
   version                   Print CLI version
@@ -478,4 +515,233 @@ func runHealth() {
 	}
 
 	fmt.Printf("🟢 Flagura Control Plane is healthy and responsive at %s (RTT: %v)\n", endpoint, latency)
+}
+
+func runExperiment(key, metric, control string) {
+	path := fmt.Sprintf("/api/v1/experiments/%s?metric=%s&control=%s&env=%s", key, metric, control, env)
+	resp, body, err := makeRequest(http.MethodGet, path, nil)
+	if err != nil || resp.StatusCode >= 400 {
+		fmt.Fprintf(os.Stderr, "Failed to retrieve experiment report: %s\n", string(body))
+		os.Exit(1)
+	}
+
+	if jsonOut {
+		fmt.Println(string(body))
+		return
+	}
+
+	var report domain.ExperimentReport
+	if err := json.Unmarshal(body, &report); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing experiment report: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("\n📊 Flagura A/B Experiment Analysis: %s\n", report.FlagKey)
+	fmt.Printf("Metric:          %s (Type: %s)\n", report.MetricName, report.EventType)
+	fmt.Printf("Control Variant: %s\n", report.ControlVariant)
+	fmt.Printf("Total Events:    %d\n", report.TotalEvents)
+	if report.WinnerVariant != "" {
+		fmt.Printf("🏆 Winner:       %s (Statistically Significant)\n", report.WinnerVariant)
+	}
+
+	fmt.Println("\n── Variant Performance ──")
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "VARIANT\tEXPOSURES\tCONVERSIONS\tRATE\t95% CONFIDENCE INTERVAL")
+	fmt.Fprintln(w, "-------\t---------\t-----------\t----\t-----------------------")
+
+	for v, s := range report.VariantStats {
+		ci := fmt.Sprintf("[%.2f%%, %.2f%%]", s.CI95Lower*100, s.CI95Upper*100)
+		fmt.Fprintf(w, "%s\t%d\t%d\t%.2f%%\t%s\n", v, s.Exposures, s.Conversions, s.ConversionRate*100, ci)
+	}
+	_ = w.Flush()
+
+	if len(report.Comparisons) > 0 {
+		fmt.Println("\n── Statistical Significance vs. Control ──")
+		wComp := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+		fmt.Fprintln(wComp, "TREATMENT\tREL LIFT\tZ-SCORE\tP-VALUE\tCONFIDENCE\tSTATUS")
+		fmt.Fprintln(wComp, "---------\t--------\t-------\t-------\t----------\t------")
+
+		for v, c := range report.Comparisons {
+			lift := fmt.Sprintf("%+.2f%%", c.RelativeLiftPct)
+			conf := fmt.Sprintf("%.1f%%", c.ConfidencePct)
+			statusStr := string(c.Status)
+			if c.Status == domain.ExpStatusWinning {
+				statusStr = "🟢 WINNING"
+			} else if c.Status == domain.ExpStatusLosing {
+				statusStr = "🔴 LOSING"
+			} else if c.Status == domain.ExpStatusInsufficientData {
+				statusStr = "⏳ NEED SAMPLES"
+			}
+
+			fmt.Fprintf(wComp, "%s\t%s\t%.2f\t%.4f\t%s\t%s\n", v, lift, c.ZScore, c.PValue, conf, statusStr)
+		}
+		_ = wComp.Flush()
+	}
+	fmt.Println()
+}
+
+func runCanary(key, stagesStr string, isRollback bool) {
+	if isRollback {
+		path := fmt.Sprintf("/api/v1/flags/%s/canary/rollback", key)
+		payload := map[string]string{"reason": "CLI Manual Health Rollback Triggered"}
+		resp, body, err := makeRequest(http.MethodPost, path, payload)
+		if err != nil || resp.StatusCode >= 400 {
+			fmt.Fprintf(os.Stderr, "Rollback failed: %s\n", string(body))
+			os.Exit(1)
+		}
+		fmt.Printf("🚨 Health Rollback Executed: Flag '%s' has been reverted to 0%% rollout.\n", key)
+		return
+	}
+
+	// Parse stages format: "5%:5m,25%:30m,50%:1h,100%:0s"
+	parts := strings.Split(stagesStr, ",")
+	var stages []domain.CanaryStage
+	for i, part := range parts {
+		sub := strings.Split(strings.TrimSpace(part), ":")
+		pctStr := strings.TrimSuffix(sub[0], "%")
+		pct, err := strconv.ParseFloat(pctStr, 64)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid percentage in stage '%s': %v\n", part, err)
+			os.Exit(1)
+		}
+		var durSec int64 = 0
+		if len(sub) > 1 && sub[1] != "" {
+			d, err := time.ParseDuration(sub[1])
+			if err == nil {
+				durSec = int64(d.Seconds())
+			}
+		}
+		stages = append(stages, domain.CanaryStage{
+			Index:            i,
+			TargetPercentage: pct,
+			DurationSec:      durSec,
+		})
+	}
+
+	sched := domain.CanarySchedule{
+		FlagKey:     key,
+		Environment: domain.Environment(env),
+		Stages:      stages,
+		Guardrails: domain.CanaryGuardrails{
+			MaxErrorRatePct: 1.0,
+			AutoRollback:    true,
+		},
+	}
+
+	path := fmt.Sprintf("/api/v1/flags/%s/canary", key)
+	resp, body, err := makeRequest(http.MethodPost, path, sched)
+	if err != nil || resp.StatusCode >= 400 {
+		fmt.Fprintf(os.Stderr, "Failed to submit canary schedule: %s\n", string(body))
+		os.Exit(1)
+	}
+
+	if jsonOut {
+		fmt.Println(string(body))
+		return
+	}
+
+	fmt.Printf("\n🚀 Progressive Canary Auto-Ramp Scheduled for Flag '%s' (%s)\n", key, env)
+	fmt.Println("─────────────────────────────────────────────────────────────────")
+	fmt.Printf("Stage Count:  %d\n", len(stages))
+	fmt.Printf("Initial Step: %.1f%% Rollout (Applied immediately)\n", stages[0].TargetPercentage)
+	fmt.Printf("Guardrails:   Max Error Rate < 1.0%% (Auto-Rollback Active)\n\n")
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "STAGE\tTARGET ROLLOUT\tSTAGE DURATION")
+	fmt.Fprintln(w, "-----\t--------------\t--------------")
+	for _, s := range stages {
+		durStr := "Until Completion"
+		if s.DurationSec > 0 {
+			durStr = (time.Duration(s.DurationSec) * time.Second).String()
+		}
+		fmt.Fprintf(w, "Step %d\t%.1f%%\t%s\n", s.Index+1, s.TargetPercentage, durStr)
+	}
+	_ = w.Flush()
+	fmt.Println()
+}
+
+func runChangeRequest(subCmd string, args []string, status, comments string) {
+	switch subCmd {
+	case "list", "ls":
+		path := "/api/v1/change-requests"
+		if status != "" {
+			path += "?status=" + status
+		}
+		resp, body, err := makeRequest(http.MethodGet, path, nil)
+		if err != nil || resp.StatusCode >= 400 {
+			fmt.Fprintf(os.Stderr, "Failed to list change requests: %s\n", string(body))
+			os.Exit(1)
+		}
+		if jsonOut {
+			fmt.Println(string(body))
+			return
+		}
+
+		var data struct {
+			ChangeRequests []domain.ChangeRequest `json:"change_requests"`
+		}
+		if err := json.Unmarshal(body, &data); err != nil {
+			fmt.Fprintf(os.Stderr, "Error parsing change requests: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("\n🛡️  Flagura 4-Eyes Governance Change Requests")
+		fmt.Println("─────────────────────────────────────────────")
+		if len(data.ChangeRequests) == 0 {
+			fmt.Println("No change requests found.")
+			fmt.Println()
+			return
+		}
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+		fmt.Fprintln(w, "ID\tFLAG KEY\tENV\tAUTHOR\tSTATUS\tCREATED")
+		fmt.Fprintln(w, "--\t--------\t---\t------\t------\t-------")
+		for _, cr := range data.ChangeRequests {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+				cr.ID, cr.FlagKey, cr.Environment, cr.AuthorEmail, cr.Status, cr.CreatedAt.Format("2006-01-02 15:04"))
+		}
+		_ = w.Flush()
+		fmt.Println()
+
+	case "approve", "reject":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "Usage: flagura change-request %s <id> [--comments=\"...\"]\n", subCmd)
+			os.Exit(1)
+		}
+		id := args[1]
+		approved := subCmd == "approve"
+		path := fmt.Sprintf("/api/v1/change-requests/%s/review", id)
+		payload := map[string]interface{}{
+			"approved": approved,
+			"comments": comments,
+		}
+		resp, body, err := makeRequest(http.MethodPost, path, payload)
+		if err != nil || resp.StatusCode >= 400 {
+			fmt.Fprintf(os.Stderr, "Review failed: %s\n", string(body))
+			os.Exit(1)
+		}
+		if approved {
+			fmt.Printf("✅ ChangeRequest '%s' has been APPROVED.\n", id)
+		} else {
+			fmt.Printf("❌ ChangeRequest '%s' has been REJECTED.\n", id)
+		}
+
+	case "apply":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "Usage: flagura change-request apply <id>\n")
+			os.Exit(1)
+		}
+		id := args[1]
+		path := fmt.Sprintf("/api/v1/change-requests/%s/apply", id)
+		resp, body, err := makeRequest(http.MethodPost, path, nil)
+		if err != nil || resp.StatusCode >= 400 {
+			fmt.Fprintf(os.Stderr, "Apply failed: %s\n", string(body))
+			os.Exit(1)
+		}
+		fmt.Printf("🚀 ChangeRequest '%s' successfully APPLIED to live feature flag config!\n", id)
+
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown change-request subcommand: %s. Use list, approve, reject, or apply.\n", subCmd)
+		os.Exit(1)
+	}
 }

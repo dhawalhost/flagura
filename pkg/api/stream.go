@@ -76,6 +76,19 @@ func (h *StreamHub) Run() {
 	}
 }
 
+// Broadcast sends a custom event and payload to all connected SSE clients.
+func (h *StreamHub) Broadcast(event string, payload interface{}) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	msg := fmt.Sprintf("event: %s\ndata: %s\n\n", event, string(data))
+	select {
+	case h.broadcast <- []byte(msg):
+	default:
+	}
+}
+
 // BroadcastFlags serializes and broadcasts updated flags to all connected SSE clients.
 func (h *StreamHub) BroadcastFlags(flags []domain.FeatureFlag) {
 	payload, err := json.Marshal(map[string]interface{}{

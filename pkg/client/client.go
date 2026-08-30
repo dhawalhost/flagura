@@ -553,6 +553,50 @@ func (c *Client) toDomainContext(ctx Context) domain.EvaluationContext {
 	}
 }
 
+// Track sends an experiment event/conversion observation to the Flagura control plane.
+func (c *Client) Track(ctx context.Context, flagKey, variant, metricName string, value float64, userID string) error {
+	payload := map[string]interface{}{
+		"event": domain.ExperimentEvent{
+			FlagKey:     flagKey,
+			Variant:     variant,
+			MetricName:  metricName,
+			EventType:   domain.EventTypeConversion,
+			Value:       value,
+			UserID:      userID,
+			Environment: c.config.DefaultEnvironment,
+			Timestamp:   time.Now().UTC(),
+		},
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/api/v1/events", strings.TrimRight(c.config.Endpoint, "/"))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if c.config.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+	}
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("track request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
 // Close gracefully stops any background synchronization goroutines.
 func (c *Client) Close() {
 	c.closeOnce.Do(func() {

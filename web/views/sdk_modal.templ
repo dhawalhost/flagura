@@ -66,11 +66,25 @@ templ SDKModal() {
 					Python 3
 				</button>
 				<button 
+					@click="sdkTab = 'rust'"
+					class="px-4 py-2 rounded-xl text-xs font-mono font-bold transition shadow-2xs cursor-pointer"
+					:class="sdkTab === 'rust' ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200'"
+				>
+					Rust SDK
+				</button>
+				<button 
+					@click="sdkTab = 'cli'"
+					class="px-4 py-2 rounded-xl text-xs font-mono font-bold transition shadow-2xs cursor-pointer"
+					:class="sdkTab === 'cli' ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200'"
+				>
+					Developer CLI
+				</button>
+				<button 
 					@click="sdkTab = 'curl'"
 					class="px-4 py-2 rounded-xl text-xs font-mono font-bold transition shadow-2xs cursor-pointer"
 					:class="sdkTab === 'curl' ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200'"
 				>
-					Raw cURL Request
+					Raw cURL
 				</button>
 			</div>
 

@@ -99,6 +99,18 @@ func mockServer(t *testing.T) *httptest.Server {
 				"results": results,
 			})
 
+		case "/api/v1/events":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusAccepted)
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "accepted"})
+			return
+
+		case "/api/v1/telemetry/events":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusAccepted)
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "accepted"})
+			return
+
 		default:
 			http.NotFound(w, r)
 		}
@@ -207,5 +219,19 @@ func TestClientSnapshotPersistenceAndOfflineBootstrap(t *testing.T) {
 	}
 	if res.FlagKey != "ai-smart-search" {
 		t.Fatalf("expected flag_key 'ai-smart-search', got '%s'", res.FlagKey)
+	}
+}
+
+func TestClientTrackExperimentEvent(t *testing.T) {
+	ts := mockServer(t)
+	defer ts.Close()
+
+	c := client.New(ts.URL, client.WithAPIKey("test-key"))
+	defer c.Close()
+
+	ctx := context.Background()
+	err := c.Track(ctx, "ai-smart-search", "treatment", "checkout_completed", 1.0, "usr_101")
+	if err != nil {
+		t.Fatalf("expected Track to succeed, got error: %v", err)
 	}
 }

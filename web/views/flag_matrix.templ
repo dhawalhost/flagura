@@ -233,6 +233,15 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 
 							<!-- Action Buttons -->
 							<div class="flex items-center gap-1.5">
+								<!-- A/B Experiment Analytics -->
+								<button
+									@click={ fmt.Sprintf("openExperimentModal('%s');", f.Key) }
+									class="p-2.5 h-9 w-9 flex items-center justify-center text-indigo-600 hover:bg-indigo-50 rounded-xl border border-indigo-200 bg-white transition cursor-pointer"
+									title="View A/B Experiment statistical analysis"
+								>
+									<i data-lucide="flask-conical" class="h-3.5 w-3.5"></i>
+								</button>
+
 								<!-- Test in Sandbox -->
 								<button
 									@click={ fmt.Sprintf("openEvaluatorForFlag('%s');", f.Key) }

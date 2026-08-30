@@ -274,51 +274,64 @@ func FlagMatrix(flags []domain.FeatureFlag) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" class=\"flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-mono font-bold transition-all shadow-2xs cursor-pointer\" :class=\"enabled ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100'\"><i data-lucide=\"power\" class=\"h-3.5 w-3.5\" :class=\"enabled ? 'text-emerald-400' : 'text-rose-600'\"></i> <span x-text=\"enabled ? 'ENABLED' : 'KILL SWITCH OFF'\"></span></button><!-- Action Buttons --><div class=\"flex items-center gap-1.5\"><!-- Test in Sandbox --><button @click=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" class=\"flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-mono font-bold transition-all shadow-2xs cursor-pointer\" :class=\"enabled ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100'\"><i data-lucide=\"power\" class=\"h-3.5 w-3.5\" :class=\"enabled ? 'text-emerald-400' : 'text-rose-600'\"></i> <span x-text=\"enabled ? 'ENABLED' : 'KILL SWITCH OFF'\"></span></button><!-- Action Buttons --><div class=\"flex items-center gap-1.5\"><!-- A/B Experiment Analytics --><button @click=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var18 string
-			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("openEvaluatorForFlag('%s');", f.Key))
+			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("openExperimentModal('%s');", f.Key))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 238, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 238, Col: 66}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" class=\"p-2.5 h-9 w-9 flex items-center justify-center text-slate-700 hover:bg-slate-100 rounded-xl border border-slate-200 bg-white transition cursor-pointer\" title=\"Evaluate this flag with live user context\"><i data-lucide=\"play\" class=\"h-3.5 w-3.5 fill-blue-600 text-blue-600\"></i></button><!-- Edit Flag --><button @click=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" class=\"p-2.5 h-9 w-9 flex items-center justify-center text-indigo-600 hover:bg-indigo-50 rounded-xl border border-indigo-200 bg-white transition cursor-pointer\" title=\"View A/B Experiment statistical analysis\"><i data-lucide=\"flask-conical\" class=\"h-3.5 w-3.5\"></i></button><!-- Test in Sandbox --><button @click=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var19 string
-			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("openEditFlagEditor('%s', '%s', '%s', '%s', '%s');", f.ID, f.Key, f.Name, f.Description, f.Type))
+			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("openEvaluatorForFlag('%s');", f.Key))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 247, Col: 126}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 247, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" class=\"p-2.5 h-9 w-9 flex items-center justify-center text-slate-700 hover:bg-slate-100 rounded-xl border border-slate-200 bg-white transition cursor-pointer\" title=\"Edit targeting rules & config\"><i data-lucide=\"edit-3\" class=\"h-3.5 w-3.5\"></i></button><!-- Delete Flag --><button @click=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" class=\"p-2.5 h-9 w-9 flex items-center justify-center text-slate-700 hover:bg-slate-100 rounded-xl border border-slate-200 bg-white transition cursor-pointer\" title=\"Evaluate this flag with live user context\"><i data-lucide=\"play\" class=\"h-3.5 w-3.5 fill-blue-600 text-blue-600\"></i></button><!-- Edit Flag --><button @click=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var20 string
-			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("deleteFlagRow('%s');", f.Key))
+			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("openEditFlagEditor('%s', '%s', '%s', '%s', '%s');", f.ID, f.Key, f.Name, f.Description, f.Type))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 256, Col: 60}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 256, Col: 126}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" class=\"p-2.5 h-9 w-9 flex items-center justify-center text-rose-600 hover:bg-rose-50 rounded-xl border border-rose-200 bg-white transition cursor-pointer\" title=\"Delete flag\"><i data-lucide=\"trash-2\" class=\"h-3.5 w-3.5\"></i></button></div></div></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" class=\"p-2.5 h-9 w-9 flex items-center justify-center text-slate-700 hover:bg-slate-100 rounded-xl border border-slate-200 bg-white transition cursor-pointer\" title=\"Edit targeting rules & config\"><i data-lucide=\"edit-3\" class=\"h-3.5 w-3.5\"></i></button><!-- Delete Flag --><button @click=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var21 string
+			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("deleteFlagRow('%s');", f.Key))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 265, Col: 60}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" class=\"p-2.5 h-9 w-9 flex items-center justify-center text-rose-600 hover:bg-rose-50 rounded-xl border border-rose-200 bg-white transition cursor-pointer\" title=\"Delete flag\"><i data-lucide=\"trash-2\" class=\"h-3.5 w-3.5\"></i></button></div></div></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

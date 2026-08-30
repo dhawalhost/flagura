@@ -1,0 +1,21 @@
+[package]
+name = "flagura"
+version = "1.3.0"
+edition = "2021"
+authors = ["Flagura Team <support@flagura.dev>"]
+description = "Official Flagura Native Rust Client SDK for high-performance feature flag evaluation and experimentation."
+license = "MIT"
+repository = "https://github.com/dhawalhost/flagura"
+readme = "README.md"
+keywords = ["feature-flags", "experimentation", "ab-testing", "canary", "targeting"]
+categories = ["development-tools", "web-programming"]
+
+[dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["sync", "time", "macros"] }
+thiserror = "1.0"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

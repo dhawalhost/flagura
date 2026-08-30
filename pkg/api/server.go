@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dhawalhost/flagura/pkg/canary"
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/store"
 	"github.com/dhawalhost/flagura/web"
@@ -21,11 +22,15 @@ type Server struct {
 	apiLimiter  *IPRateLimiter
 	streamHub   *StreamHub
 	telemetry   *TelemetryAggregator
+	canary      *canary.CanaryScheduler
 }
 
 func NewServer(st store.Store) (*Server, error) {
 	hub := NewStreamHub()
 	go hub.Run()
+
+	canarySched := canary.NewCanaryScheduler(st, hub)
+	canarySched.StartBackgroundLoop(15 * time.Second)
 
 	s := &Server{
 		store:       st,
@@ -35,6 +40,7 @@ func NewServer(st store.Store) (*Server, error) {
 		apiLimiter:  NewIPRateLimiter(200, 400, 1*time.Minute),
 		streamHub:   hub,
 		telemetry:   NewTelemetryAggregator(),
+		canary:      canarySched,
 	}
 	s.routes()
 	s.handler = SecurityHeadersMiddleware(MaxBytesMiddleware(1<<20, s.mux))
@@ -59,8 +65,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/auth/logout", s.handleLogout)
 	s.mux.HandleFunc("/api/v1/auth/me", s.handleMe)
 
-	// REST API Routes & Observability Probes
-	s.mux.HandleFunc("/api/health", s.handleHealth)
+	// Public Observability & Webhook Routes
+	s.mux.HandleFunc("/api/health", s.handleHealthz)
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
 	s.mux.HandleFunc("/livez", s.handleHealthz)
 	s.mux.HandleFunc("/readyz", s.handleReadyz)
@@ -69,6 +75,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/telemetry/events", s.apiLimiter.LimitHandler(s.handleIngestTelemetry))
 	s.mux.HandleFunc("/api/v1/telemetry/stats", s.handleGetTelemetryStats)
 	s.mux.HandleFunc("/api/v1/webhooks/kill-switch/", s.apiLimiter.LimitHandler(s.handleWebhookKillSwitch))
+
+	// Flag Management API Routes
 	s.mux.HandleFunc("/api/v1/flags", s.apiLimiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -82,6 +90,10 @@ func (s *Server) routes() {
 
 	s.mux.HandleFunc("/api/v1/flags/", s.apiLimiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
+		if strings.Contains(path, "/canary") {
+			s.handleCanaryRoutes(w, r)
+			return
+		}
 		if strings.HasSuffix(path, "/toggle") {
 			if r.Method == http.MethodPatch || r.Method == http.MethodPost {
 				s.RequireAuth(s.handleToggleFlag)(w, r)
@@ -100,6 +112,12 @@ func (s *Server) routes() {
 				return
 			}
 		}
+		if strings.HasSuffix(path, "/experiment") {
+			if r.Method == http.MethodGet {
+				s.handleGetExperimentReport(w, r)
+				return
+			}
+		}
 
 		switch r.Method {
 		case http.MethodPut, http.MethodPatch, http.MethodPost:
@@ -110,6 +128,11 @@ func (s *Server) routes() {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		}
 	}))
+
+	s.mux.HandleFunc("/api/v1/events", s.apiLimiter.LimitHandler(s.handleIngestEvents))
+	s.mux.HandleFunc("/api/v1/experiments/", s.apiLimiter.LimitHandler(s.handleGetExperimentReport))
+	s.mux.HandleFunc("/api/v1/change-requests", s.apiLimiter.LimitHandler(s.handleListOrCreateChangeRequests))
+	s.mux.HandleFunc("/api/v1/change-requests/", s.apiLimiter.LimitHandler(s.handleChangeRequestItem))
 
 	s.mux.HandleFunc("/api/v1/evaluate", s.apiLimiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {

@@ -26,4 +26,15 @@ type Store interface {
 	CreateSession(ctx context.Context, session domain.Session) error
 	GetSession(ctx context.Context, token string) (*domain.Session, error)
 	DeleteSession(ctx context.Context, token string) error
+
+	// Experiments & A/B Testing
+	RecordExperimentEvents(ctx context.Context, events []domain.ExperimentEvent) error
+	GetExperimentEvents(ctx context.Context, flagKey string, limit int) ([]domain.ExperimentEvent, error)
+
+	// Governance & 4-Eyes Change Approvals
+	CreateChangeRequest(ctx context.Context, cr domain.ChangeRequest) (*domain.ChangeRequest, error)
+	GetChangeRequest(ctx context.Context, id string) (*domain.ChangeRequest, error)
+	ListChangeRequests(ctx context.Context, status domain.ChangeRequestStatus) ([]domain.ChangeRequest, error)
+	ReviewChangeRequest(ctx context.Context, id, reviewerID, reviewerEmail, reviewerName string, approved bool, comments string) (*domain.ChangeRequest, error)
+	ApplyChangeRequest(ctx context.Context, id string, actor string) (*domain.FeatureFlag, *domain.ChangeRequest, *domain.AuditLogEntry, error)
 }

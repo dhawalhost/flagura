@@ -125,6 +125,40 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 		timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
 	);
 	CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
+
+	CREATE TABLE IF NOT EXISTS experiment_events (
+		id TEXT PRIMARY KEY,
+		flag_key TEXT NOT NULL,
+		variant TEXT NOT NULL,
+		metric_name TEXT NOT NULL,
+		event_type TEXT NOT NULL DEFAULT 'conversion',
+		value DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+		user_id TEXT DEFAULT '',
+		environment TEXT NOT NULL DEFAULT 'production',
+		timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_exp_events_flag ON experiment_events(flag_key, metric_name, timestamp DESC);
+
+	CREATE TABLE IF NOT EXISTS change_requests (
+		id TEXT PRIMARY KEY,
+		flag_key TEXT NOT NULL,
+		environment TEXT NOT NULL,
+		title TEXT NOT NULL,
+		description TEXT DEFAULT '',
+		author_user_id TEXT NOT NULL,
+		author_email TEXT NOT NULL,
+		author_name TEXT NOT NULL,
+		proposed_config JSONB NOT NULL,
+		status TEXT NOT NULL DEFAULT 'PENDING',
+		reviewer_user_id TEXT DEFAULT '',
+		reviewer_email TEXT DEFAULT '',
+		reviewer_name TEXT DEFAULT '',
+		review_comments TEXT DEFAULT '',
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		reviewed_at TIMESTAMPTZ,
+		applied_at TIMESTAMPTZ
+	);
+	CREATE INDEX IF NOT EXISTS idx_change_requests_status ON change_requests(status, created_at DESC);
 	`
 	if _, err := s.db.ExecContext(ctx, schema); err != nil {
 		return err
@@ -539,4 +573,280 @@ func (s *PostgresStore) GetSession(ctx context.Context, token string) (*domain.S
 func (s *PostgresStore) DeleteSession(ctx context.Context, token string) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM sessions WHERE token = $1", token)
 	return err
+}
+
+func (s *PostgresStore) RecordExperimentEvents(ctx context.Context, events []domain.ExperimentEvent) error {
+	if len(events) == 0 {
+		return nil
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() // nolint:errcheck
+
+	stmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO experiment_events (id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, ev := range events {
+		id := ev.ID
+		if id == "" {
+			b := make([]byte, 4)
+			_, _ = rand.Read(b)
+			id = fmt.Sprintf("evt_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
+		}
+		ts := ev.Timestamp
+		if ts.IsZero() {
+			ts = time.Now().UTC()
+		}
+		eventType := ev.EventType
+		if eventType == "" {
+			eventType = domain.EventTypeConversion
+		}
+		env := ev.Environment
+		if env == "" {
+			env = domain.EnvProduction
+		}
+
+		if _, err := stmt.ExecContext(ctx, id, ev.FlagKey, ev.Variant, ev.MetricName, eventType, ev.Value, ev.UserID, env, ts); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (s *PostgresStore) GetExperimentEvents(ctx context.Context, flagKey string, limit int) ([]domain.ExperimentEvent, error) {
+	if limit <= 0 {
+		limit = 1000
+	}
+
+	var rows *sql.Rows
+	var err error
+
+	if flagKey != "" {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp
+			FROM experiment_events
+			WHERE flag_key = $1
+			ORDER BY timestamp DESC
+			LIMIT $2
+		`, flagKey, limit)
+	} else {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp
+			FROM experiment_events
+			ORDER BY timestamp DESC
+			LIMIT $1
+		`, limit)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []domain.ExperimentEvent
+	for rows.Next() {
+		var ev domain.ExperimentEvent
+		if err := rows.Scan(&ev.ID, &ev.FlagKey, &ev.Variant, &ev.MetricName, &ev.EventType, &ev.Value, &ev.UserID, &ev.Environment, &ev.Timestamp); err != nil {
+			return nil, err
+		}
+		events = append(events, ev)
+	}
+
+	return events, rows.Err()
+}
+
+func (s *PostgresStore) CreateChangeRequest(ctx context.Context, cr domain.ChangeRequest) (*domain.ChangeRequest, error) {
+	now := time.Now().UTC()
+	if cr.ID == "" {
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		cr.ID = fmt.Sprintf("cr_%d_%s", now.UnixNano(), hex.EncodeToString(b))
+	}
+	cr.Status = domain.ChangeRequestStatusPending
+	cr.CreatedAt = now
+
+	cfgBytes, err := json.Marshal(cr.ProposedConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize proposed config: %w", err)
+	}
+
+	_, err = s.db.ExecContext(ctx, `
+		INSERT INTO change_requests (
+			id, flag_key, environment, title, description,
+			author_user_id, author_email, author_name,
+			proposed_config, status, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	`, cr.ID, cr.FlagKey, cr.Environment, cr.Title, cr.Description,
+		cr.AuthorUserID, cr.AuthorEmail, cr.AuthorName,
+		cfgBytes, cr.Status, cr.CreatedAt)
+
+	if err != nil {
+		return nil, err
+	}
+	return &cr, nil
+}
+
+func (s *PostgresStore) GetChangeRequest(ctx context.Context, id string) (*domain.ChangeRequest, error) {
+	var cr domain.ChangeRequest
+	var cfgBytes []byte
+	var reviewedAt, appliedAt sql.NullTime
+
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, flag_key, environment, title, description,
+		       author_user_id, author_email, author_name,
+		       proposed_config, status, reviewer_user_id, reviewer_email,
+		       reviewer_name, review_comments, created_at, reviewed_at, applied_at
+		FROM change_requests
+		WHERE id = $1
+	`, id).Scan(
+		&cr.ID, &cr.FlagKey, &cr.Environment, &cr.Title, &cr.Description,
+		&cr.AuthorUserID, &cr.AuthorEmail, &cr.AuthorName,
+		&cfgBytes, &cr.Status, &cr.ReviewerUserID, &cr.ReviewerEmail,
+		&cr.ReviewerName, &cr.ReviewComments, &cr.CreatedAt, &reviewedAt, &appliedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if reviewedAt.Valid {
+		cr.ReviewedAt = &reviewedAt.Time
+	}
+	if appliedAt.Valid {
+		cr.AppliedAt = &appliedAt.Time
+	}
+	if err := json.Unmarshal(cfgBytes, &cr.ProposedConfig); err != nil {
+		return nil, err
+	}
+
+	return &cr, nil
+}
+
+func (s *PostgresStore) ListChangeRequests(ctx context.Context, status domain.ChangeRequestStatus) ([]domain.ChangeRequest, error) {
+	var rows *sql.Rows
+	var err error
+
+	if status != "" {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, flag_key, environment, title, description,
+			       author_user_id, author_email, author_name,
+			       proposed_config, status, reviewer_user_id, reviewer_email,
+			       reviewer_name, review_comments, created_at, reviewed_at, applied_at
+			FROM change_requests
+			WHERE status = $1
+			ORDER BY created_at DESC
+		`, status)
+	} else {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, flag_key, environment, title, description,
+			       author_user_id, author_email, author_name,
+			       proposed_config, status, reviewer_user_id, reviewer_email,
+			       reviewer_name, review_comments, created_at, reviewed_at, applied_at
+			FROM change_requests
+			ORDER BY created_at DESC
+		`)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []domain.ChangeRequest
+	for rows.Next() {
+		var cr domain.ChangeRequest
+		var cfgBytes []byte
+		var reviewedAt, appliedAt sql.NullTime
+
+		if err := rows.Scan(
+			&cr.ID, &cr.FlagKey, &cr.Environment, &cr.Title, &cr.Description,
+			&cr.AuthorUserID, &cr.AuthorEmail, &cr.AuthorName,
+			&cfgBytes, &cr.Status, &cr.ReviewerUserID, &cr.ReviewerEmail,
+			&cr.ReviewerName, &cr.ReviewComments, &cr.CreatedAt, &reviewedAt, &appliedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		if reviewedAt.Valid {
+			cr.ReviewedAt = &reviewedAt.Time
+		}
+		if appliedAt.Valid {
+			cr.AppliedAt = &appliedAt.Time
+		}
+		_ = json.Unmarshal(cfgBytes, &cr.ProposedConfig)
+		result = append(result, cr)
+	}
+
+	return result, rows.Err()
+}
+
+func (s *PostgresStore) ReviewChangeRequest(ctx context.Context, id, reviewerID, reviewerEmail, reviewerName string, approved bool, comments string) (*domain.ChangeRequest, error) {
+	cr, err := s.GetChangeRequest(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cr.Review(reviewerID, reviewerEmail, reviewerName, approved, comments); err != nil {
+		return nil, err
+	}
+
+	_, err = s.db.ExecContext(ctx, `
+		UPDATE change_requests
+		SET status = $1, reviewer_user_id = $2, reviewer_email = $3,
+		    reviewer_name = $4, review_comments = $5, reviewed_at = $6
+		WHERE id = $7
+	`, cr.Status, cr.ReviewerUserID, cr.ReviewerEmail, cr.ReviewerName, cr.ReviewComments, cr.ReviewedAt, id)
+
+	if err != nil {
+		return nil, err
+	}
+	return cr, nil
+}
+
+func (s *PostgresStore) ApplyChangeRequest(ctx context.Context, id string, actor string) (*domain.FeatureFlag, *domain.ChangeRequest, *domain.AuditLogEntry, error) {
+	cr, err := s.GetChangeRequest(ctx, id)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	if cr.Status != domain.ChangeRequestStatusApproved {
+		return nil, nil, nil, fmt.Errorf("cannot apply change request with status '%s' (must be APPROVED)", cr.Status)
+	}
+
+	flag, err := s.GetFlag(ctx, cr.FlagKey)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	if flag.Environments == nil {
+		flag.Environments = make(map[domain.Environment]domain.EnvironmentConfig)
+	}
+	flag.Environments[cr.Environment] = cr.ProposedConfig
+	flag.UpdatedAt = time.Now().UTC()
+
+	audit, err := s.SaveFlag(ctx, *flag, actor)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	now := time.Now().UTC()
+	cr.Status = domain.ChangeRequestStatusApplied
+	cr.AppliedAt = &now
+
+	_, _ = s.db.ExecContext(ctx, `
+		UPDATE change_requests
+		SET status = $1, applied_at = $2
+		WHERE id = $3
+	`, cr.Status, cr.AppliedAt, id)
+
+	return flag, cr, audit, nil
 }

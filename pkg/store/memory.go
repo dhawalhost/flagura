@@ -14,11 +14,13 @@ import (
 )
 
 type MemoryStore struct {
-	mu        sync.RWMutex
-	flags     []domain.FeatureFlag
-	auditLogs []domain.AuditLogEntry
-	users     map[string]domain.User    // indexed by email and id
-	sessions  map[string]domain.Session // indexed by token
+	mu             sync.RWMutex
+	flags          []domain.FeatureFlag
+	auditLogs      []domain.AuditLogEntry
+	events         []domain.ExperimentEvent
+	users          map[string]domain.User    // indexed by email and id
+	sessions       map[string]domain.Session // indexed by token
+	changeRequests map[string]domain.ChangeRequest
 }
 
 func getSeedFlags() []domain.FeatureFlag {
@@ -375,10 +377,11 @@ func getSeedAuditLogs() []domain.AuditLogEntry {
 
 func NewMemoryStore() *MemoryStore {
 	store := &MemoryStore{
-		flags:     getSeedFlags(),
-		auditLogs: getSeedAuditLogs(),
-		users:     make(map[string]domain.User),
-		sessions:  make(map[string]domain.Session),
+		flags:          getSeedFlags(),
+		auditLogs:      getSeedAuditLogs(),
+		users:          make(map[string]domain.User),
+		sessions:       make(map[string]domain.Session),
+		changeRequests: make(map[string]domain.ChangeRequest),
 	}
 
 	// Seed a default administrator with hashed password for immediate local access
@@ -706,5 +709,152 @@ func (s *MemoryStore) Reset(ctx context.Context) error {
 
 	s.flags = getSeedFlags()
 	s.auditLogs = getSeedAuditLogs()
+	s.events = nil
 	return nil
+}
+
+func (s *MemoryStore) RecordExperimentEvents(ctx context.Context, events []domain.ExperimentEvent) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, ev := range events {
+		if ev.Timestamp.IsZero() {
+			ev.Timestamp = time.Now().UTC()
+		}
+		s.events = append(s.events, ev)
+	}
+
+	// Cap memory storage to last 100,000 events to prevent unbounded growth
+	if len(s.events) > 100000 {
+		s.events = s.events[len(s.events)-100000:]
+	}
+
+	return nil
+}
+
+func (s *MemoryStore) GetExperimentEvents(ctx context.Context, flagKey string, limit int) ([]domain.ExperimentEvent, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var matched []domain.ExperimentEvent
+	for i := len(s.events) - 1; i >= 0; i-- {
+		ev := s.events[i]
+		if flagKey == "" || ev.FlagKey == flagKey {
+			matched = append(matched, ev)
+			if limit > 0 && len(matched) >= limit {
+				break
+			}
+		}
+	}
+	return matched, nil
+}
+
+func (s *MemoryStore) CreateChangeRequest(ctx context.Context, cr domain.ChangeRequest) (*domain.ChangeRequest, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now().UTC()
+	if cr.ID == "" {
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		cr.ID = fmt.Sprintf("cr_%d_%s", now.UnixNano(), hex.EncodeToString(b))
+	}
+	cr.Status = domain.ChangeRequestStatusPending
+	cr.CreatedAt = now
+
+	s.changeRequests[cr.ID] = cr
+	return &cr, nil
+}
+
+func (s *MemoryStore) GetChangeRequest(ctx context.Context, id string) (*domain.ChangeRequest, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	cr, ok := s.changeRequests[id]
+	if !ok {
+		return nil, fmt.Errorf("change request not found: %s", id)
+	}
+	return &cr, nil
+}
+
+func (s *MemoryStore) ListChangeRequests(ctx context.Context, status domain.ChangeRequestStatus) ([]domain.ChangeRequest, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var result []domain.ChangeRequest
+	for _, cr := range s.changeRequests {
+		if status == "" || cr.Status == status {
+			result = append(result, cr)
+		}
+	}
+	return result, nil
+}
+
+func (s *MemoryStore) ReviewChangeRequest(ctx context.Context, id, reviewerID, reviewerEmail, reviewerName string, approved bool, comments string) (*domain.ChangeRequest, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	cr, ok := s.changeRequests[id]
+	if !ok {
+		return nil, fmt.Errorf("change request not found: %s", id)
+	}
+
+	if err := cr.Review(reviewerID, reviewerEmail, reviewerName, approved, comments); err != nil {
+		return nil, err
+	}
+
+	s.changeRequests[id] = cr
+	return &cr, nil
+}
+
+func (s *MemoryStore) ApplyChangeRequest(ctx context.Context, id string, actor string) (*domain.FeatureFlag, *domain.ChangeRequest, *domain.AuditLogEntry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	cr, ok := s.changeRequests[id]
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("change request not found: %s", id)
+	}
+
+	if cr.Status != domain.ChangeRequestStatusApproved {
+		return nil, nil, nil, fmt.Errorf("cannot apply change request with status '%s' (must be APPROVED)", cr.Status)
+	}
+
+	// Locate target flag
+	var targetIdx = -1
+	for i, f := range s.flags {
+		if f.Key == cr.FlagKey || f.ID == cr.FlagKey {
+			targetIdx = i
+			break
+		}
+	}
+	if targetIdx == -1 {
+		return nil, nil, nil, fmt.Errorf("target flag not found: %s", cr.FlagKey)
+	}
+
+	flag := s.flags[targetIdx]
+	if flag.Environments == nil {
+		flag.Environments = make(map[domain.Environment]domain.EnvironmentConfig)
+	}
+	flag.Environments[cr.Environment] = cr.ProposedConfig
+	flag.UpdatedAt = time.Now().UTC()
+	s.flags[targetIdx] = flag
+
+	now := time.Now().UTC()
+	cr.Status = domain.ChangeRequestStatusApplied
+	cr.AppliedAt = &now
+	s.changeRequests[id] = cr
+
+	audit := domain.AuditLogEntry{
+		ID:          fmt.Sprintf("audit_%d", now.UnixNano()),
+		FlagKey:     flag.Key,
+		Action:      "APPLY_CHANGE_REQUEST",
+		Environment: cr.Environment,
+		Actor:       actor,
+		Timestamp:   now,
+		Details:     fmt.Sprintf("Applied ChangeRequest %s by reviewer %s for %s", id, cr.ReviewerEmail, cr.Environment),
+	}
+	s.auditLogs = append([]domain.AuditLogEntry{audit}, s.auditLogs...)
+
+	return &flag, &cr, &audit, nil
 }

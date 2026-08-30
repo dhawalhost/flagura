@@ -189,6 +189,34 @@ export class FlaguraClient {
   }
 
   /**
+   * Tracks an experiment conversion event.
+   */
+  async track(flagKey: string, variant: string, metricName: string, value: number = 1.0, userId: string = ''): Promise<void> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (this.apiKey) {
+      headers['Authorization'] = `Bearer ${this.apiKey}`;
+    }
+
+    await fetch(`${this.endpoint}/api/v1/events`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        event: {
+          flag_key: flagKey,
+          variant,
+          metric_name: metricName,
+          value,
+          user_id: userId,
+          environment: this.defaultEnvironment,
+          timestamp: new Date().toISOString(),
+        },
+      }),
+    });
+  }
+
+  /**
    * Closes active streaming connections.
    */
   close(): void {
