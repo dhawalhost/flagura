@@ -42,6 +42,19 @@ func TestExperimentIngestAndReportFlow(t *testing.T) {
 		t.Fatalf("failed to create server: %v", err)
 	}
 
+	// Create user and auth cookie
+	user, _ := memStore.CreateUser(context.Background(), domain.User{
+		Email: "analyst@company.com",
+		Role:  domain.RoleDeveloper,
+	})
+	token := "analyst_session_token_123"
+	_ = memStore.CreateSession(context.Background(), domain.Session{
+		Token:     token,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+	})
+	cookie := &http.Cookie{Name: SessionCookieName, Value: token}
+
 	// 1. Ingest batch of conversion events
 	eventsPayload := map[string]interface{}{
 		"events": []map[string]interface{}{
@@ -76,6 +89,7 @@ func TestExperimentIngestAndReportFlow(t *testing.T) {
 
 	// 2. Query statistical report via GET /api/v1/experiments/pricing-experiment
 	getReq := httptest.NewRequest(http.MethodGet, "/api/v1/experiments/pricing-experiment?metric=checkout_completed&control=tier_a", nil)
+	getReq.AddCookie(cookie)
 	getRec := httptest.NewRecorder()
 
 	server.ServeHTTP(getRec, getReq)

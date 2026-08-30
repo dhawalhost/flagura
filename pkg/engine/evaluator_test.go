@@ -7,12 +7,12 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
-func sampleFlag() domain.FeatureFlag {
+func sampleRuleFlag() domain.FeatureFlag {
 	return domain.FeatureFlag{
-		ID:          "flag_test",
-		Key:         "ai-smart-search",
-		Name:        "AI Smart Search",
-		Type:        "boolean",
+		ID:   "flag_test_rules",
+		Key:  "ai-smart-search",
+		Name: "AI Smart Search",
+		Type: "boolean",
 		Environments: map[domain.Environment]domain.EnvironmentConfig{
 			domain.EnvProduction: {
 				Enabled:    true,
@@ -27,6 +27,14 @@ func sampleFlag() domain.FeatureFlag {
 						Values:    []string{"@flagship.dev"},
 						Action:    domain.ActionForceEnabled,
 					},
+					{
+						ID:        "rule_regex_qa",
+						Name:      "QA Regex Pattern",
+						Attribute: domain.AttrUserID,
+						Operator:  domain.OpRegex,
+						Values:    []string{`^qa_usr_[0-9]+$`},
+						Action:    domain.ActionForceEnabled,
+					},
 				},
 				Variants: []domain.FlagVariant{
 					{Key: "control", Name: "Control", Value: false, Weight: 65},
@@ -39,8 +47,26 @@ func sampleFlag() domain.FeatureFlag {
 	}
 }
 
+func samplePercentageFlag() domain.FeatureFlag {
+	return domain.FeatureFlag{
+		ID:   "flag_test_percentage",
+		Key:  "checkout-v2",
+		Name: "New Checkout Flow",
+		Type: "boolean",
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {
+				Enabled:    true,
+				Strategy:   domain.StrategyPercentage,
+				Percentage: 50,
+			},
+		},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+}
+
 func TestEvaluateFlag(t *testing.T) {
-	flag := sampleFlag()
+	flag := sampleRuleFlag()
 
 	// 1. Test Staff Match Rule
 	ctxStaff := domain.EvaluationContext{
@@ -53,20 +79,31 @@ func TestEvaluateFlag(t *testing.T) {
 		t.Fatalf("Expected targeting rule match, got: %v (%s)", res1.Enabled, res1.Reason)
 	}
 
-	// 2. Test Non-Staff
-	ctxOther := domain.EvaluationContext{
-		UserID:      "usr_2",
-		Email:       "bob@example.com",
+	// 2. Test Regex Match Rule
+	ctxQA := domain.EvaluationContext{
+		UserID:      "qa_usr_42",
+		Email:       "tester@example.com",
 		Environment: domain.EnvProduction,
 	}
-	res2 := EvaluateFlag(flag, ctxOther)
-	if !res2.Enabled {
-		t.Logf("Evaluated default: %s (enabled=%v)", res2.Reason, res2.Enabled)
+	resQA := EvaluateFlag(flag, ctxQA)
+	if !resQA.Enabled || resQA.Reason != domain.ReasonTargetingRuleMatch {
+		t.Fatalf("Expected regex targeting rule match, got: %v (%s)", resQA.Enabled, resQA.Reason)
+	}
+
+	// 3. Test Pure Percentage Rollout
+	pctFlag := samplePercentageFlag()
+	ctxUserA := domain.EvaluationContext{
+		UserID:      "usr_100",
+		Environment: domain.EnvProduction,
+	}
+	resPct := EvaluateFlag(pctFlag, ctxUserA)
+	if resPct.Reason != domain.ReasonPercentageBucket && resPct.Reason != domain.ReasonPercentageExcluded {
+		t.Fatalf("Expected percentage rollout evaluation reason, got: %s", resPct.Reason)
 	}
 }
 
 func BenchmarkEvaluateFlag_PercentageRollout(b *testing.B) {
-	flag := sampleFlag()
+	flag := samplePercentageFlag()
 	ctx := domain.EvaluationContext{
 		UserID:      "bench_usr_123",
 		Email:       "user@external.com",
@@ -82,10 +119,25 @@ func BenchmarkEvaluateFlag_PercentageRollout(b *testing.B) {
 }
 
 func BenchmarkEvaluateFlag_TargetingRuleMatch(b *testing.B) {
-	flag := sampleFlag()
+	flag := sampleRuleFlag()
 	ctx := domain.EvaluationContext{
 		UserID:      "bench_usr_staff",
 		Email:       "alice@flagship.dev",
+		Environment: domain.EnvProduction,
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = EvaluateFlag(flag, ctx)
+	}
+}
+
+func BenchmarkEvaluateFlag_RegexRule(b *testing.B) {
+	flag := sampleRuleFlag()
+	ctx := domain.EvaluationContext{
+		UserID:      "qa_usr_999",
+		Email:       "external@gmail.com",
 		Environment: domain.EnvProduction,
 	}
 
@@ -118,7 +170,7 @@ func BenchmarkGetStickyBucket(b *testing.B) {
 }
 
 func TestEvaluateFlagWithTrace(t *testing.T) {
-	flag := sampleFlag()
+	flag := sampleRuleFlag()
 
 	// 1. Trace rule match
 	ctxStaff := domain.EvaluationContext{
@@ -147,5 +199,3 @@ func TestEvaluateFlagWithTrace(t *testing.T) {
 		t.Fatalf("expected first step in trace to be kill-switch failed")
 	}
 }
-
-

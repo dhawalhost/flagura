@@ -65,4 +65,7 @@ func TestCLIApiInteraction(t *testing.T) {
 	if len(evalBody) == 0 {
 		t.Fatalf("expected non-empty evaluation body")
 	}
+
+	// Test audit/scan execution
+	runAudit(".", false)
 }

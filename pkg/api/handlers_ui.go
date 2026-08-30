@@ -64,9 +64,10 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logs, _ := s.store.ListAuditLogs(r.Context(), 20)
+	changeRequests, _ := s.store.ListChangeRequests(r.Context(), "")
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	component := views.Dashboard(user, flags, logs, s.store.DriverName())
+	component := views.Dashboard(user, flags, logs, changeRequests, s.store.DriverName())
 	if err := component.Render(r.Context(), w); err != nil {
 		http.Error(w, "Templ Render Error: "+err.Error(), http.StatusInternalServerError)
 	}

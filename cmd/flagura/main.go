@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -17,7 +18,7 @@ import (
 )
 
 var (
-	version  = "v1.2.0"
+	version  = "v1.4.0"
 	endpoint string
 	apiKey   string
 	env      string
@@ -142,11 +143,13 @@ func main() {
 			subCmd = fs.Arg(0)
 		}
 		runChangeRequest(subCmd, fs.Args(), *statusFlag, *commentsFlag)
-	case "clean-up", "cleanup":
+	case "audit", "scan", "clean-up", "cleanup":
+		dirFlag := fs.String("dir", ".", "Root directory of codebase to scan")
+		failOnStale := fs.Bool("fail-on-stale", false, "Exit with error code 1 if stale flags are detected")
 		if err := fs.Parse(os.Args[2:]); err != nil {
 			os.Exit(1)
 		}
-		runCleanup()
+		runAudit(*dirFlag, *failOnStale)
 	case "health":
 		if err := fs.Parse(os.Args[2:]); err != nil {
 			os.Exit(1)
@@ -178,7 +181,7 @@ Commands:
   canary <key>              Manage automated progressive canary ramp & guardrails
   change-request [list|approve|reject|apply]
                             Enforce 4-Eyes principle change approval governance
-  clean-up                  Scan and report technical debt & stale flags
+  audit, scan, clean-up     Scan codebase files for technical debt & stale flag checks
   health                    Check connection to the Flagura control plane
   version                   Print CLI version
   help                      Show this help message
@@ -187,6 +190,8 @@ Flags:
   --endpoint <url>          Flagura control plane URL (default: $FLAGURA_ENDPOINT or http://localhost:3000)
   --api-key <key>           API key for authentication (default: $FLAGURA_API_KEY)
   --env <name>              Target environment: production, staging, development (default: production)
+  --dir <path>              Codebase directory to scan during audit (default: .)
+  --fail-on-stale           Exit with code 1 if stale/dead flags are found (useful in CI/CD)
   --json                    Output results as raw formatted JSON
 
 Examples:
@@ -195,7 +200,7 @@ Examples:
   flagura rollout ai-smart-search 50%% --env=production
   flagura evaluate ai-smart-search --user=usr_alex_42 --trace
   flagura promote ai-smart-search --from=staging --to=production
-  flagura clean-up
+  flagura audit --dir=. --fail-on-stale
 `, version)
 }
 
@@ -463,7 +468,7 @@ func runPromote(key string, from string, to string) {
 	fmt.Printf("✓ Successfully promoted flag %q from %s to %s.\n", key, from, to)
 }
 
-func runCleanup() {
+func runAudit(dir string, failOnStale bool) {
 	_, body, err := makeRequest(http.MethodGet, "/api/v1/flags", nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -478,30 +483,107 @@ func runCleanup() {
 		os.Exit(1)
 	}
 
-	staleCount := 0
-	fmt.Println("\n🧹 Flagura Technical Debt & Stale Flag Report")
-	fmt.Println("─────────────────────────────────────────────")
-
-	for _, f := range data.Flags {
-		report := domain.AnalyzeFlagHealth(f)
-		if report.IsStale {
-			staleCount++
-			icon := "⚠️"
-			if report.Status == domain.HealthStatusStale {
-				icon = "✨"
-			}
-			fmt.Printf("\n%s Flag: %s (%s)\n", icon, f.Key, report.Status)
-			fmt.Printf("  Reason: %s\n", report.Reason)
-			fmt.Printf("  Action: %s\n", report.SuggestedAction)
-		}
+	extensions := map[string]bool{
+		".go": true, ".ts": true, ".js": true, ".tsx": true, ".jsx": true,
+		".py": true, ".rs": true, ".java": true, ".kt": true, ".swift": true,
 	}
+
+	type FlagAuditItem struct {
+		Flag        domain.FeatureFlag
+		Health      domain.FlagHealthReport
+		Occurrences int
+		Files       []string
+	}
+
+	var items []FlagAuditItem
+	for _, f := range data.Flags {
+		items = append(items, FlagAuditItem{
+			Flag:   f,
+			Health: domain.AnalyzeFlagHealth(f),
+		})
+	}
+
+	if dir != "" {
+		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() {
+				if info != nil && (info.Name() == ".git" || info.Name() == "node_modules" || info.Name() == "vendor") {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+
+			ext := filepath.Ext(path)
+			if !extensions[ext] {
+				return nil
+			}
+
+			cleanPath := filepath.Clean(path)
+			// Skip symlinks to prevent TOCTOU traversal (CWE-367)
+			if info.Mode()&os.ModeSymlink != 0 {
+				return nil
+			}
+
+			// #nosec G304 G122 -- path is bounded by directory walk and cleaned
+			content, err := os.ReadFile(cleanPath)
+			if err != nil {
+				return nil
+			}
+			contentStr := string(content)
+
+			for i := range items {
+				k := items[i].Flag.Key
+				if strings.Contains(contentStr, `"`+k+`"`) || strings.Contains(contentStr, `'`+k+`'`) {
+					items[i].Occurrences++
+					items[i].Files = append(items[i].Files, path)
+				}
+			}
+
+			return nil
+		})
+	}
+
+	if jsonOut {
+		_ = json.NewEncoder(os.Stdout).Encode(items)
+		return
+	}
+
+	staleCount := 0
+	fmt.Println("\n🧹 Flagura Codebase Audit & Technical Debt Report")
+	fmt.Println("─────────────────────────────────────────────────────────────────")
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "STATUS\tFLAG KEY\tHEALTH STATE\tCODE REFS\tRECOMMENDATION")
+	fmt.Fprintln(w, "------\t--------\t------------\t---------\t--------------")
+
+	for _, item := range items {
+		statusIcon := "🟢 Active"
+		if item.Health.IsStale {
+			staleCount++
+			if item.Health.Status == domain.HealthStatusStale {
+				statusIcon = "🟡 Stale (100%)"
+			} else {
+				statusIcon = "🔴 Dead Code"
+			}
+		}
+		refCountStr := fmt.Sprintf("%d file(s)", len(item.Files))
+		if dir == "" || len(item.Files) == 0 {
+			refCountStr = "0 refs"
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", statusIcon, item.Flag.Key, item.Health.Status, refCountStr, item.Health.SuggestedAction)
+	}
+	_ = w.Flush()
 
 	if staleCount == 0 {
 		fmt.Println("\n✅ No technical debt detected! All feature flags are actively routing traffic.")
 	} else {
-		fmt.Printf("\nFound %d flag(s) ready for code cleanup.\n", staleCount)
+		fmt.Printf("\n⚠️  Found %d flag(s) ready for code cleanup.\n", staleCount)
 	}
 	fmt.Println()
+
+	if failOnStale && staleCount > 0 {
+		fmt.Printf("❌ Failed CI: Found %d stale feature flag(s) that should be removed from code.\n", staleCount)
+		os.Exit(1)
+	}
 }
 
 func runHealth() {

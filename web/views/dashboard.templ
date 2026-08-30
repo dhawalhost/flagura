@@ -4,7 +4,7 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
-templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, driverName string) {
+templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, changeRequests []domain.ChangeRequest, driverName string) {
 	@Layout("Developer Console") {
 		<div class="min-h-screen flex bg-slate-50/60">
 			<!-- Docked Left Sidebar -->
@@ -43,6 +43,9 @@ templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domai
 
 					<!-- VIEW 9: A/B Testing & Statistical Experimentation -->
 					@ExperimentModal()
+
+					<!-- VIEW 10: 4-Eyes Change Governance Approvals -->
+					@GovernanceModal(user, changeRequests)
 				</main>
 			</div>
 		</div>

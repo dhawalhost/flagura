@@ -47,11 +47,21 @@ func TestTemplComponents(t *testing.T) {
 
 	t.Run("Dashboard", func(t *testing.T) {
 		var buf bytes.Buffer
-		if err := views.Dashboard(user, flags, logs, mem.DriverName()).Render(ctx, &buf); err != nil {
+		if err := views.Dashboard(user, flags, logs, nil, mem.DriverName()).Render(ctx, &buf); err != nil {
 			t.Fatalf("Failed to render Dashboard: %v", err)
 		}
 		if buf.Len() == 0 {
 			t.Fatalf("Dashboard output is empty")
+		}
+	})
+
+	t.Run("GovernanceModal", func(t *testing.T) {
+		var buf bytes.Buffer
+		if err := views.GovernanceModal(user, nil).Render(ctx, &buf); err != nil {
+			t.Fatalf("Failed to render GovernanceModal: %v", err)
+		}
+		if buf.Len() == 0 {
+			t.Fatalf("GovernanceModal output is empty")
 		}
 	})
 

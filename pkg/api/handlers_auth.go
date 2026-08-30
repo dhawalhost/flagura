@@ -84,8 +84,24 @@ func (s *Server) getUserFromRequest(r *http.Request) (*domain.User, error) {
 		}
 	}
 
+	// 3. Fallback to X-API-Key Header
 	if token == "" {
-		return nil, fmt.Errorf("no session token found")
+		token = r.Header.Get("X-API-Key")
+	}
+
+	if token == "" {
+		return nil, fmt.Errorf("no session token or API key found")
+	}
+
+	// Check master API key if configured
+	apiKeyEnv := os.Getenv("FLAGURA_API_KEY")
+	if apiKeyEnv != "" && token == apiKeyEnv {
+		return &domain.User{
+			ID:    "usr_api_key_service",
+			Email: "api-service@flagura.dev",
+			Name:  "API Service Account",
+			Role:  domain.RoleAdmin,
+		}, nil
 	}
 
 	sess, err := s.store.GetSession(r.Context(), token)
@@ -126,9 +142,10 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 	if req.Name == "" {
 		req.Name = strings.Split(req.Email, "@")[0]
 	}
-	if req.Role == "" {
-		req.Role = domain.RoleDeveloper
-	}
+
+	// Security: Client cannot self-assign administrative roles at registration.
+	// All new registrations default strictly to RoleDeveloper. Role elevation requires an admin.
+	userRole := domain.RoleDeveloper
 
 	// Check if user exists
 	if _, err := s.store.GetUserByEmail(r.Context(), req.Email); err == nil {
@@ -147,7 +164,7 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 		Email:        req.Email,
 		PasswordHash: string(hashedBytes),
 		Name:         req.Name,
-		Role:         req.Role,
+		Role:         userRole,
 	}
 
 	createdUser, err := s.store.CreateUser(r.Context(), user)

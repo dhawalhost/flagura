@@ -3,6 +3,7 @@ package api
 import (
 	"io/fs"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -80,7 +81,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/flags", s.apiLimiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			s.handleGetFlags(w, r)
+			s.RequireAuth(s.handleGetFlags)(w, r)
 		case http.MethodPost:
 			s.RequireAuth(s.handleCreateFlag)(w, r)
 		default:
@@ -91,7 +92,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/flags/", s.apiLimiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.Contains(path, "/canary") {
-			s.handleCanaryRoutes(w, r)
+			s.RequireAuth(s.handleCanaryRoutes)(w, r)
 			return
 		}
 		if strings.HasSuffix(path, "/toggle") {
@@ -114,7 +115,7 @@ func (s *Server) routes() {
 		}
 		if strings.HasSuffix(path, "/experiment") {
 			if r.Method == http.MethodGet {
-				s.handleGetExperimentReport(w, r)
+				s.RequireAuth(s.handleGetExperimentReport)(w, r)
 				return
 			}
 		}
@@ -130,9 +131,9 @@ func (s *Server) routes() {
 	}))
 
 	s.mux.HandleFunc("/api/v1/events", s.apiLimiter.LimitHandler(s.handleIngestEvents))
-	s.mux.HandleFunc("/api/v1/experiments/", s.apiLimiter.LimitHandler(s.handleGetExperimentReport))
-	s.mux.HandleFunc("/api/v1/change-requests", s.apiLimiter.LimitHandler(s.handleListOrCreateChangeRequests))
-	s.mux.HandleFunc("/api/v1/change-requests/", s.apiLimiter.LimitHandler(s.handleChangeRequestItem))
+	s.mux.HandleFunc("/api/v1/experiments/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetExperimentReport)))
+	s.mux.HandleFunc("/api/v1/change-requests", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleListOrCreateChangeRequests)))
+	s.mux.HandleFunc("/api/v1/change-requests/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleChangeRequestItem)))
 
 	s.mux.HandleFunc("/api/v1/evaluate", s.apiLimiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
@@ -150,7 +151,7 @@ func (s *Server) routes() {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}))
 
-	s.mux.HandleFunc("/api/v1/audit-logs", s.handleGetAuditLogs)
+	s.mux.HandleFunc("/api/v1/audit-logs", s.RequireAuth(s.handleGetAuditLogs))
 	s.mux.HandleFunc("/api/v1/reset", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -161,10 +162,20 @@ func (s *Server) routes() {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Enable CORS for API requests
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	origin := r.Header.Get("Origin")
+	allowedOrigin := os.Getenv("FLAGURA_ALLOWED_ORIGIN")
+	if allowedOrigin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+	} else if origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+	} else {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+	}
+
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Actor")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, X-Webhook-Secret, X-Actor")
 
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)

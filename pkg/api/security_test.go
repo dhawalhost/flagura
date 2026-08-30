@@ -61,6 +61,18 @@ func TestUnauthenticatedMutationEndpoints(t *testing.T) {
 		body   string
 	}{
 		{
+			name:   "Read Flags Unauthenticated",
+			method: http.MethodGet,
+			path:   "/api/v1/flags",
+			body:   "",
+		},
+		{
+			name:   "Read Audit Logs Unauthenticated",
+			method: http.MethodGet,
+			path:   "/api/v1/audit-logs",
+			body:   "",
+		},
+		{
 			name:   "Create Flag Unauthenticated",
 			method: http.MethodPost,
 			path:   "/api/v1/flags",

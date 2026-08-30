@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/engine"
+	"github.com/dhawalhost/flagura/pkg/telemetry"
 )
 
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
@@ -33,51 +35,7 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
-	flags, _ := s.store.ListFlags(r.Context())
-	uptime := time.Since(s.startTime).Seconds()
-	totalEvals := atomic.LoadUint64(&s.evalCount)
-
-	prodEnabled := 0
-	stagingEnabled := 0
-	devEnabled := 0
-	for _, f := range flags {
-		if f.EnvConfig("production").Enabled {
-			prodEnabled++
-		}
-		if f.EnvConfig("staging").Enabled {
-			stagingEnabled++
-		}
-		if f.EnvConfig("development").Enabled {
-			devEnabled++
-		}
-	}
-
-	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-	fmt.Fprintf(w, "# HELP flagura_up 1 if the service is operational\n")
-	fmt.Fprintf(w, "# TYPE flagura_up gauge\n")
-	fmt.Fprintf(w, "flagura_up 1\n\n")
-
-	fmt.Fprintf(w, "# HELP flagura_build_info Version and metadata\n")
-	fmt.Fprintf(w, "# TYPE flagura_build_info gauge\n")
-	fmt.Fprintf(w, "flagura_build_info{version=\"1.1.0\",engine=\"deterministic-fastpath\"} 1\n\n")
-
-	fmt.Fprintf(w, "# HELP flagura_uptime_seconds Engine uptime in seconds\n")
-	fmt.Fprintf(w, "# TYPE flagura_uptime_seconds gauge\n")
-	fmt.Fprintf(w, "flagura_uptime_seconds %.2f\n\n", uptime)
-
-	fmt.Fprintf(w, "# HELP flagura_evaluations_total Total flag evaluations served\n")
-	fmt.Fprintf(w, "# TYPE flagura_evaluations_total counter\n")
-	fmt.Fprintf(w, "flagura_evaluations_total %d\n\n", totalEvals)
-
-	fmt.Fprintf(w, "# HELP flagura_flags_total Total feature flags in catalog\n")
-	fmt.Fprintf(w, "# TYPE flagura_flags_total gauge\n")
-	fmt.Fprintf(w, "flagura_flags_total %d\n\n", len(flags))
-
-	fmt.Fprintf(w, "# HELP flagura_flags_enabled Total active flags by environment\n")
-	fmt.Fprintf(w, "# TYPE flagura_flags_enabled gauge\n")
-	fmt.Fprintf(w, "flagura_flags_enabled{environment=\"production\"} %d\n", prodEnabled)
-	fmt.Fprintf(w, "flagura_flags_enabled{environment=\"staging\"} %d\n", stagingEnabled)
-	fmt.Fprintf(w, "flagura_flags_enabled{environment=\"development\"} %d\n", devEnabled)
+	telemetry.PrometheusHandler(s.store)(w, r)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -324,9 +282,11 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 					res, trace := engine.EvaluateFlagWithTrace(flag, req.Context)
 					results[flag.Key] = res
 					traces[flag.Key] = trace
+					telemetry.RecordEvaluation(flag.Key, req.Context.Environment, res.Variant, res.Enabled, res.EvaluationLatencyNs)
 				} else {
 					res := engine.EvaluateFlag(flag, req.Context)
 					results[flag.Key] = res
+					telemetry.RecordEvaluation(flag.Key, req.Context.Environment, res.Variant, res.Enabled, res.EvaluationLatencyNs)
 				}
 			} else {
 				results[k] = domain.EvaluationResult{
@@ -346,9 +306,11 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 				res, trace := engine.EvaluateFlagWithTrace(flag, req.Context)
 				results[flag.Key] = res
 				traces[flag.Key] = trace
+				telemetry.RecordEvaluation(flag.Key, req.Context.Environment, res.Variant, res.Enabled, res.EvaluationLatencyNs)
 			} else {
 				res := engine.EvaluateFlag(flag, req.Context)
 				results[flag.Key] = res
+				telemetry.RecordEvaluation(flag.Key, req.Context.Environment, res.Variant, res.Enabled, res.EvaluationLatencyNs)
 			}
 		}
 	}
@@ -442,6 +404,54 @@ func (s *Server) handleReset(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleWebhookKillSwitch(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Security: Webhook requests must be authenticated.
+	// Check Authorization header (Bearer token), X-Webhook-Secret header, or ?token= query param.
+	webhookSecret := os.Getenv("FLAGURA_WEBHOOK_SECRET")
+	providedToken := ""
+
+	authHeader := r.Header.Get("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		providedToken = strings.TrimPrefix(authHeader, "Bearer ")
+	}
+	if providedToken == "" {
+		providedToken = r.Header.Get("X-Webhook-Secret")
+	}
+	if providedToken == "" {
+		providedToken = r.Header.Get("X-API-Key")
+	}
+	if providedToken == "" {
+		providedToken = r.URL.Query().Get("token")
+	}
+
+	authenticated := false
+
+	// Check if matching webhook secret
+	if webhookSecret != "" && providedToken != "" && providedToken == webhookSecret {
+		authenticated = true
+	} else if providedToken != "" && webhookSecret == "" {
+		// If no secret configured in env, verify against a valid user session or API token
+		if sess, err := s.store.GetSession(r.Context(), providedToken); err == nil && sess != nil && !sess.IsExpired() {
+			authenticated = true
+		}
+	}
+
+	// Also check if caller has an active authenticated session cookie
+	if !authenticated {
+		if user, err := s.getUserFromRequest(r); err == nil && user != nil {
+			authenticated = true
+		}
+	}
+
+	if !authenticated {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "Unauthorized",
+			"message": "Webhook authentication failed. Provide a valid Bearer token, X-Webhook-Secret header, or active session.",
+		})
 		return
 	}
 

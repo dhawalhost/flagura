@@ -5,13 +5,13 @@
 ![Flagura Banner](https://img.shields.io/badge/Flagura-Feature%20Engine-2563eb?style=for-the-badge&logo=go&logoColor=white)
 [![Go Report Card](https://goreportcard.com/badge/github.com/dhawalhost/flagura)](https://goreportcard.com/report/github.com/dhawalhost/flagura)
 ![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go&logoColor=white)
-![Evaluation Latency](https://img.shields.io/badge/P99%20Latency-%3C%2080ns-emerald?style=flat&logo=speedtest&logoColor=white)
+![Evaluation Latency](https://img.shields.io/badge/P50%20Latency-~109ns-emerald?style=flat&logo=speedtest&logoColor=white)
 ![Build & Tests](<https://img.shields.io/badge/Tests-Passing%20(100%25)-emerald?style=flat&logo=githubactions&logoColor=white>)
 ![OpenFeature](https://img.shields.io/badge/OpenFeature-Compatible-7c3aed?style=flat&logo=openfeature&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
 **Feature flags that disappear from your critical path.**  
-_Sub-microsecond deterministic in-memory evaluation, OpenFeature native provider, gradual rollouts, and instant kill-switch circuit breakers._
+_In-process deterministic in-memory evaluation (~100ns), OpenFeature native providers, gradual rollouts, authenticated webhook kill-switches, and 4-Eyes change governance._
 
 [Live Demo & Console](#-quickstart) • [Architecture](#-architecture) • [OpenFeature](#-openfeature-go-provider) • [API Reference](#-rest-api-reference) • [SDK Integration](#-polyglot-sdk-quickstart) • [Deployment](#-deployment-options) • [Runbooks](docs/runbooks/README.md)
 
@@ -21,21 +21,21 @@ _Sub-microsecond deterministic in-memory evaluation, OpenFeature native provider
 
 ## 📖 Overview
 
-**Flagura** is a modern, high-performance feature flag and release management engine engineered for zero-latency in-process flag evaluation. Traditional SaaS feature flagging services introduce remote HTTP network hops (~20–80ms) that slow down user interactions and degrade Core Web Vitals.
+**Flagura** is a modern, high-performance feature flag and experimentation engine engineered for in-process flag evaluation. Traditional SaaS feature flagging services introduce remote HTTP network hops (~20–80ms) that slow down user interactions and degrade Core Web Vitals.
 
-Flagura solves this by evaluating rules and percentage rollouts locally in-memory using **deterministic 64-bit FNV-1a hashing** and atomic rule bitmaps, executing in **sub-microsecond time (< 80 nanoseconds)** with zero database roundtrips on evaluation hot paths.
+Flagura evaluates rules and percentage rollouts locally in-memory using **deterministic 64-bit FNV-1a hashing** and cached targeting rule matchers, executing in **sub-microsecond time (~90ns – 220ns)** with zero database I/O on evaluation hot paths.
 
 ---
 
 ## ⚡ Key Highlights
 
-- **⚡ Sub-Microsecond Resolution:** In-memory deterministic rule engine resolving flags in 80ns – 4µs without blocking the main event loop.
+- **⚡ Sub-Microsecond Local Evaluation:** In-memory deterministic rule engine resolving flags in ~90ns – 250ns with zero remote network I/O.
 - **🌐 Native OpenFeature Provider:** Drop-in vendor-neutral `open-feature/go-sdk` integration—switch or adopt Flagura with zero code lock-in.
-- **🛡️ Resilient Offline Snapshot Mode:** SDK caches rules to disk and boots seamlessly during server outages with zero request failures.
-- **🎯 Deterministic Sticky Percentage Bucketing:** Pure mathematical FNV-1a 64-bit hashing ensures users consistently land in the exact same rollout bucket across all sessions and platforms.
-- **🚨 Instant Master Kill-Switch:** 1-click edge circuit breaker to instantly shut down buggy features in production with zero code redeployments.
-- **📊 Production Observability:** Built-in Prometheus `/metrics` endpoint and Kubernetes `/healthz`, `/livez`, `/readyz` probes.
-- **💎 Clean, Stripe-Grade UI/UX:** Docked developer console, interactive switchboard playground, live evaluation sandbox, latency benchmark suite, and immutable audit trails.
+- **🛡️ 4-Eyes Change Governance & RBAC:** Protected API endpoints, non-self-assignable roles, and multi-approver pull requests for production flag mutations.
+- **🎯 Deterministic Sticky Percentage Bucketing:** Mathematical FNV-1a 64-bit hashing ensures users consistently land in the exact same rollout bucket across sessions and platforms.
+- **🚨 Authenticated Webhook Kill-Switch:** Secure circuit breaker (`X-Webhook-Secret` or Bearer token) to immediately shut down broken flags in production.
+- **📊 A/B Testing & Statistical Engine:** Ingestion API (`/api/v1/events`) computing two-tailed pooled Z-scores, p-values, confidence intervals, and variant lift in sub-35µs.
+- **💎 Clean Developer Console:** Built with Go, Templ, and Tailwind CSS featuring an interactive switchboard, live evaluator sandbox, and append-only audit trail.
 
 ---
 
@@ -44,12 +44,14 @@ Flagura solves this by evaluating rules and percentage rollouts locally in-memor
 | Feature / Metric | ⚡ Flagura | LaunchDarkly | Unleash | Flagsmith | GrowthBook |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Core Architecture** | **Go (Native Binary)** | Cloud SaaS / Daemon | Node.js / TypeScript | Python (Django) | TypeScript / Next.js |
-| **P50 Evaluation Latency** | **`123 nanoseconds`** | ~25 µs (SDK) / ~35ms | ~25 µs | ~50 µs | ~30 µs |
+| **P50 Local Evaluation Latency** | **`~109 ns`** | ~25 µs (In-Process SDK) | ~25 µs (Proxy SDK) | ~50 µs | ~30 µs |
 | **Memory Footprint** | **`~35 MB`** | High (Relay Daemon) | `~450 MB – 800 MB` | `~400 MB – 1 GB` | `~350 MB – 600 MB` |
 | **Pricing Model** | **100% Free & Open Source** | **$500 – $5,000+/mo** | Freemium ($80+/mo) | Freemium ($45+/mo) | Freemium ($20+/mo) |
 | **Zero DB I/O on Evaluation** | **✅ Yes (In-Memory)** | ⚠️ Requires Proxy | ⚠️ Requires Redis/Proxy | ❌ Queries DB/Cache | ⚠️ Requires Cache |
 | **Data Privacy (Self-Hostable)** | **✅ 100% (Your DB)** | ❌ 3rd-Party SaaS | ✅ Yes | ✅ Yes | ✅ Yes |
 | **Deployment Model** | **Single Binary / Docker / Vercel** | Cloud SaaS Only | Multi-tier (Node + Redis + DB) | Multi-tier (Django + DB) | Multi-tier (Next + DB) |
+
+> **Benchmark Methodology:** Evaluated on Apple M3 Pro using standard Go benchmarks (`go test -bench=. -benchmem ./pkg/engine/...`): Percentage Rollout ~109 ns (32 B/op), Rule Match ~90 ns (16 B/op), Bare FNV-1a Hash ~13 ns (0 B/op). Competitor metrics reflect typical client SDK in-memory evaluation / relay daemon documentation.
 
 [👉 Read full architectural comparison in documentation](docs/product/comparison.md)
 

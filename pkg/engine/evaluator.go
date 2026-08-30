@@ -8,10 +8,25 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
+
+var regexCache sync.Map // pattern string -> *regexp.Regexp
+
+func getOrCompileRegex(patternStr string) (*regexp.Regexp, error) {
+	if val, ok := regexCache.Load(patternStr); ok {
+		return val.(*regexp.Regexp), nil
+	}
+	re, err := regexp.Compile("(?i)" + patternStr)
+	if err != nil {
+		return nil, err
+	}
+	regexCache.Store(patternStr, re)
+	return re, nil
+}
 
 // FNV1a64 computes deterministic 64-bit FNV-1a hash
 func FNV1a64(input string) uint64 {
@@ -22,12 +37,35 @@ func FNV1a64(input string) uint64 {
 
 // GetStickyBucket computes sticky percentage bucket (0.00 to 99.99)
 func GetStickyBucket(identifier string, salt string) (float64, string) {
-	combined := fmt.Sprintf("%s:%s", identifier, salt)
+	combined := identifier + ":" + salt
 	hash := FNV1a64(combined)
 	slot := float64(hash % 10000)
 	bucket := math.Round((slot/100.0)*100) / 100
-	hashRaw := fmt.Sprintf("%016x", hash)
+	hashRaw := strconv.FormatUint(hash, 16)
 	return bucket, hashRaw
+}
+
+// toStringFast converts primitive types to string with minimal allocations.
+func toStringFast(val interface{}) string {
+	switch v := val.(type) {
+	case string:
+		return strings.ToLower(strings.TrimSpace(v))
+	case fmt.Stringer:
+		return strings.ToLower(strings.TrimSpace(v.String()))
+	case bool:
+		if v {
+			return "true"
+		}
+		return "false"
+	case int:
+		return strconv.Itoa(v)
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	default:
+		return strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", v)))
+	}
 }
 
 // EvaluateRule checks if targeting rule condition matches context
@@ -55,7 +93,7 @@ func EvaluateRule(rule domain.TargetingRule, ctx domain.EvaluationContext) bool 
 		return false
 	}
 
-	strVal := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", targetVal)))
+	strVal := toStringFast(targetVal)
 	if strVal == "" {
 		return false
 	}
@@ -143,11 +181,11 @@ func EvaluateRule(rule domain.TargetingRule, ctx domain.EvaluationContext) bool 
 		if len(rule.Values) == 0 {
 			return false
 		}
-		pattern, err := regexp.Compile("(?i)" + rule.Values[0])
+		pattern, err := getOrCompileRegex(rule.Values[0])
 		if err != nil {
 			return false
 		}
-		return pattern.MatchString(fmt.Sprintf("%v", targetVal))
+		return pattern.MatchString(strVal)
 
 	default:
 		return false
@@ -160,7 +198,7 @@ func ResolveMultivariateVariant(variants []domain.FlagVariant, identifier, flagK
 		return domain.FlagVariant{Key: "default", Name: "Default", Value: true, Weight: 100}, 0, "0"
 	}
 
-	bucket, hashRaw := GetStickyBucket(identifier, fmt.Sprintf("%s:multivariate", flagKey))
+	bucket, hashRaw := GetStickyBucket(identifier, flagKey+":multivariate")
 	cumulative := 0.0
 
 	for _, v := range variants {
@@ -203,9 +241,6 @@ func EvaluateFlag(flag domain.FeatureFlag, ctx domain.EvaluationContext) domain.
 	if !envConfig.Enabled {
 		elapsed := time.Since(start)
 		ns := elapsed.Nanoseconds()
-		if ns == 0 {
-			ns = 50
-		}
 		offVar := envConfig.OffVariant
 		if offVar == "" {
 			offVar = "off"
@@ -227,9 +262,6 @@ func EvaluateFlag(flag domain.FeatureFlag, ctx domain.EvaluationContext) domain.
 			if EvaluateRule(rule, ctx) {
 				elapsed := time.Since(start)
 				ns := elapsed.Nanoseconds()
-				if ns == 0 {
-					ns = 80
-				}
 
 				if rule.Action == domain.ActionForceDisabled {
 					offVar := envConfig.OffVariant
@@ -298,9 +330,6 @@ func EvaluateFlag(flag domain.FeatureFlag, ctx domain.EvaluationContext) domain.
 
 		elapsed := time.Since(start)
 		ns := elapsed.Nanoseconds()
-		if ns == 0 {
-			ns = 80
-		}
 
 		variant := envConfig.DefaultVariant
 		if variant == "" {
@@ -337,9 +366,6 @@ func EvaluateFlag(flag domain.FeatureFlag, ctx domain.EvaluationContext) domain.
 		v, bucket, hashRaw := ResolveMultivariateVariant(envConfig.Variants, identifier, flag.Key)
 		elapsed := time.Since(start)
 		ns := elapsed.Nanoseconds()
-		if ns == 0 {
-			ns = 100
-		}
 
 		return domain.EvaluationResult{
 			FlagKey:             flag.Key,
@@ -357,9 +383,6 @@ func EvaluateFlag(flag domain.FeatureFlag, ctx domain.EvaluationContext) domain.
 	// 5. Default Boolean On
 	elapsed := time.Since(start)
 	ns := elapsed.Nanoseconds()
-	if ns == 0 {
-		ns = 50
-	}
 
 	defVar := envConfig.DefaultVariant
 	if defVar == "" {
@@ -417,9 +440,6 @@ func RunBenchmark(flag domain.FeatureFlag, env domain.Environment, iterations in
 		t0 := time.Now()
 		res := EvaluateFlag(flag, ctx)
 		durNs := time.Since(t0).Nanoseconds()
-		if durNs == 0 {
-			durNs = 60
-		}
 		latencies[i] = durNs
 
 		if res.BucketVal != nil {
@@ -449,7 +469,6 @@ func RunBenchmark(flag domain.FeatureFlag, env domain.Environment, iterations in
 		sum += l
 	}
 	avgNs := sum / int64(iterations)
-
 	opsPerSec := int64(0)
 	if totalDur.Seconds() > 0 {
 		opsPerSec = int64(float64(iterations) / totalDur.Seconds())
@@ -470,7 +489,7 @@ func RunBenchmark(flag domain.FeatureFlag, env domain.Environment, iterations in
 	}
 }
 
-// RuleEvaluationStep represents an individual inspection step during rule evaluation.
+// RuleEvaluationStep represents an individual targeting condition check
 type RuleEvaluationStep struct {
 	StepIndex int    `json:"step_index"`
 	Name      string `json:"name"`
@@ -478,23 +497,23 @@ type RuleEvaluationStep struct {
 	Detail    string `json:"detail"`
 }
 
-// EvaluationTrace contains the full chronological execution trace of why a flag resolved as it did.
+// EvaluationTrace contains comprehensive diagnostics for an evaluation request
 type EvaluationTrace struct {
-	FlagKey        string                  `json:"flag_key"`
-	Environment    domain.Environment      `json:"environment"`
-	IdentifierUsed string                  `json:"identifier_used"`
-	Steps          []RuleEvaluationStep    `json:"steps"`
+	FlagKey        string               `json:"flag_key"`
+	Environment    domain.Environment   `json:"environment"`
+	IdentifierUsed string               `json:"identifier_used"`
+	Steps          []RuleEvaluationStep `json:"steps"`
 	FinalReason    domain.EvaluationReason `json:"final_reason"`
-	FinalVariant   string                  `json:"final_variant"`
-	FinalEnabled   bool                    `json:"final_enabled"`
-	Bucket         float64                 `json:"bucket"`
-	ElapsedNs      int64                   `json:"elapsed_ns"`
+	FinalVariant   string               `json:"final_variant"`
+	FinalEnabled   bool                 `json:"final_enabled"`
+	Bucket         float64              `json:"bucket"`
+	ElapsedNs      int64                `json:"elapsed_ns"`
 }
 
-// EvaluateFlagWithTrace executes flag evaluation and generates a step-by-step audit trace for debugging.
+// EvaluateFlagWithTrace performs evaluation and builds a step-by-step diagnostics trace
 func EvaluateFlagWithTrace(flag domain.FeatureFlag, ctx domain.EvaluationContext) (domain.EvaluationResult, EvaluationTrace) {
 	start := time.Now()
-	var steps []RuleEvaluationStep
+	steps := make([]RuleEvaluationStep, 0, 4)
 	stepIdx := 1
 
 	env := ctx.Environment

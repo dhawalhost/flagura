@@ -91,6 +91,7 @@ func TestCanaryApiLifecycle(t *testing.T) {
 
 	// 2. Query active canary via GET /api/v1/flags/:key/canary
 	getReq := httptest.NewRequest(http.MethodGet, "/api/v1/flags/canary-api-test/canary", nil)
+	getReq.AddCookie(cookie)
 	getRec := httptest.NewRecorder()
 
 	server.ServeHTTP(getRec, getReq)
@@ -109,6 +110,7 @@ func TestCanaryApiLifecycle(t *testing.T) {
 	rbPayload := map[string]string{"reason": "APM P99 latency breached 500ms threshold"}
 	rbData, _ := json.Marshal(rbPayload)
 	rbReq := httptest.NewRequest(http.MethodPost, "/api/v1/flags/canary-api-test/canary/rollback", bytes.NewReader(rbData))
+	rbReq.AddCookie(cookie)
 	rbRec := httptest.NewRecorder()
 
 	server.ServeHTTP(rbRec, rbReq)

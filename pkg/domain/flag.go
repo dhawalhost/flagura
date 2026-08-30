@@ -197,3 +197,45 @@ type BenchmarkMetrics struct {
 	AvgNs           int64     `json:"avgNs"`
 	HashBuckets     [100]int  `json:"hashBuckets"`
 }
+
+// DeepCopy returns a fully independent clone of FeatureFlag to guarantee memory isolation.
+func (f FeatureFlag) DeepCopy() FeatureFlag {
+	clone := f
+	if f.Tags != nil {
+		clone.Tags = make([]string, len(f.Tags))
+		copy(clone.Tags, f.Tags)
+	}
+	if f.Environments != nil {
+		clone.Environments = make(map[Environment]EnvironmentConfig, len(f.Environments))
+		for k, v := range f.Environments {
+			clone.Environments[k] = v.DeepCopy()
+		}
+	}
+	return clone
+}
+
+// DeepCopy returns a fully independent clone of EnvironmentConfig.
+func (c EnvironmentConfig) DeepCopy() EnvironmentConfig {
+	clone := c
+	if c.Rules != nil {
+		clone.Rules = make([]TargetingRule, len(c.Rules))
+		for i, r := range c.Rules {
+			clone.Rules[i] = r.DeepCopy()
+		}
+	}
+	if c.Variants != nil {
+		clone.Variants = make([]FlagVariant, len(c.Variants))
+		copy(clone.Variants, c.Variants)
+	}
+	return clone
+}
+
+// DeepCopy returns a fully independent clone of TargetingRule.
+func (r TargetingRule) DeepCopy() TargetingRule {
+	clone := r
+	if r.Values != nil {
+		clone.Values = make([]string, len(r.Values))
+		copy(clone.Values, r.Values)
+	}
+	return clone
+}

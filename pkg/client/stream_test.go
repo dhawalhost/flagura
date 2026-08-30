@@ -37,6 +37,20 @@ func TestRealTimeStreamingSync(t *testing.T) {
 
 	ctx := context.Background()
 
+	// Seed target flag
+	_, _ = st.SaveFlag(ctx, domain.FeatureFlag{
+		ID:   "flag_rate_limiter",
+		Key:  "rate-limiter-v2",
+		Name: "Rate Limiter V2",
+		Type: "boolean",
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {
+				Enabled:  true,
+				Strategy: domain.StrategyBoolean,
+			},
+		},
+	}, "test")
+
 	// Create test authenticated developer user & session
 	devUser, _ := st.CreateUser(ctx, domain.User{
 		Email: "tester@flagura.dev",

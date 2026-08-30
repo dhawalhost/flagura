@@ -94,14 +94,26 @@ func TestWebhookKillSwitch(t *testing.T) {
 
 	client := ts.Client()
 
-	// 1. Trigger automated kill-switch via webhook
-	resp, err := client.Post(ts.URL+"/api/v1/webhooks/kill-switch/webhook-target?env=production", "application/json", nil)
+	// 1. Unauthenticated webhook request MUST be rejected with 401 Unauthorized
+	unauthResp, err := client.Post(ts.URL+"/api/v1/webhooks/kill-switch/webhook-target?env=production", "application/json", nil)
+	if err != nil || unauthResp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized for unauthenticated webhook kill-switch, got: %v (code %d)", err, unauthResp.StatusCode)
+	}
+	unauthResp.Body.Close()
+
+	// 2. Set webhook secret in environment and authenticate
+	t.Setenv("FLAGURA_WEBHOOK_SECRET", "secret_webhook_token_123")
+
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/webhooks/kill-switch/webhook-target?env=production", nil)
+	req.Header.Set("X-Webhook-Secret", "secret_webhook_token_123")
+
+	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200 OK from webhook kill-switch, got: %v (code %d)", err, resp.StatusCode)
+		t.Fatalf("expected 200 OK from authenticated webhook kill-switch, got: %v (code %d)", err, resp.StatusCode)
 	}
 	resp.Body.Close()
 
-	// 2. Verify flag is disabled
+	// 3. Verify flag is disabled
 	flag, err := memStore.GetFlag(context.Background(), "webhook-target")
 	if err != nil {
 		t.Fatalf("failed to retrieve flag: %v", err)
@@ -110,8 +122,10 @@ func TestWebhookKillSwitch(t *testing.T) {
 		t.Fatalf("expected flag to be disabled after webhook kill-switch")
 	}
 
-	// 3. Test non-existent flag returns 404
-	resp404, _ := client.Post(ts.URL+"/api/v1/webhooks/kill-switch/non-existent", "application/json", nil)
+	// 4. Test non-existent flag with valid auth returns 404
+	req404, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/webhooks/kill-switch/non-existent", nil)
+	req404.Header.Set("X-Webhook-Secret", "secret_webhook_token_123")
+	resp404, _ := client.Do(req404)
 	if resp404.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected 404 Not Found for non-existent flag, got %d", resp404.StatusCode)
 	}

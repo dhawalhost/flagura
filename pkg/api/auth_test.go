@@ -178,3 +178,36 @@ func TestProtectedDashboard(t *testing.T) {
 		t.Fatalf("Expected status 200 OK for authenticated dashboard, got: %d", wAuth.Code)
 	}
 }
+
+func TestSignupCannotSelfAssignAdminRole(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	server, _ := NewServer(memStore)
+
+	// Attacker tries to register as admin
+	payload := map[string]string{
+		"email":    "attacker@evil.com",
+		"password": "hunter2password",
+		"role":     "admin",
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/signup", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 Created, got %d", w.Code)
+	}
+
+	createdUser, err := memStore.GetUserByEmail(context.Background(), "attacker@evil.com")
+	if err != nil {
+		t.Fatalf("Failed to retrieve user: %v", err)
+	}
+
+	if createdUser.Role == domain.RoleAdmin {
+		t.Fatalf("SECURITY VULNERABILITY: User was able to self-assign RoleAdmin at signup!")
+	}
+	if createdUser.Role != domain.RoleDeveloper {
+		t.Fatalf("Expected default RoleDeveloper, got %s", createdUser.Role)
+	}
+}

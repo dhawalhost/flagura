@@ -60,14 +60,14 @@ func Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.A
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</span></button><!-- 7: SDK Quickstart --><button @click=\"activeView = 'sdk'; isMobileSidebarOpen = false;\" class=\"w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer\" :class=\"activeView === 'sdk' ? 'bg-slate-900 text-white shadow-xs font-bold' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'\"><div class=\"flex items-center gap-2.5\"><i data-lucide=\"code-2\" class=\"w-4 h-4\"></i> <span>SDK Quickstart</span></div><span class=\"text-[10px] font-mono px-2 py-0.5 rounded-full\" :class=\"activeView === 'sdk' ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-700 border border-blue-200'\">Polyglot</span></button></nav></div><!-- Bottom Status & Actions --><div class=\"space-y-3 pt-4 border-t border-slate-200\"><!-- Runtime Info Box --><div class=\"p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5\"><div class=\"flex items-center justify-between\"><span class=\"text-[10px] font-mono text-slate-500 font-semibold uppercase\">Engine Status</span> <span class=\"flex items-center gap-1 text-[10px] font-mono text-emerald-700 font-bold\"><span class=\"w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse\"></span> FNV-1a 64-bit</span></div><div class=\"text-[11px] text-slate-600 flex justify-between font-mono\"><span>Logged in as:</span> <span class=\"text-blue-700 font-bold truncate max-w-[110px]\" title=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</span></button><!-- 7: SDK Quickstart --><button @click=\"activeView = 'sdk'; isMobileSidebarOpen = false;\" class=\"w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer\" :class=\"activeView === 'sdk' ? 'bg-slate-900 text-white shadow-xs font-bold' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'\"><div class=\"flex items-center gap-2.5\"><i data-lucide=\"code-2\" class=\"w-4 h-4\"></i> <span>SDK Quickstart</span></div><span class=\"text-[10px] font-mono px-2 py-0.5 rounded-full\" :class=\"activeView === 'sdk' ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-700 border border-blue-200'\">Polyglot</span></button><!-- 8: 4-Eyes Change Approvals --><button @click=\"$dispatch('open-governance-modal'); isMobileSidebarOpen = false;\" class=\"w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer text-slate-600 hover:bg-purple-50 hover:text-purple-900\"><div class=\"flex items-center gap-2.5\"><i data-lucide=\"shield-check\" class=\"w-4 h-4 text-purple-600\"></i> <span>Change Approvals</span></div><span class=\"text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-bold\">4-Eyes</span></button></nav></div><!-- Bottom Status & Actions --><div class=\"space-y-3 pt-4 border-t border-slate-200\"><!-- Runtime Info Box --><div class=\"p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5\"><div class=\"flex items-center justify-between\"><span class=\"text-[10px] font-mono text-slate-500 font-semibold uppercase\">Engine Status</span> <span class=\"flex items-center gap-1 text-[10px] font-mono text-emerald-700 font-bold\"><span class=\"w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse\"></span> FNV-1a 64-bit</span></div><div class=\"text-[11px] text-slate-600 flex justify-between font-mono\"><span>Logged in as:</span> <span class=\"text-blue-700 font-bold truncate max-w-[110px]\" title=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(user.Email)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/sidebar.templ`, Line: 160, Col: 84}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/sidebar.templ`, Line: 174, Col: 84}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 		if templ_7745c5c3_Err != nil {
@@ -81,7 +81,7 @@ func Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.A
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(user.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/sidebar.templ`, Line: 162, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/sidebar.templ`, Line: 176, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {

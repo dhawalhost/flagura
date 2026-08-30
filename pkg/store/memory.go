@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -13,9 +14,32 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
+// FlagSnapshot is an immutable, read-optimized in-memory snapshot of feature flags.
+type FlagSnapshot struct {
+	flagsMap  map[string]domain.FeatureFlag
+	flagsList []domain.FeatureFlag
+}
+
+func newFlagSnapshot(flags []domain.FeatureFlag) *FlagSnapshot {
+	snap := &FlagSnapshot{
+		flagsMap:  make(map[string]domain.FeatureFlag, len(flags)*2),
+		flagsList: make([]domain.FeatureFlag, len(flags)),
+	}
+	for i, f := range flags {
+		fCopy := f.DeepCopy()
+		snap.flagsList[i] = fCopy
+		snap.flagsMap[f.Key] = fCopy
+		if f.ID != "" {
+			snap.flagsMap[f.ID] = fCopy
+		}
+	}
+	return snap
+}
+
 type MemoryStore struct {
-	mu             sync.RWMutex
-	flags          []domain.FeatureFlag
+	flagsSnapshot  atomic.Pointer[FlagSnapshot]
+	writeMu        sync.Mutex // serializes writes and atomic snapshot updates
+	mu             sync.RWMutex // protects mutable tables: users, sessions, auditLogs, events, changeRequests
 	auditLogs      []domain.AuditLogEntry
 	events         []domain.ExperimentEvent
 	users          map[string]domain.User    // indexed by email and id
@@ -98,34 +122,72 @@ func getSeedFlags() []domain.FeatureFlag {
 					Strategy:       domain.StrategyMultivariate,
 					Percentage:     50,
 					DefaultVariant: "standard_v1",
-					OffVariant:     "legacy_checkout",
+					OffVariant:     "standard_v1",
 					Rules: []domain.TargetingRule{
 						{
-							ID:           "rule_qa_whitelists",
-							Name:         "QA & Finance Internal Testers",
-							Attribute:    domain.AttrRole,
-							Operator:     domain.OpInList,
-							Values:       []string{"admin", "qa_engineer", "finance_lead"},
-							Action:       domain.ActionServeVariant,
-							ServeVariant: "instant_1click",
+							ID:        "rule_geo_us_eu",
+							Name:      "Tier-1 Countries (US, DE, GB)",
+							Attribute: domain.AttrCountry,
+							Operator:  domain.OpInList,
+							Values:    []string{"US", "DE", "GB"},
+							Action:    domain.ActionForceEnabled,
 						},
 					},
 					Variants: []domain.FlagVariant{
-						{Key: "legacy_checkout", Name: "Legacy 3-Step Checkout", Value: map[string]interface{}{"layout": "multi_step", "express_pay": false}, Weight: 20},
-						{Key: "instant_1click", Name: "Instant 1-Click Drawer", Value: map[string]interface{}{"layout": "drawer", "express_pay": true, "autofill": true}, Weight: 40},
-						{Key: "accordion_summary", Name: "Sticky Accordion Summary", Value: map[string]interface{}{"layout": "accordion", "express_pay": true, "discount_nudge": true}, Weight: 40},
+						{Key: "standard_v1", Name: "Multi-step Standard Form", Value: "legacy_form", Weight: 50},
+						{Key: "express_1click", Name: "Express 1-Click Apple/Google Pay", Value: "express_drawer", Weight: 50},
 					},
 				},
 				domain.EnvStaging: {
 					Enabled:        true,
-					Strategy:       domain.StrategyMultivariate,
+					Strategy:       domain.StrategyPercentage,
 					Percentage:     100,
-					DefaultVariant: "instant_1click",
-					OffVariant:     "legacy_checkout",
+					DefaultVariant: "express_1click",
+					OffVariant:     "standard_v1",
 					Rules:          []domain.TargetingRule{},
 					Variants: []domain.FlagVariant{
-						{Key: "instant_1click", Name: "Instant 1-Click Drawer", Value: map[string]interface{}{"layout": "drawer", "express_pay": true}, Weight: 100},
+						{Key: "standard_v1", Name: "Multi-step Standard Form", Value: "legacy_form", Weight: 50},
+						{Key: "express_1click", Name: "Express 1-Click Apple/Google Pay", Value: "express_drawer", Weight: 50},
 					},
+				},
+				domain.EnvDevelopment: {
+					Enabled:        true,
+					Strategy:       domain.StrategyPercentage,
+					Percentage:     100,
+					DefaultVariant: "express_1click",
+					OffVariant:     "standard_v1",
+					Rules:          []domain.TargetingRule{},
+					Variants:       []domain.FlagVariant{},
+				},
+			},
+			CreatedAt: now.Add(-7 * 24 * time.Hour),
+			UpdatedAt: now.Add(-2 * 24 * time.Hour),
+		},
+		{
+			ID:          "flag_03_dark_mode",
+			Key:         "beta-dark-theme",
+			Name:        "OLED Midnight Obsidian Dark Theme",
+			Description: "High-contrast dark mode with custom emerald neon accents and glassmorphic panels.",
+			Type:        "boolean",
+			Tags:        []string{"ui", "theme", "frontend"},
+			Environments: map[domain.Environment]domain.EnvironmentConfig{
+				domain.EnvProduction: {
+					Enabled:        true,
+					Strategy:       domain.StrategyPercentage,
+					Percentage:     100,
+					DefaultVariant: "on",
+					OffVariant:     "off",
+					Rules:          []domain.TargetingRule{},
+					Variants:       []domain.FlagVariant{},
+				},
+				domain.EnvStaging: {
+					Enabled:        true,
+					Strategy:       domain.StrategyBoolean,
+					Percentage:     100,
+					DefaultVariant: "on",
+					OffVariant:     "off",
+					Rules:          []domain.TargetingRule{},
+					Variants:       []domain.FlagVariant{},
 				},
 				domain.EnvDevelopment: {
 					Enabled:        true,
@@ -138,15 +200,15 @@ func getSeedFlags() []domain.FeatureFlag {
 				},
 			},
 			CreatedAt: now.Add(-14 * 24 * time.Hour),
-			UpdatedAt: now.Add(-2 * 24 * time.Hour),
+			UpdatedAt: now.Add(-3 * 24 * time.Hour),
 		},
 		{
-			ID:          "flag_03_crypto",
+			ID:          "flag_04_crypto_settlement",
 			Key:         "crypto-web3-settlement",
-			Name:        "USDC & Web3 Instant Settlement Gateway",
-			Description: "Direct blockchain on-ramp and USDC stablecoin treasury settlement rail.",
+			Name:        "Solana & USDC Treasury Settlement",
+			Description: "Automated sub-second merchant invoice settlement on Solana Mainnet-Beta.",
 			Type:        "boolean",
-			Tags:        []string{"payments", "web3", "experimental"},
+			Tags:        []string{"web3", "crypto", "treasury"},
 			Environments: map[domain.Environment]domain.EnvironmentConfig{
 				domain.EnvProduction: {
 					Enabled:        false,
@@ -159,8 +221,8 @@ func getSeedFlags() []domain.FeatureFlag {
 				},
 				domain.EnvStaging: {
 					Enabled:        true,
-					Strategy:       domain.StrategyPercentage,
-					Percentage:     50,
+					Strategy:       domain.StrategyBoolean,
+					Percentage:     100,
 					DefaultVariant: "on",
 					OffVariant:     "off",
 					Rules:          []domain.TargetingRule{},
@@ -176,117 +238,16 @@ func getSeedFlags() []domain.FeatureFlag {
 					Variants:       []domain.FlagVariant{},
 				},
 			},
-			CreatedAt: now.Add(-12 * 24 * time.Hour),
+			CreatedAt: now.Add(-20 * 24 * time.Hour),
 			UpdatedAt: now.Add(-4 * 24 * time.Hour),
 		},
 		{
-			ID:          "flag_04_dark_mode",
-			Key:         "dark-mode-obsidian",
-			Name:        "Obsidian Cyber-Glass Dark UI Theme",
-			Description: "High-contrast neon cyberpunk dark theme with glassmorphism surface layers.",
-			Type:        "boolean",
-			Tags:        []string{"ui", "design-system", "core"},
-			Environments: map[domain.Environment]domain.EnvironmentConfig{
-				domain.EnvProduction: {
-					Enabled:        true,
-					Strategy:       domain.StrategyPercentage,
-					Percentage:     100,
-					DefaultVariant: "on",
-					OffVariant:     "off",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-				domain.EnvStaging: {
-					Enabled:        true,
-					Strategy:       domain.StrategyPercentage,
-					Percentage:     100,
-					DefaultVariant: "on",
-					OffVariant:     "off",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-				domain.EnvDevelopment: {
-					Enabled:        true,
-					Strategy:       domain.StrategyBoolean,
-					Percentage:     100,
-					DefaultVariant: "on",
-					OffVariant:     "off",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-			},
-			CreatedAt: now.Add(-23 * 24 * time.Hour),
-			UpdatedAt: now.Add(-6 * 24 * time.Hour),
-		},
-		{
-			ID:          "flag_05_rate_limiter",
-			Key:         "rate-limiter-v2",
-			Name:        "Dynamic Edge Token Bucket Rate Limiter",
-			Description: "JSON-driven dynamic concurrency, RPM limits and burst capacity configuration per tenant.",
-			Type:        "json",
-			Tags:        []string{"infra", "security", "edge"},
-			Environments: map[domain.Environment]domain.EnvironmentConfig{
-				domain.EnvProduction: {
-					Enabled:        true,
-					Strategy:       domain.StrategyRules,
-					Percentage:     100,
-					DefaultVariant: "standard_tier",
-					OffVariant:     "legacy_limits",
-					Rules: []domain.TargetingRule{
-						{
-							ID:           "rule_enterprise_burst",
-							Name:         "Enterprise Ultra High Throughput",
-							Attribute:    domain.AttrTier,
-							Operator:     domain.OpEquals,
-							Values:       []string{"enterprise"},
-							Action:       domain.ActionServeVariant,
-							ServeVariant: "enterprise_tier",
-						},
-					},
-					Variants: []domain.FlagVariant{
-						{
-							Key:    "standard_tier",
-							Name:   "Standard Tier Quota",
-							Value:  map[string]interface{}{"max_rpm": 6000, "burst_capacity": 10000, "sliding_window_sec": 60},
-							Weight: 50,
-						},
-						{
-							Key:    "enterprise_tier",
-							Name:   "Enterprise Tier Quota",
-							Value:  map[string]interface{}{"max_rpm": 60000, "burst_capacity": 100000, "sliding_window_sec": 60},
-							Weight: 50,
-						},
-					},
-				},
-				domain.EnvStaging: {
-					Enabled:        true,
-					Strategy:       domain.StrategyBoolean,
-					Percentage:     100,
-					DefaultVariant: "standard_tier",
-					OffVariant:     "legacy_limits",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-				domain.EnvDevelopment: {
-					Enabled:        true,
-					Strategy:       domain.StrategyBoolean,
-					Percentage:     100,
-					DefaultVariant: "dev_unlimited",
-					OffVariant:     "legacy_limits",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-			},
-			CreatedAt: now.Add(-8 * 24 * time.Hour),
-			UpdatedAt: now.Add(-1 * 24 * time.Hour),
-		},
-		{
-			ID:          "flag_06_collab",
-			Key:         "realtime-collaboration-engine",
-			Name:        "CRDT WebSocket Collaborative Canvas",
-			Description: "Multi-cursor live conflict-free document and canvas editing.",
-			Type:        "boolean",
-			Tags:        []string{"realtime", "canvas", "beta"},
+			ID:          "flag_05_multiplayer_canvas",
+			Key:         "multiplayer-live-collab",
+			Name:        "Real-Time Multiplayer Canvas CRDT Engine",
+			Description: "Collaborative canvas state syncing with conflict-free replicated data types over WebSockets.",
+			Type:        "multivariate",
+			Tags:        []string{"collab", "websocket", "experimental"},
 			Environments: map[domain.Environment]domain.EnvironmentConfig{
 				domain.EnvProduction: {
 					Enabled:        true,
@@ -296,7 +257,7 @@ func getSeedFlags() []domain.FeatureFlag {
 					OffVariant:     "control",
 					Rules: []domain.TargetingRule{
 						{
-							ID:        "rule_geo_whitelist",
+							ID:        "rule_na_region",
 							Name:      "North America & UK Region Access",
 							Attribute: domain.AttrCountry,
 							Operator:  domain.OpInList,
@@ -377,12 +338,14 @@ func getSeedAuditLogs() []domain.AuditLogEntry {
 
 func NewMemoryStore() *MemoryStore {
 	store := &MemoryStore{
-		flags:          getSeedFlags(),
 		auditLogs:      getSeedAuditLogs(),
 		users:          make(map[string]domain.User),
 		sessions:       make(map[string]domain.Session),
 		changeRequests: make(map[string]domain.ChangeRequest),
 	}
+
+	initialSnap := newFlagSnapshot(getSeedFlags())
+	store.flagsSnapshot.Store(initialSnap)
 
 	// Seed a default administrator with hashed password for immediate local access
 	hash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
@@ -491,45 +454,61 @@ func (s *MemoryStore) DeleteSession(ctx context.Context, token string) error {
 	return nil
 }
 
+// ListFlags retrieves all flags from the current immutable snapshot.
 func (s *MemoryStore) ListFlags(ctx context.Context) ([]domain.FeatureFlag, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	result := make([]domain.FeatureFlag, len(s.flags))
-	copy(result, s.flags)
+	snap := s.flagsSnapshot.Load()
+	if snap == nil {
+		return nil, nil
+	}
+	result := make([]domain.FeatureFlag, len(snap.flagsList))
+	for i, f := range snap.flagsList {
+		result[i] = f.DeepCopy()
+	}
 	return result, nil
 }
 
+// GetFlag looks up a flag by key or ID from the current immutable snapshot.
 func (s *MemoryStore) GetFlag(ctx context.Context, keyOrID string) (*domain.FeatureFlag, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	for _, f := range s.flags {
-		if f.Key == keyOrID || f.ID == keyOrID {
-			return &f, nil
-		}
+	snap := s.flagsSnapshot.Load()
+	if snap == nil {
+		return nil, fmt.Errorf("flag not found: %s", keyOrID)
 	}
-	return nil, fmt.Errorf("flag not found: %s", keyOrID)
+	flag, ok := snap.flagsMap[keyOrID]
+	if !ok {
+		return nil, fmt.Errorf("flag not found: %s", keyOrID)
+	}
+	clone := flag.DeepCopy()
+	return &clone, nil
 }
 
 func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, actor string) (*domain.AuditLogEntry, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 
 	if actor == "" {
 		actor = "developer@flagura.dev"
 	}
 
+	currentSnap := s.flagsSnapshot.Load()
+	var currentList []domain.FeatureFlag
+	if currentSnap != nil {
+		currentList = currentSnap.flagsList
+	}
+
+	newList := make([]domain.FeatureFlag, len(currentList))
+	copy(newList, currentList)
+
 	now := time.Now().UTC()
 	found := false
+	flagCopy := flag.DeepCopy()
 	var log domain.AuditLogEntry
 
-	for i, f := range s.flags {
-		if f.ID == flag.ID || f.Key == flag.Key {
-			flag.ID = f.ID
-			flag.CreatedAt = f.CreatedAt
-			flag.UpdatedAt = now
-			s.flags[i] = flag
+	for i, f := range newList {
+		if f.ID == flagCopy.ID || f.Key == flagCopy.Key {
+			flagCopy.ID = f.ID
+			flagCopy.CreatedAt = f.CreatedAt
+			flagCopy.UpdatedAt = now
+			newList[i] = flagCopy
 			found = true
 
 			log = domain.AuditLogEntry{
@@ -537,72 +516,98 @@ func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 				Timestamp:   now,
 				Actor:       actor,
 				Action:      "FLAG_UPDATED",
-				FlagKey:     flag.Key,
+				FlagKey:     flagCopy.Key,
 				Environment: "all",
-				Details:     fmt.Sprintf("Updated configuration and rules for '%s'.", flag.Key),
+				Details:     fmt.Sprintf("Updated configuration and rules for '%s'.", flagCopy.Key),
 			}
 			break
 		}
 	}
 
 	if !found {
-		if flag.ID == "" {
+		if flagCopy.ID == "" {
 			b := make([]byte, 4)
 			_, _ = rand.Read(b)
-			flag.ID = fmt.Sprintf("flag_%d_%s", time.Now().Unix(), hex.EncodeToString(b))
+			flagCopy.ID = fmt.Sprintf("flag_%d_%s", time.Now().Unix(), hex.EncodeToString(b))
 		}
-		flag.CreatedAt = now
-		flag.UpdatedAt = now
-		s.flags = append([]domain.FeatureFlag{flag}, s.flags...)
+		flagCopy.CreatedAt = now
+		flagCopy.UpdatedAt = now
+		newList = append([]domain.FeatureFlag{flagCopy}, newList...)
 
 		log = domain.AuditLogEntry{
 			ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
 			Timestamp:   now,
 			Actor:       actor,
 			Action:      "FLAG_CREATED",
-			FlagKey:     flag.Key,
+			FlagKey:     flagCopy.Key,
 			Environment: "all",
-			Details:     fmt.Sprintf("Created new %s flag '%s' [%s].", flag.Type, flag.Name, flag.Key),
+			Details:     fmt.Sprintf("Created new %s flag '%s' [%s].", flagCopy.Type, flagCopy.Name, flagCopy.Key),
 		}
 	}
 
+	newSnap := newFlagSnapshot(newList)
+	s.flagsSnapshot.Store(newSnap)
+
+	s.mu.Lock()
 	s.auditLogs = append([]domain.AuditLogEntry{log}, s.auditLogs...)
+	s.mu.Unlock()
+
 	return &log, nil
 }
 
 func (s *MemoryStore) DeleteFlag(ctx context.Context, keyOrID string, actor string) (*domain.AuditLogEntry, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 
 	if actor == "" {
 		actor = "admin@flagura.dev"
 	}
 
-	for i, f := range s.flags {
-		if f.Key == keyOrID || f.ID == keyOrID {
-			deletedKey := f.Key
-			s.flags = append(s.flags[:i], s.flags[i+1:]...)
-
-			log := domain.AuditLogEntry{
-				ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
-				Timestamp:   time.Now().UTC(),
-				Actor:       actor,
-				Action:      "FLAG_DELETED",
-				FlagKey:     deletedKey,
-				Environment: "all",
-				Details:     fmt.Sprintf("Permanently removed feature flag '%s'.", deletedKey),
-			}
-			s.auditLogs = append([]domain.AuditLogEntry{log}, s.auditLogs...)
-			return &log, nil
-		}
+	currentSnap := s.flagsSnapshot.Load()
+	if currentSnap == nil {
+		return nil, fmt.Errorf("flag not found: %s", keyOrID)
 	}
 
-	return nil, fmt.Errorf("flag not found: %s", keyOrID)
+	var newList []domain.FeatureFlag
+	var deletedKey string
+	found := false
+
+	for _, f := range currentSnap.flagsList {
+		if f.Key == keyOrID || f.ID == keyOrID {
+			deletedKey = f.Key
+			found = true
+			continue
+		}
+		newList = append(newList, f)
+	}
+
+	if !found {
+		return nil, fmt.Errorf("flag not found: %s", keyOrID)
+	}
+
+	log := domain.AuditLogEntry{
+		ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
+		Timestamp:   time.Now().UTC(),
+		Actor:       actor,
+		Action:      "FLAG_DELETED",
+		FlagKey:     deletedKey,
+		Environment: "all",
+		Details:     fmt.Sprintf("Permanently removed feature flag '%s'.", deletedKey),
+	}
+
+	newSnap := newFlagSnapshot(newList)
+	s.flagsSnapshot.Store(newSnap)
+
+	s.mu.Lock()
+	s.auditLogs = append([]domain.AuditLogEntry{log}, s.auditLogs...)
+	s.mu.Unlock()
+
+	return &log, nil
 }
 
 func (s *MemoryStore) ToggleFlag(ctx context.Context, keyOrID string, env domain.Environment, enabled *bool, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 
 	if actor == "" {
 		actor = "admin@flagura.dev"
@@ -611,43 +616,67 @@ func (s *MemoryStore) ToggleFlag(ctx context.Context, keyOrID string, env domain
 		env = domain.EnvProduction
 	}
 
-	for i, f := range s.flags {
-		if f.Key == keyOrID || f.ID == keyOrID {
-			cfg := f.Environments[env]
+	currentSnap := s.flagsSnapshot.Load()
+	if currentSnap == nil {
+		return nil, nil, fmt.Errorf("flag not found: %s", keyOrID)
+	}
+
+	newList := make([]domain.FeatureFlag, len(currentSnap.flagsList))
+	var updatedFlag domain.FeatureFlag
+	var log domain.AuditLogEntry
+	found := false
+
+	for i, f := range currentSnap.flagsList {
+		flagCopy := f.DeepCopy()
+		if flagCopy.Key == keyOrID || flagCopy.ID == keyOrID {
+			cfg := flagCopy.Environments[env]
 			if enabled != nil {
 				cfg.Enabled = *enabled
 			} else {
 				cfg.Enabled = !cfg.Enabled
 			}
-			f.Environments[env] = cfg
-			f.UpdatedAt = time.Now().UTC()
-			s.flags[i] = f
+			flagCopy.Environments[env] = cfg
+			flagCopy.UpdatedAt = time.Now().UTC()
+			newList[i] = flagCopy
+			updatedFlag = flagCopy
+			found = true
 
 			statusText := "Disabled (Kill Switch)"
 			if cfg.Enabled {
 				statusText = "Enabled"
 			}
 
-			log := domain.AuditLogEntry{
+			log = domain.AuditLogEntry{
 				ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
 				Timestamp:   time.Now().UTC(),
 				Actor:       actor,
 				Action:      "KILL_SWITCH_TOGGLED",
-				FlagKey:     f.Key,
+				FlagKey:     flagCopy.Key,
 				Environment: env,
 				Details:     fmt.Sprintf("%s flag for %s environment.", statusText, env),
 			}
-			s.auditLogs = append([]domain.AuditLogEntry{log}, s.auditLogs...)
-			return &s.flags[i], &log, nil
+		} else {
+			newList[i] = flagCopy
 		}
 	}
 
-	return nil, nil, fmt.Errorf("flag not found: %s", keyOrID)
+	if !found {
+		return nil, nil, fmt.Errorf("flag not found: %s", keyOrID)
+	}
+
+	newSnap := newFlagSnapshot(newList)
+	s.flagsSnapshot.Store(newSnap)
+
+	s.mu.Lock()
+	s.auditLogs = append([]domain.AuditLogEntry{log}, s.auditLogs...)
+	s.mu.Unlock()
+
+	return &updatedFlag, &log, nil
 }
 
 func (s *MemoryStore) UpdateRollout(ctx context.Context, keyOrID string, env domain.Environment, pct float64, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 
 	if actor == "" {
 		actor = "engineer@flagura.dev"
@@ -662,33 +691,57 @@ func (s *MemoryStore) UpdateRollout(ctx context.Context, keyOrID string, env dom
 		pct = 100
 	}
 
-	for i, f := range s.flags {
-		if f.Key == keyOrID || f.ID == keyOrID {
-			cfg := f.Environments[env]
+	currentSnap := s.flagsSnapshot.Load()
+	if currentSnap == nil {
+		return nil, nil, fmt.Errorf("flag not found: %s", keyOrID)
+	}
+
+	newList := make([]domain.FeatureFlag, len(currentSnap.flagsList))
+	var updatedFlag domain.FeatureFlag
+	var log domain.AuditLogEntry
+	found := false
+
+	for i, f := range currentSnap.flagsList {
+		flagCopy := f.DeepCopy()
+		if flagCopy.Key == keyOrID || flagCopy.ID == keyOrID {
+			cfg := flagCopy.Environments[env]
 			oldPct := cfg.Percentage
 			cfg.Percentage = pct
 			if cfg.Strategy == domain.StrategyBoolean && pct < 100 {
 				cfg.Strategy = domain.StrategyPercentage
 			}
-			f.Environments[env] = cfg
-			f.UpdatedAt = time.Now().UTC()
-			s.flags[i] = f
+			flagCopy.Environments[env] = cfg
+			flagCopy.UpdatedAt = time.Now().UTC()
+			newList[i] = flagCopy
+			updatedFlag = flagCopy
+			found = true
 
-			log := domain.AuditLogEntry{
+			log = domain.AuditLogEntry{
 				ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
 				Timestamp:   time.Now().UTC(),
 				Actor:       actor,
-				Action:      "ROLLOUT_CHANGED",
-				FlagKey:     f.Key,
+				Action:      "ROLLOUT_UPDATED",
+				FlagKey:     flagCopy.Key,
 				Environment: env,
-				Details:     fmt.Sprintf("Shifted percentage rollout from %.0f%% to %.0f%% in %s.", oldPct, pct, env),
+				Details:     fmt.Sprintf("Updated percentage rollout from %.0f%% to %.0f%% for %s.", oldPct, pct, env),
 			}
-			s.auditLogs = append([]domain.AuditLogEntry{log}, s.auditLogs...)
-			return &s.flags[i], &log, nil
+		} else {
+			newList[i] = flagCopy
 		}
 	}
 
-	return nil, nil, fmt.Errorf("flag not found: %s", keyOrID)
+	if !found {
+		return nil, nil, fmt.Errorf("flag not found: %s", keyOrID)
+	}
+
+	newSnap := newFlagSnapshot(newList)
+	s.flagsSnapshot.Store(newSnap)
+
+	s.mu.Lock()
+	s.auditLogs = append([]domain.AuditLogEntry{log}, s.auditLogs...)
+	s.mu.Unlock()
+
+	return &updatedFlag, &log, nil
 }
 
 func (s *MemoryStore) ListAuditLogs(ctx context.Context, limit int) ([]domain.AuditLogEntry, error) {
@@ -704,12 +757,27 @@ func (s *MemoryStore) ListAuditLogs(ctx context.Context, limit int) ([]domain.Au
 }
 
 func (s *MemoryStore) Reset(ctx context.Context) error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.flags = getSeedFlags()
-	s.auditLogs = getSeedAuditLogs()
+	newSnap := newFlagSnapshot(getSeedFlags())
+	s.flagsSnapshot.Store(newSnap)
 	s.events = nil
+
+	// Append-only audit record of the reset action
+	resetLog := domain.AuditLogEntry{
+		ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
+		Timestamp:   time.Now().UTC(),
+		Actor:       "admin@flagura.dev",
+		Action:      "DATABASE_RESET",
+		FlagKey:     "all",
+		Environment: "all",
+		Details:     "Reset feature flags to default seed template.",
+	}
+	s.auditLogs = append([]domain.AuditLogEntry{resetLog}, s.auditLogs...)
 	return nil
 }
 
@@ -808,37 +876,51 @@ func (s *MemoryStore) ReviewChangeRequest(ctx context.Context, id, reviewerID, r
 }
 
 func (s *MemoryStore) ApplyChangeRequest(ctx context.Context, id string, actor string) (*domain.FeatureFlag, *domain.ChangeRequest, *domain.AuditLogEntry, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 
+	s.mu.Lock()
 	cr, ok := s.changeRequests[id]
 	if !ok {
+		s.mu.Unlock()
 		return nil, nil, nil, fmt.Errorf("change request not found: %s", id)
 	}
 
 	if cr.Status != domain.ChangeRequestStatusApproved {
+		s.mu.Unlock()
 		return nil, nil, nil, fmt.Errorf("cannot apply change request with status '%s' (must be APPROVED)", cr.Status)
 	}
 
-	// Locate target flag
-	var targetIdx = -1
-	for i, f := range s.flags {
-		if f.Key == cr.FlagKey || f.ID == cr.FlagKey {
-			targetIdx = i
-			break
-		}
-	}
-	if targetIdx == -1 {
+	currentSnap := s.flagsSnapshot.Load()
+	if currentSnap == nil {
+		s.mu.Unlock()
 		return nil, nil, nil, fmt.Errorf("target flag not found: %s", cr.FlagKey)
 	}
 
-	flag := s.flags[targetIdx]
-	if flag.Environments == nil {
-		flag.Environments = make(map[domain.Environment]domain.EnvironmentConfig)
+	newList := make([]domain.FeatureFlag, len(currentSnap.flagsList))
+	var updatedFlag domain.FeatureFlag
+	found := false
+
+	for i, f := range currentSnap.flagsList {
+		flagCopy := f.DeepCopy()
+		if flagCopy.Key == cr.FlagKey || flagCopy.ID == cr.FlagKey {
+			if flagCopy.Environments == nil {
+				flagCopy.Environments = make(map[domain.Environment]domain.EnvironmentConfig)
+			}
+			flagCopy.Environments[cr.Environment] = cr.ProposedConfig.DeepCopy()
+			flagCopy.UpdatedAt = time.Now().UTC()
+			newList[i] = flagCopy
+			updatedFlag = flagCopy
+			found = true
+		} else {
+			newList[i] = flagCopy
+		}
 	}
-	flag.Environments[cr.Environment] = cr.ProposedConfig
-	flag.UpdatedAt = time.Now().UTC()
-	s.flags[targetIdx] = flag
+
+	if !found {
+		s.mu.Unlock()
+		return nil, nil, nil, fmt.Errorf("target flag not found: %s", cr.FlagKey)
+	}
 
 	now := time.Now().UTC()
 	cr.Status = domain.ChangeRequestStatusApplied
@@ -847,7 +929,7 @@ func (s *MemoryStore) ApplyChangeRequest(ctx context.Context, id string, actor s
 
 	audit := domain.AuditLogEntry{
 		ID:          fmt.Sprintf("audit_%d", now.UnixNano()),
-		FlagKey:     flag.Key,
+		FlagKey:     updatedFlag.Key,
 		Action:      "APPLY_CHANGE_REQUEST",
 		Environment: cr.Environment,
 		Actor:       actor,
@@ -855,6 +937,10 @@ func (s *MemoryStore) ApplyChangeRequest(ctx context.Context, id string, actor s
 		Details:     fmt.Sprintf("Applied ChangeRequest %s by reviewer %s for %s", id, cr.ReviewerEmail, cr.Environment),
 	}
 	s.auditLogs = append([]domain.AuditLogEntry{audit}, s.auditLogs...)
+	s.mu.Unlock()
 
-	return &flag, &cr, &audit, nil
+	newSnap := newFlagSnapshot(newList)
+	s.flagsSnapshot.Store(newSnap)
+
+	return &updatedFlag, &cr, &audit, nil
 }
