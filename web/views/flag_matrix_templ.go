@@ -34,7 +34,7 @@ func FlagMatrix(flags []domain.FeatureFlag) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-6\" x-show=\"activeView === 'flags'\" x-data=\"flagMatrixViewComponent()\"><!-- Header & Controls Frame --><div class=\"console-card p-6 sm:p-7 space-y-5\"><div class=\"flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4\"><div class=\"flex items-center gap-3\"><span class=\"text-xs font-bold text-slate-500 uppercase tracking-wider font-mono\">Feature Flag Directory</span> <span class=\"rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-mono text-blue-700 font-bold\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-6\" x-show=\"activeView === 'flags'\" x-cloak x-data=\"flagMatrixViewComponent()\"><!-- Header & Controls Frame --><div class=\"console-card p-6 sm:p-7 space-y-5\"><div class=\"flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4\"><div class=\"flex items-center gap-3\"><span class=\"text-xs font-bold text-slate-500 uppercase tracking-wider font-mono\">Feature Flag Directory</span> <span class=\"rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-mono text-blue-700 font-bold\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

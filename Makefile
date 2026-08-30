@@ -17,6 +17,11 @@ LDFLAGS := -s -w \
 	-X 'main.commit=$(COMMIT)' \
 	-X 'main.date=$(BUILD_DATE)'
 
+# Automatically load environment variables from .env.local or .env if present
+-include .env
+-include .env.local
+export
+
 all: build
 
 ## help: Show available Makefile targets with descriptions
