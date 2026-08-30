@@ -298,3 +298,48 @@ curl -X POST "https://flagura.dhawalhost.com/api/v1/change-requests" \
 ```bash
 curl -X POST "https://flagura.dhawalhost.com/api/v1/webhooks/kill-switch/ai-smart-search?env=production"
 ```
+
+### 7. API Key & Service Account Management (`POST /api/v1/api-keys`, `GET /api/v1/api-keys`, `DELETE /api/v1/api-keys/:id`)
+
+Flagura supports cryptographically secure (`2^256` bits CSPRNG) API service account tokens for microservices, SDKs, and CI/CD pipelines.
+
+#### Create API Key:
+```bash
+curl -X POST "https://flagura.dhawalhost.com/api/v1/api-keys" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <session-or-admin-token>" \
+  -d '{
+    "name": "Production Kubernetes Worker",
+    "role": "developer"
+  }'
+```
+
+**Response:**
+```json
+{
+  "api_key": {
+    "id": "key_1788085710350701000_b3f8c993",
+    "key": "flg_live_eae851c8e9b3af4cfdaa692645ac146128e81fb5c02f2854d7c9ca43f6c3b5cc",
+    "key_prefix": "flg_live_eae851c8...****",
+    "name": "Production Kubernetes Worker",
+    "role": "developer",
+    "created_by": "admin@flagura.dev",
+    "created_at": "2026-08-30T16:00:00Z",
+    "revoked": false
+  },
+  "message": "API key generated successfully. Copy this secret key now; it will not be shown again."
+}
+```
+
+#### List API Keys (Tokens are redacted for security):
+```bash
+curl "https://flagura.dhawalhost.com/api/v1/api-keys" \
+  -H "Authorization: Bearer <token>"
+```
+
+#### Revoke API Key:
+```bash
+curl -X DELETE "https://flagura.dhawalhost.com/api/v1/api-keys/key_1788085710350701000_b3f8c993" \
+  -H "Authorization: Bearer <token>"
+```
+

@@ -35,7 +35,13 @@ func generateSessionToken() (string, error) {
 }
 ```
 
-### 3. Dynamic Secure Cookie Policy
+### 3. API Key Generation & One-Way SHA-256 Hash Storage
+- **Entropy**: 256-bit CSPRNG (`crypto/rand`) generating `flg_live_<hex64>` tokens ($2^{256} \approx 1.15 \times 10^{77}$ combinations).
+- **Storage**: Raw secret tokens are returned once upon creation and **never saved in plaintext**. Only `key_hash` (`sha256(rawKey)`) and masked `key_prefix` (`flg_live_8f7b...****`) are stored in the database.
+- **Timing Attack Immunity**: Token authentication uses `crypto/subtle.ConstantTimeCompare` across all secret validations.
+- **Instant Revocation**: Revoking a key deletes the hash index with zero propagation delay across all edge nodes.
+
+### 4. Dynamic Secure Cookie Policy
 ```go
 http.SetCookie(w, &http.Cookie{
     Name:     SessionCookieName,

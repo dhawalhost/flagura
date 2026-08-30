@@ -159,6 +159,20 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 		applied_at TIMESTAMPTZ
 	);
 	CREATE INDEX IF NOT EXISTS idx_change_requests_status ON change_requests(status, created_at DESC);
+
+	CREATE TABLE IF NOT EXISTS api_keys (
+		id TEXT PRIMARY KEY,
+		key_prefix TEXT NOT NULL,
+		key_hash TEXT UNIQUE NOT NULL,
+		name TEXT NOT NULL,
+		role TEXT NOT NULL DEFAULT 'developer',
+		created_by TEXT NOT NULL,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		last_used_at TIMESTAMPTZ,
+		revoked BOOLEAN NOT NULL DEFAULT FALSE
+	);
+	CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
+	CREATE INDEX IF NOT EXISTS idx_api_keys_created ON api_keys(created_at DESC);
 	`
 	if _, err := s.db.ExecContext(ctx, schema); err != nil {
 		return err
@@ -849,4 +863,102 @@ func (s *PostgresStore) ApplyChangeRequest(ctx context.Context, id string, actor
 	`, cr.Status, cr.AppliedAt, id)
 
 	return flag, cr, audit, nil
+}
+
+func (s *PostgresStore) CreateAPIKey(ctx context.Context, key domain.APIKey) (*domain.APIKey, error) {
+	if key.ID == "" {
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		key.ID = fmt.Sprintf("key_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
+	}
+	now := time.Now().UTC()
+	key.CreatedAt = now
+	key.Revoked = false
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO api_keys (id, key_prefix, key_hash, name, role, created_by, created_at, revoked)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, key.ID, key.KeyPrefix, key.KeyHash, key.Name, key.Role, key.CreatedBy, key.CreatedAt, key.Revoked)
+	if err != nil {
+		return nil, err
+	}
+	return &key, nil
+}
+
+func (s *PostgresStore) ListAPIKeys(ctx context.Context) ([]domain.APIKey, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, key_prefix, name, role, created_by, created_at, last_used_at, revoked
+		FROM api_keys
+		ORDER BY created_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []domain.APIKey
+	for rows.Next() {
+		var k domain.APIKey
+		var lastUsedAt sql.NullTime
+		if err := rows.Scan(&k.ID, &k.KeyPrefix, &k.Name, &k.Role, &k.CreatedBy, &k.CreatedAt, &lastUsedAt, &k.Revoked); err != nil {
+			return nil, err
+		}
+		if lastUsedAt.Valid {
+			t := lastUsedAt.Time.UTC()
+			k.LastUsedAt = &t
+		}
+		result = append(result, k)
+	}
+	return result, nil
+}
+
+func (s *PostgresStore) GetAPIKeyByHash(ctx context.Context, hash string) (*domain.APIKey, error) {
+	var k domain.APIKey
+	var lastUsedAt sql.NullTime
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, key_prefix, key_hash, name, role, created_by, created_at, last_used_at, revoked
+		FROM api_keys
+		WHERE key_hash = $1 AND revoked = FALSE
+	`, hash).Scan(&k.ID, &k.KeyPrefix, &k.KeyHash, &k.Name, &k.Role, &k.CreatedBy, &k.CreatedAt, &lastUsedAt, &k.Revoked)
+	if err != nil {
+		return nil, err
+	}
+	if lastUsedAt.Valid {
+		t := lastUsedAt.Time.UTC()
+		k.LastUsedAt = &t
+	}
+
+	now := time.Now().UTC()
+	_, _ = s.db.ExecContext(ctx, "UPDATE api_keys SET last_used_at = $1 WHERE id = $2", now, k.ID)
+	k.LastUsedAt = &now
+
+	return &k, nil
+}
+
+func (s *PostgresStore) RevokeAPIKey(ctx context.Context, id string, actor string) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE api_keys
+		SET revoked = TRUE
+		WHERE id = $1
+	`, id)
+	if err != nil {
+		return err
+	}
+
+	audit := domain.AuditLogEntry{
+		ID:          fmt.Sprintf("audit_%d", time.Now().UnixNano()),
+		FlagKey:     "api-keys",
+		Action:      "API_KEY_REVOKED",
+		Environment: "all",
+		Actor:       actor,
+		Timestamp:   time.Now().UTC(),
+		Details:     fmt.Sprintf("Revoked API Key %s", id),
+	}
+	now := time.Now().UTC()
+	_, _ = s.db.ExecContext(ctx, `
+		INSERT INTO audit_logs (id, flag_key, environment, action, actor, timestamp, details)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, audit.ID, audit.FlagKey, audit.Environment, audit.Action, audit.Actor, now, audit.Details)
+
+	return nil
 }

@@ -53,3 +53,17 @@ type AuthResponse struct {
 	Token   string `json:"token"`
 	Message string `json:"message"`
 }
+
+type APIKey struct {
+	ID         string     `json:"id"`
+	Key        string     `json:"key,omitempty"`      // Raw token, only returned on initial creation
+	KeyPrefix  string     `json:"key_prefix"`        // Display prefix (e.g. "flg_live_8f7b...****")
+	KeyHash    string     `json:"key_hash,omitempty"` // SHA-256 hash for secure storage
+	Name       string     `json:"name"`              // Descriptive name (e.g. "Prod K8s Cluster")
+	Role       UserRole   `json:"role"`              // RoleDeveloper or RoleAdmin
+	CreatedBy  string     `json:"created_by"`        // Creator user email
+	CreatedAt  time.Time  `json:"created_at"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	Revoked    bool       `json:"revoked"`
+}
+

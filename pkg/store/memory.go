@@ -38,13 +38,15 @@ func newFlagSnapshot(flags []domain.FeatureFlag) *FlagSnapshot {
 
 type MemoryStore struct {
 	flagsSnapshot  atomic.Pointer[FlagSnapshot]
-	writeMu        sync.Mutex // serializes writes and atomic snapshot updates
-	mu             sync.RWMutex // protects mutable tables: users, sessions, auditLogs, events, changeRequests
+	writeMu        sync.Mutex   // serializes writes and atomic snapshot updates
+	mu             sync.RWMutex // protects mutable tables: users, sessions, auditLogs, events, changeRequests, apiKeys
 	auditLogs      []domain.AuditLogEntry
 	events         []domain.ExperimentEvent
 	users          map[string]domain.User    // indexed by email and id
 	sessions       map[string]domain.Session // indexed by token
 	changeRequests map[string]domain.ChangeRequest
+	apiKeys        map[string]domain.APIKey // indexed by key ID
+	apiKeysByHash  map[string]string        // hash -> key ID
 }
 
 func getSeedFlags() []domain.FeatureFlag {
@@ -342,6 +344,8 @@ func NewMemoryStore() *MemoryStore {
 		users:          make(map[string]domain.User),
 		sessions:       make(map[string]domain.Session),
 		changeRequests: make(map[string]domain.ChangeRequest),
+		apiKeys:        make(map[string]domain.APIKey),
+		apiKeysByHash:  make(map[string]string),
 	}
 
 	initialSnap := newFlagSnapshot(getSeedFlags())
@@ -943,4 +947,89 @@ func (s *MemoryStore) ApplyChangeRequest(ctx context.Context, id string, actor s
 	s.flagsSnapshot.Store(newSnap)
 
 	return &updatedFlag, &cr, &audit, nil
+}
+
+func (s *MemoryStore) CreateAPIKey(ctx context.Context, key domain.APIKey) (*domain.APIKey, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if key.ID == "" {
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		key.ID = fmt.Sprintf("key_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
+	}
+	now := time.Now().UTC()
+	key.CreatedAt = now
+	key.Revoked = false
+
+	s.apiKeys[key.ID] = key
+	if key.KeyHash != "" {
+		s.apiKeysByHash[key.KeyHash] = key.ID
+	}
+
+	return &key, nil
+}
+
+func (s *MemoryStore) ListAPIKeys(ctx context.Context) ([]domain.APIKey, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	res := make([]domain.APIKey, 0, len(s.apiKeys))
+	for _, k := range s.apiKeys {
+		// Redact raw key and key_hash on list
+		kCopy := k
+		kCopy.Key = ""
+		kCopy.KeyHash = ""
+		res = append(res, kCopy)
+	}
+	return res, nil
+}
+
+func (s *MemoryStore) GetAPIKeyByHash(ctx context.Context, hash string) (*domain.APIKey, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, exists := s.apiKeysByHash[hash]
+	if !exists {
+		return nil, fmt.Errorf("api key not found")
+	}
+
+	key, exists := s.apiKeys[id]
+	if !exists || key.Revoked {
+		return nil, fmt.Errorf("api key revoked or not found")
+	}
+
+	now := time.Now().UTC()
+	key.LastUsedAt = &now
+	s.apiKeys[id] = key
+
+	kCopy := key
+	return &kCopy, nil
+}
+
+func (s *MemoryStore) RevokeAPIKey(ctx context.Context, id string, actor string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key, exists := s.apiKeys[id]
+	if !exists {
+		return fmt.Errorf("api key not found: %s", id)
+	}
+
+	key.Revoked = true
+	s.apiKeys[id] = key
+	delete(s.apiKeysByHash, key.KeyHash)
+
+	audit := domain.AuditLogEntry{
+		ID:          fmt.Sprintf("audit_%d", time.Now().UnixNano()),
+		FlagKey:     "api-keys",
+		Action:      "API_KEY_REVOKED",
+		Environment: "all",
+		Actor:       actor,
+		Timestamp:   time.Now().UTC(),
+		Details:     fmt.Sprintf("Revoked API Key '%s' (%s)", key.Name, key.ID),
+	}
+	s.auditLogs = append([]domain.AuditLogEntry{audit}, s.auditLogs...)
+
+	return nil
 }

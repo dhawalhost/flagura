@@ -2,6 +2,8 @@ package api
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -95,12 +97,24 @@ func (s *Server) getUserFromRequest(r *http.Request) (*domain.User, error) {
 
 	// Check master API key if configured
 	apiKeyEnv := os.Getenv("FLAGURA_API_KEY")
-	if apiKeyEnv != "" && token == apiKeyEnv {
+	if apiKeyEnv != "" && subtle.ConstantTimeCompare([]byte(token), []byte(apiKeyEnv)) == 1 {
 		return &domain.User{
 			ID:    "usr_api_key_service",
 			Email: "api-service@flagura.dev",
 			Name:  "API Service Account",
 			Role:  domain.RoleAdmin,
+		}, nil
+	}
+
+	// Check stored dynamic API Keys via SHA-256 hash lookup
+	h := sha256.Sum256([]byte(token))
+	keyHash := hex.EncodeToString(h[:])
+	if apiKey, err := s.store.GetAPIKeyByHash(r.Context(), keyHash); err == nil && apiKey != nil && !apiKey.Revoked {
+		return &domain.User{
+			ID:    apiKey.ID,
+			Email: apiKey.CreatedBy,
+			Name:  apiKey.Name,
+			Role:  apiKey.Role,
 		}, nil
 	}
 

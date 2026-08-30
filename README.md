@@ -461,6 +461,15 @@ flagura evaluate ai-smart-search --user=usr_alex_42 --trace
 # Promote staging configuration to production
 flagura promote ai-smart-search --from=staging --to=production
 
+# Generate a new programmatic API key
+flagura api-key create --name="Production Kubernetes SDK" --role=admin
+
+# List active API keys and their last used timestamp
+flagura api-key list
+
+# Revoke a compromised API key
+flagura api-key revoke <key-id>
+
 # Scan codebase technical debt and stale flags
 flagura clean-up
 ```

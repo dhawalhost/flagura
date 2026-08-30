@@ -143,6 +143,17 @@ func main() {
 			subCmd = fs.Arg(0)
 		}
 		runChangeRequest(subCmd, fs.Args(), *statusFlag, *commentsFlag)
+	case "api-key", "apikey", "key":
+		nameFlag := fs.String("name", "CLI Service Key", "Descriptive name for the API Key")
+		roleFlag := fs.String("role", "developer", "Assigned role: developer or admin")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
+		subCmd := "list"
+		if fs.NArg() > 0 {
+			subCmd = fs.Arg(0)
+		}
+		runAPIKey(subCmd, fs.Args(), *nameFlag, *roleFlag)
 	case "audit", "scan", "clean-up", "cleanup":
 		dirFlag := fs.String("dir", ".", "Root directory of codebase to scan")
 		failOnStale := fs.Bool("fail-on-stale", false, "Exit with error code 1 if stale flags are detected")
@@ -181,6 +192,8 @@ Commands:
   canary <key>              Manage automated progressive canary ramp & guardrails
   change-request [list|approve|reject|apply]
                             Enforce 4-Eyes principle change approval governance
+  api-key [list|create|revoke]
+                            Generate, list, and revoke programmatic API service tokens
   audit, scan, clean-up     Scan codebase files for technical debt & stale flag checks
   health                    Check connection to the Flagura control plane
   version                   Print CLI version
@@ -190,6 +203,8 @@ Flags:
   --endpoint <url>          Flagura control plane URL (default: $FLAGURA_ENDPOINT or http://localhost:3000)
   --api-key <key>           API key for authentication (default: $FLAGURA_API_KEY)
   --env <name>              Target environment: production, staging, development (default: production)
+  --name <name>             Name for newly generated API Key (default: CLI Service Key)
+  --role <role>             Role for API Key: developer or admin (default: developer)
   --dir <path>              Codebase directory to scan during audit (default: .)
   --fail-on-stale           Exit with code 1 if stale/dead flags are found (useful in CI/CD)
   --json                    Output results as raw formatted JSON
@@ -200,6 +215,8 @@ Examples:
   flagura rollout ai-smart-search 50%% --env=production
   flagura evaluate ai-smart-search --user=usr_alex_42 --trace
   flagura promote ai-smart-search --from=staging --to=production
+  flagura api-key create --name="Production Kubernetes SDK" --role=admin
+  flagura api-key list
   flagura audit --dir=. --fail-on-stale
 `, version)
 }
@@ -827,3 +844,104 @@ func runChangeRequest(subCmd string, args []string, status, comments string) {
 		os.Exit(1)
 	}
 }
+
+func runAPIKey(subCmd string, args []string, name, role string) {
+	switch subCmd {
+	case "list", "ls":
+		resp, body, err := makeRequest(http.MethodGet, "/api/v1/api-keys", nil)
+		if err != nil || resp.StatusCode >= 400 {
+			fmt.Fprintf(os.Stderr, "Failed to list API keys: %s\n", string(body))
+			os.Exit(1)
+		}
+		if jsonOut {
+			fmt.Println(string(body))
+			return
+		}
+
+		var data struct {
+			APIKeys []domain.APIKey `json:"api_keys"`
+		}
+		if err := json.Unmarshal(body, &data); err != nil {
+			fmt.Fprintf(os.Stderr, "Error parsing API keys response: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("\n🔑 Flagura Active API Keys & Service Tokens")
+		fmt.Println("─────────────────────────────────────────────────────────────────")
+		if len(data.APIKeys) == 0 {
+			fmt.Println("No active API keys found. Generate one using 'flagura api-key create --name=\"...\"'")
+			fmt.Println()
+			return
+		}
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+		fmt.Fprintln(w, "ID\tNAME\tROLE\tKEY PREFIX\tCREATED BY\tCREATED\tSTATUS")
+		fmt.Fprintln(w, "--\t----\t----\t----------\t----------\t-------\t------")
+		for _, k := range data.APIKeys {
+			status := "🟢 Active"
+			if k.Revoked {
+				status = "🔴 Revoked"
+			}
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+				k.ID, k.Name, k.Role, k.KeyPrefix, k.CreatedBy, k.CreatedAt.Format("2006-01-02 15:04"), status)
+		}
+		_ = w.Flush()
+		fmt.Println()
+
+	case "create", "new", "add":
+		payload := map[string]interface{}{
+			"name": name,
+			"role": role,
+		}
+		resp, body, err := makeRequest(http.MethodPost, "/api/v1/api-keys", payload)
+		if err != nil || resp.StatusCode >= 400 {
+			fmt.Fprintf(os.Stderr, "Failed to create API key: %s\n", string(body))
+			os.Exit(1)
+		}
+		if jsonOut {
+			fmt.Println(string(body))
+			return
+		}
+
+		var data struct {
+			APIKey  domain.APIKey `json:"api_key"`
+			Message string        `json:"message"`
+		}
+		if err := json.Unmarshal(body, &data); err != nil {
+			fmt.Fprintf(os.Stderr, "Error parsing response: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("\n✨ Flagura API Key Generated Successfully!")
+		fmt.Println("─────────────────────────────────────────────────────────────────")
+		fmt.Printf("ID:         %s\n", data.APIKey.ID)
+		fmt.Printf("Name:       %s\n", data.APIKey.Name)
+		fmt.Printf("Role:       %s\n", data.APIKey.Role)
+		fmt.Printf("Created At: %s\n\n", data.APIKey.CreatedAt.Format("2006-01-02 15:04:05 UTC"))
+		fmt.Println("🔑 Secret API Key Token (STORE THIS NOW - IT WILL NOT BE SHOWN AGAIN):")
+		fmt.Printf("   \033[32m%s\033[0m\n\n", data.APIKey.Key)
+		fmt.Println("Usage Example:")
+		fmt.Printf("   export FLAGURA_API_KEY=\"%s\"\n", data.APIKey.Key)
+		fmt.Println("   flagura list")
+		fmt.Println()
+
+	case "revoke", "delete", "rm":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "Usage: flagura api-key revoke <key-id>\n")
+			os.Exit(1)
+		}
+		id := args[1]
+		path := fmt.Sprintf("/api/v1/api-keys/%s", id)
+		resp, body, err := makeRequest(http.MethodDelete, path, nil)
+		if err != nil || resp.StatusCode >= 400 {
+			fmt.Fprintf(os.Stderr, "Revoke failed: %s\n", string(body))
+			os.Exit(1)
+		}
+		fmt.Printf("✅ API Key '%s' has been permanently REVOKED across all edge nodes.\n", id)
+
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown api-key subcommand: %s. Use list, create, or revoke.\n", subCmd)
+		os.Exit(1)
+	}
+}
+

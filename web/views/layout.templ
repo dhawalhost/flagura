@@ -513,21 +513,76 @@ templ Layout(title string) {
 
 					// SDK View Component
 					Alpine.data('sdkViewComponent', () => ({
-						sdkTab: 'go',
+						sdkTab: 'apikeys',
 						copied: false,
+						apiKeys: [],
+						showKeyModal: false,
+						keyForm: { name: '', role: 'developer' },
+						newlyCreatedKey: null,
+						keyCopied: false,
+						async fetchAPIKeys() {
+							try {
+								const res = await fetch('/api/v1/api-keys');
+								if (res.ok) {
+									const data = await res.json();
+									this.apiKeys = data.api_keys || [];
+								}
+							} catch (e) {
+								console.error('Failed to fetch API keys', e);
+							}
+						},
+						async generateKey() {
+							if (!this.keyForm.name.trim()) return;
+							try {
+								const res = await fetch('/api/v1/api-keys', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify(this.keyForm)
+								});
+								if (res.ok) {
+									const data = await res.json();
+									this.newlyCreatedKey = data.api_key;
+									this.showKeyModal = false;
+									this.keyForm = { name: '', role: 'developer' };
+									this.fetchAPIKeys();
+								} else {
+									const err = await res.text();
+									alert('Failed to generate key: ' + err);
+								}
+							} catch (e) {
+								alert('Error generating key: ' + e.message);
+							}
+						},
+						async revokeAPIKey(id) {
+							if (!confirm('Are you sure you want to revoke this API key? This action is immediate and cannot be undone.')) return;
+							try {
+								const res = await fetch('/api/v1/api-keys/' + id, { method: 'DELETE' });
+								if (res.ok) {
+									this.fetchAPIKeys();
+								}
+							} catch (e) {
+								alert('Error revoking key: ' + e.message);
+							}
+						},
+						copyKeyToken() {
+							if (!this.newlyCreatedKey) return;
+							navigator.clipboard.writeText(this.newlyCreatedKey.key);
+							this.keyCopied = true;
+							setTimeout(() => this.keyCopied = false, 2000);
+						},
 						getSdkSnippet() {
 							if (this.sdkTab === 'go') {
-								return `package main\n\nimport (\n    "context"\n    "fmt"\n    "github.com/dhawalhost/flagura/pkg/client"\n)\n\nfunc main() {\n    c := client.New("${window.location.origin}")\n    res, _ := c.Evaluate(context.Background(), "ai-smart-search", client.Context{\n        UserID: "usr_dhawal_01",\n        Email:  "dhawal@flagura.dev",\n    })\n    fmt.Printf("Enabled: %v | Latency: %v ns\\n", res.Enabled, res.EvaluationLatencyNs)\n}`;
+								return `package main\n\nimport (\n    "context"\n    "fmt"\n    "github.com/dhawalhost/flagura/pkg/client"\n)\n\nfunc main() {\n    c := client.New("${window.location.origin}",\n        client.WithAPIKey("flg_live_your_api_key"),\n    )\n    res, _ := c.Evaluate(context.Background(), "ai-smart-search", client.Context{\n        UserID: "usr_dhawal_01",\n        Email:  "dhawal@flagura.dev",\n    })\n    fmt.Printf("Enabled: %v | Latency: %v ns\\n", res.Enabled, res.EvaluationLatencyNs)\n}`;
 							} else if (this.sdkTab === 'ts') {
-								return `import { FlaguraClient } from '@flagura/sdk';\n\nconst client = new FlaguraClient({ endpoint: '${window.location.origin}' });\nconst { enabled, variant } = await client.evaluate('ai-smart-search', {\n  userId: 'usr_dhawal_01',\n  email: 'dhawal@flagura.dev',\n});\nconsole.log({ enabled, variant });`;
+								return `import { FlaguraClient } from '@flagura/sdk';\n\nconst client = new FlaguraClient({\n  endpoint: '${window.location.origin}',\n  apiKey: 'flg_live_your_api_key'\n});\nconst { enabled, variant } = await client.evaluate('ai-smart-search', {\n  userId: 'usr_dhawal_01',\n  email: 'dhawal@flagura.dev',\n});\nconsole.log({ enabled, variant });`;
 							} else if (this.sdkTab === 'python') {
-								return `from flagura import Client\n\nclient = Client("${window.location.origin}")\nres = client.evaluate("ai-smart-search", user_id="usr_dhawal_01", email="dhawal@flagura.dev")\nprint(res.enabled, res.variant)`;
+								return `from flagura import Client\n\nclient = Client("${window.location.origin}", api_key="flg_live_your_api_key")\nres = client.evaluate("ai-smart-search", user_id="usr_dhawal_01", email="dhawal@flagura.dev")\nprint(res.enabled, res.variant)`;
 							} else if (this.sdkTab === 'rust') {
-								return `use flagura::{FlaguraClient, EvaluationContext};\n\n#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n    let client = FlaguraClient::new("${window.location.origin}");\n    let ctx = EvaluationContext::new("usr_alex_42").with_email("alex@company.com");\n\n    if client.is_enabled("ai-smart-search", &ctx).await {\n        println!("✨ AI Smart Search is active!");\n    }\n    Ok(())\n}`;
+								return `use flagura::{FlaguraClient, EvaluationContext};\n\n#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n    let client = FlaguraClient::new("${window.location.origin}")\n        .with_api_key("flg_live_your_api_key");\n    let ctx = EvaluationContext::new("usr_alex_42").with_email("alex@company.com");\n\n    if client.is_enabled("ai-smart-search", &ctx).await {\n        println!("✨ AI Smart Search is active!");\n    }\n    Ok(())\n}`;
 							} else if (this.sdkTab === 'cli') {
-								return `# Install or run Flagura Developer CLI\nflagura list\nflagura rollout ai-smart-search 50% --env=production\nflagura evaluate ai-smart-search --user=usr_alex_42 --trace\nflagura canary ai-smart-search --stages="5%:5m,25%:30m,50%:1h,100%"\nflagura change-request list`;
+								return `# Install or run Flagura Developer CLI\nexport FLAGURA_API_KEY="flg_live_your_api_key"\nflagura api-key list\nflagura api-key create --name="Production Worker" --role=admin\nflagura list\nflagura rollout ai-smart-search 50% --env=production`;
 							}
-							return `curl -X POST ${window.location.origin}/api/v1/evaluate \\\n  -H "Content-Type: application/json" \\\n  -d '{"flags":["ai-smart-search"],"context":{"user_id":"usr_dhawal_01","email":"dhawal@flagura.dev"}}'`;
+							return `curl -X POST ${window.location.origin}/api/v1/evaluate \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-Key: flg_live_your_api_key" \\\n  -d '{"flags":["ai-smart-search"],"context":{"user_id":"usr_dhawal_01","email":"dhawal@flagura.dev"}}'`;
 						},
 						copySnippet() {
 							navigator.clipboard.writeText(this.getSdkSnippet());

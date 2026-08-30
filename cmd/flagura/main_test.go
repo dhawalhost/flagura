@@ -68,4 +68,25 @@ func TestCLIApiInteraction(t *testing.T) {
 
 	// Test audit/scan execution
 	runAudit(".", false)
+
+	// Seed session token for API key CLI test
+	sessionToken := "cli_test_session_token"
+	_ = memStore.CreateSession(context.Background(), domain.Session{
+		Token:     sessionToken,
+		UserID:    "usr_admin_default",
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		User: &domain.User{
+			ID:    "usr_admin_default",
+			Email: "admin@flagura.dev",
+			Role:  domain.RoleAdmin,
+		},
+	})
+	apiKey = sessionToken
+
+	// Test API Key CLI creation and listing
+	jsonOut = true
+	runAPIKey("create", []string{"create"}, "Test CLI Key", "developer")
+	runAPIKey("list", []string{"list"}, "", "")
+	jsonOut = false
 }
+

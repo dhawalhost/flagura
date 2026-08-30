@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -429,7 +430,7 @@ func (s *Server) handleWebhookKillSwitch(w http.ResponseWriter, r *http.Request)
 	authenticated := false
 
 	// Check if matching webhook secret
-	if webhookSecret != "" && providedToken != "" && providedToken == webhookSecret {
+	if webhookSecret != "" && providedToken != "" && subtle.ConstantTimeCompare([]byte(providedToken), []byte(webhookSecret)) == 1 {
 		authenticated = true
 	} else if providedToken != "" && webhookSecret == "" {
 		// If no secret configured in env, verify against a valid user session or API token

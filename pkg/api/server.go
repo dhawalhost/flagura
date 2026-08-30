@@ -134,6 +134,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/experiments/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetExperimentReport)))
 	s.mux.HandleFunc("/api/v1/change-requests", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleListOrCreateChangeRequests)))
 	s.mux.HandleFunc("/api/v1/change-requests/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleChangeRequestItem)))
+	s.mux.HandleFunc("/api/v1/api-keys", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleListOrCreateAPIKeys)))
+	s.mux.HandleFunc("/api/v1/api-keys/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleRevokeAPIKey)))
 
 	s.mux.HandleFunc("/api/v1/evaluate", s.apiLimiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {

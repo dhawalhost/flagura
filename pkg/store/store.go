@@ -37,4 +37,10 @@ type Store interface {
 	ListChangeRequests(ctx context.Context, status domain.ChangeRequestStatus) ([]domain.ChangeRequest, error)
 	ReviewChangeRequest(ctx context.Context, id, reviewerID, reviewerEmail, reviewerName string, approved bool, comments string) (*domain.ChangeRequest, error)
 	ApplyChangeRequest(ctx context.Context, id string, actor string) (*domain.FeatureFlag, *domain.ChangeRequest, *domain.AuditLogEntry, error)
+
+	// API Keys & Service Accounts
+	CreateAPIKey(ctx context.Context, key domain.APIKey) (*domain.APIKey, error)
+	ListAPIKeys(ctx context.Context) ([]domain.APIKey, error)
+	GetAPIKeyByHash(ctx context.Context, hash string) (*domain.APIKey, error)
+	RevokeAPIKey(ctx context.Context, id string, actor string) error
 }
