@@ -469,3 +469,187 @@ func RunBenchmark(flag domain.FeatureFlag, env domain.Environment, iterations in
 		HashBuckets:     buckets,
 	}
 }
+
+// RuleEvaluationStep represents an individual inspection step during rule evaluation.
+type RuleEvaluationStep struct {
+	StepIndex int    `json:"step_index"`
+	Name      string `json:"name"`
+	Passed    bool   `json:"passed"`
+	Detail    string `json:"detail"`
+}
+
+// EvaluationTrace contains the full chronological execution trace of why a flag resolved as it did.
+type EvaluationTrace struct {
+	FlagKey        string                  `json:"flag_key"`
+	Environment    domain.Environment      `json:"environment"`
+	IdentifierUsed string                  `json:"identifier_used"`
+	Steps          []RuleEvaluationStep    `json:"steps"`
+	FinalReason    domain.EvaluationReason `json:"final_reason"`
+	FinalVariant   string                  `json:"final_variant"`
+	FinalEnabled   bool                    `json:"final_enabled"`
+	Bucket         float64                 `json:"bucket"`
+	ElapsedNs      int64                   `json:"elapsed_ns"`
+}
+
+// EvaluateFlagWithTrace executes flag evaluation and generates a step-by-step audit trace for debugging.
+func EvaluateFlagWithTrace(flag domain.FeatureFlag, ctx domain.EvaluationContext) (domain.EvaluationResult, EvaluationTrace) {
+	start := time.Now()
+	var steps []RuleEvaluationStep
+	stepIdx := 1
+
+	env := ctx.Environment
+	if env == "" {
+		env = domain.EnvProduction
+	}
+
+	identifier := ctx.UserID
+	if identifier == "" {
+		identifier = ctx.Email
+	}
+	if identifier == "" {
+		identifier = "anonymous-user"
+	}
+
+	envConfig, envExists := flag.Environments[env]
+	if !envExists {
+		steps = append(steps, RuleEvaluationStep{
+			StepIndex: stepIdx,
+			Name:      "Environment Configuration Check",
+			Passed:    false,
+			Detail:    fmt.Sprintf("Environment %q is not configured on this flag.", env),
+		})
+		res := domain.EvaluationResult{
+			FlagKey:             flag.Key,
+			Enabled:             false,
+			Variant:             "off",
+			Value:               false,
+			Reason:              domain.ReasonEnvDisabled,
+			EvaluationLatencyNs: time.Since(start).Nanoseconds(),
+		}
+		return res, EvaluationTrace{
+			FlagKey:        flag.Key,
+			Environment:    env,
+			IdentifierUsed: identifier,
+			Steps:          steps,
+			FinalReason:    res.Reason,
+			FinalVariant:   res.Variant,
+			FinalEnabled:   res.Enabled,
+			ElapsedNs:      res.EvaluationLatencyNs,
+		}
+	}
+
+	// 1. Kill Switch check
+	if !envConfig.Enabled {
+		steps = append(steps, RuleEvaluationStep{
+			StepIndex: stepIdx,
+			Name:      "Master Kill-Switch Check",
+			Passed:    false,
+			Detail:    fmt.Sprintf("Kill-Switch is engaged in %s environment (Flag is turned OFF).", env),
+		})
+		offVar := envConfig.OffVariant
+		if offVar == "" {
+			offVar = "off"
+		}
+		res := domain.EvaluationResult{
+			FlagKey:             flag.Key,
+			Enabled:             false,
+			Variant:             offVar,
+			Value:               false,
+			Reason:              domain.ReasonKillSwitchDisabled,
+			EvaluationLatencyNs: time.Since(start).Nanoseconds(),
+		}
+		return res, EvaluationTrace{
+			FlagKey:        flag.Key,
+			Environment:    env,
+			IdentifierUsed: identifier,
+			Steps:          steps,
+			FinalReason:    res.Reason,
+			FinalVariant:   res.Variant,
+			FinalEnabled:   res.Enabled,
+			ElapsedNs:      res.EvaluationLatencyNs,
+		}
+	}
+
+	steps = append(steps, RuleEvaluationStep{
+		StepIndex: stepIdx,
+		Name:      "Master Kill-Switch Check",
+		Passed:    true,
+		Detail:    fmt.Sprintf("Flag is active and enabled in %s environment.", env),
+	})
+	stepIdx++
+
+	// 2. Targeting Rules
+	if len(envConfig.Rules) > 0 {
+		for _, rule := range envConfig.Rules {
+			matched := EvaluateRule(rule, ctx)
+			if matched {
+				steps = append(steps, RuleEvaluationStep{
+					StepIndex: stepIdx,
+					Name:      fmt.Sprintf("Targeting Rule Match: %s", rule.Name),
+					Passed:    true,
+					Detail:    fmt.Sprintf("Condition matched (%s %s %v). Action: %s.", rule.Attribute, rule.Operator, rule.Values, rule.Action),
+				})
+
+				res := EvaluateFlag(flag, ctx)
+				return res, EvaluationTrace{
+					FlagKey:        flag.Key,
+					Environment:    env,
+					IdentifierUsed: identifier,
+					Steps:          steps,
+					FinalReason:    res.Reason,
+					FinalVariant:   res.Variant,
+					FinalEnabled:   res.Enabled,
+					ElapsedNs:      time.Since(start).Nanoseconds(),
+				}
+			} else {
+				steps = append(steps, RuleEvaluationStep{
+					StepIndex: stepIdx,
+					Name:      fmt.Sprintf("Targeting Rule Check: %s", rule.Name),
+					Passed:    false,
+					Detail:    fmt.Sprintf("Did not match context condition (%s %s %v).", rule.Attribute, rule.Operator, rule.Values),
+				})
+				stepIdx++
+			}
+		}
+	}
+
+	// 3. Strategy Resolution (Percentage / Boolean / Multivariate)
+	bucket, _ := GetStickyBucket(identifier, flag.Key)
+
+	if envConfig.Strategy == domain.StrategyPercentage {
+		passed := bucket < envConfig.Percentage
+		steps = append(steps, RuleEvaluationStep{
+			StepIndex: stepIdx,
+			Name:      "Deterministic FNV-1a Percentage Rollout",
+			Passed:    passed,
+			Detail:    fmt.Sprintf("User sticky bucket #%.2f%% evaluated against rollout threshold %.1f%%.", bucket, envConfig.Percentage),
+		})
+	} else if envConfig.Strategy == domain.StrategyMultivariate {
+		steps = append(steps, RuleEvaluationStep{
+			StepIndex: stepIdx,
+			Name:      "Multivariate Traffic Split",
+			Passed:    true,
+			Detail:    fmt.Sprintf("User assigned to weighted variant bucket #%.2f%%.", bucket),
+		})
+	} else {
+		steps = append(steps, RuleEvaluationStep{
+			StepIndex: stepIdx,
+			Name:      "Default Boolean Strategy",
+			Passed:    true,
+			Detail:    "Standard default boolean rollout applied.",
+		})
+	}
+
+	res := EvaluateFlag(flag, ctx)
+	return res, EvaluationTrace{
+		FlagKey:        flag.Key,
+		Environment:    env,
+		IdentifierUsed: identifier,
+		Steps:          steps,
+		FinalReason:    res.Reason,
+		FinalVariant:   res.Variant,
+		FinalEnabled:   res.Enabled,
+		Bucket:         bucket,
+		ElapsedNs:      time.Since(start).Nanoseconds(),
+	}
+}

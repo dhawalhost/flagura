@@ -307,6 +307,7 @@ templ Layout(title string) {
 						selectedFlagKey: 'all',
 						evaluating: false,
 						evalResults: {},
+						evalTraces: {},
 						copiedCurl: false,
 						currentBucket: 50,
 						context: {
@@ -350,11 +351,13 @@ templ Layout(title string) {
 									headers: { 'Content-Type': 'application/json' },
 									body: JSON.stringify({
 										flags: flagsList,
+										trace: true,
 										context: { ...this.context, ...parsedCustom, environment: this.currentEnv }
 									})
 								});
 								const data = await res.json();
 								this.evalResults = data.results || {};
+								this.evalTraces = data.traces || {};
 							} finally {
 								this.evaluating = false;
 							}
@@ -374,19 +377,39 @@ templ Layout(title string) {
 					Alpine.data('analyticsViewComponent', () => ({
 						selectedAnalyticsFlag: 'all',
 						chart: null,
+						totalEvaluations: 0,
 						init() {
 							this.$nextTick(() => this.renderChart());
 						},
 						updateAnalyticsChart() {
 							this.renderChart();
 						},
-						renderChart() {
+						async renderChart() {
 							const ctx = document.getElementById('analyticsChartCanvas');
 							if (!ctx) return;
+
+							let points = [14200, 11500, 9800, 18400, 42100, 78900, 114000, 128500, 134200, 119000, 89400, 48200];
+							try {
+								const res = await fetch('/api/v1/telemetry/stats?flag=' + encodeURIComponent(this.selectedAnalyticsFlag));
+								if (res.ok) {
+									const stats = await res.json();
+									if (stats.hourly_points && stats.hourly_points.some(p => p > 0)) {
+										const hourly = stats.hourly_points;
+										const sampled = [];
+										for (let i = 0; i < 24; i += 2) {
+											sampled.push((hourly[i] || 0) + (hourly[i+1] || 0));
+										}
+										points = sampled;
+									}
+									if (stats.total_evaluations !== undefined) {
+										this.totalEvaluations = stats.total_evaluations;
+									}
+								}
+							} catch (e) {}
+
 							if (this.chart) this.chart.destroy();
 
 							const hours = ['00:00', '02:00', '04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'];
-							const points = [14200, 11500, 9800, 18400, 42100, 78900, 114000, 128500, 134200, 119000, 89400, 48200];
 
 							this.chart = new Chart(ctx, {
 								type: 'line',
@@ -566,6 +589,21 @@ templ Layout(title string) {
 							this.form.environments.staging = JSON.parse(JSON.stringify(cfg));
 							this.form.environments.development = JSON.parse(JSON.stringify(cfg));
 							this.showToast('Synchronized ' + this.envTab + ' config to all environments');
+						},
+						async promoteEnvironment(from, to) {
+							if (!confirm(`Are you sure you want to promote ${from} rules directly to ${to}? This will overwrite ${to} configuration.`)) return;
+							try {
+								const res = await fetch(`/api/v1/flags/${this.form.key}/promote?from=${from}&to=${to}`, { method: 'POST' });
+								if (res.ok) {
+									this.showToast(`Successfully promoted ${this.form.key} from ${from} to ${to}!`);
+									setTimeout(() => window.location.reload(), 700);
+								} else {
+									const err = await res.text();
+									this.showToast(`Promotion failed: ${err}`, 'error');
+								}
+							} catch (e) {
+								this.showToast(`Network error: ${e.message}`, 'error');
+							}
 						},
 						async saveFlag() {
 							this.saving = true;

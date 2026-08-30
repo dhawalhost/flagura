@@ -81,6 +81,15 @@ type Config struct {
 
 	// DisableCircuitBreaker disables client-side circuit breaking
 	DisableCircuitBreaker bool
+
+	// DisableStreaming disables real-time SSE streaming updates (falls back to polling only)
+	DisableStreaming bool
+
+	// TelemetryFlushInterval is the interval to push evaluation counts to the server (default: 60s)
+	TelemetryFlushInterval time.Duration
+
+	// DisableTelemetry disables client-side evaluation telemetry push
+	DisableTelemetry bool
 }
 
 // Option configures a Flagura Client.
@@ -137,6 +146,27 @@ func WithDisabledCircuitBreaker() Option {
 	}
 }
 
+// WithStreaming configures real-time SSE streaming for instant flag updates.
+func WithStreaming(enabled bool) Option {
+	return func(c *Config) {
+		c.DisableStreaming = !enabled
+	}
+}
+
+// WithTelemetryFlushInterval sets the cadence for pushing local evaluation counts to Flagura.
+func WithTelemetryFlushInterval(d time.Duration) Option {
+	return func(c *Config) {
+		c.TelemetryFlushInterval = d
+	}
+}
+
+// WithDisabledTelemetry disables local evaluation count pushback.
+func WithDisabledTelemetry() Option {
+	return func(c *Config) {
+		c.DisableTelemetry = true
+	}
+}
+
 // Client is the Flagura evaluation SDK client.
 type Client struct {
 	config Config
@@ -148,6 +178,7 @@ type Client struct {
 	stopCh    chan struct{}
 	closeOnce sync.Once
 	cb        *CircuitBreaker
+	telemetry *TelemetryBuffer
 }
 
 // RegisterUpdateListener registers a callback invoked when feature flags are synchronized or updated.
@@ -168,6 +199,7 @@ func New(endpoint string, opts ...Option) *Client {
 		SyncInterval:            30 * time.Second,
 		CircuitBreakerThreshold: 5,
 		CircuitBreakerCooldown:  10 * time.Second,
+		TelemetryFlushInterval: 60 * time.Second,
 	}
 
 	for _, opt := range opts {
@@ -186,6 +218,11 @@ func New(endpoint string, opts ...Option) *Client {
 		cb:     cb,
 	}
 
+	if !cfg.DisableTelemetry {
+		c.telemetry = NewTelemetryBuffer(cfg.Endpoint, cfg.APIKey, cfg.HTTPClient)
+		go c.telemetry.StartBackgroundLoop(c.stopCh, cfg.TelemetryFlushInterval)
+	}
+
 	if c.config.SnapshotFile != "" {
 		_ = c.loadSnapshot()
 	}
@@ -194,6 +231,9 @@ func New(endpoint string, opts ...Option) *Client {
 		// Attempt initial sync. If server unreachable, fallback to snapshot
 		if err := c.syncFlags(context.Background()); err != nil && c.config.SnapshotFile != "" {
 			_ = c.loadSnapshot()
+		}
+		if !c.config.DisableStreaming {
+			go c.startSSEStream()
 		}
 		go c.startBackgroundSync()
 	}
@@ -273,6 +313,11 @@ func (c *Client) evaluateLocal(flagKey string, evalCtx Context) (EvaluationResul
 	if domRes.BucketVal != nil {
 		bucket = *domRes.BucketVal
 	}
+
+	if c.telemetry != nil {
+		c.telemetry.Record(flagKey, domRes.Variant)
+	}
+
 	return EvaluationResult{
 		FlagKey:             domRes.FlagKey,
 		Enabled:             domRes.Enabled,
@@ -290,6 +335,9 @@ func (c *Client) evaluateRemote(ctx context.Context, flagKey string, evalCtx Con
 	results, err := c.evaluateBatchRemote(ctx, []string{flagKey}, evalCtx)
 	if err != nil {
 		if res, ok := results[flagKey]; ok {
+			if c.telemetry != nil {
+				c.telemetry.Record(flagKey, res.Variant)
+			}
 			return res, err
 		}
 		return EvaluationResult{
@@ -310,6 +358,10 @@ func (c *Client) evaluateRemote(ctx context.Context, flagKey string, evalCtx Con
 			Value:   false,
 			Reason:  string(domain.ReasonFlagNotFound),
 		}, fmt.Errorf("flag %q missing from response", flagKey)
+	}
+
+	if c.telemetry != nil {
+		c.telemetry.Record(flagKey, res.Variant)
 	}
 
 	return res, nil
@@ -426,31 +478,7 @@ func (c *Client) syncFlags(ctx context.Context) error {
 		return err
 	}
 
-	c.mu.Lock()
-	var changedKeys []string
-	newMap := make(map[string]domain.FeatureFlag, len(flagsResp.Flags))
-	for _, f := range flagsResp.Flags {
-		newMap[f.Key] = f
-		newMap[f.ID] = f
-		if old, exists := c.flags[f.Key]; !exists || old.UpdatedAt != f.UpdatedAt {
-			changedKeys = append(changedKeys, f.Key)
-		}
-	}
-	c.flags = newMap
-	currentListeners := make([]func(flags map[string]domain.FeatureFlag, changedKeys []string), len(c.listeners))
-	copy(currentListeners, c.listeners)
-	c.mu.Unlock()
-
-	if c.config.SnapshotFile != "" {
-		_ = c.saveSnapshot(flagsResp.Flags)
-	}
-
-	if len(changedKeys) > 0 {
-		for _, listener := range currentListeners {
-			listener(newMap, changedKeys)
-		}
-	}
-
+	c.updateFlags(flagsResp.Flags)
 	return nil
 }
 

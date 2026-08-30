@@ -34,6 +34,17 @@ templ FlagEditorModal() {
 			</div>
 
 			<div class="flex items-center gap-2.5 self-end sm:self-auto">
+				<template x-if="isEditing">
+					<button
+						type="button"
+						@click="promoteEnvironment('staging', 'production')"
+						class="px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-semibold text-xs transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+						title="Copy all staging rules & rollout percentage directly to production"
+					>
+						<i data-lucide="git-merge" class="h-3.5 w-3.5 text-amber-600"></i>
+						<span>Promote Staging ➔ Prod</span>
+					</button>
+				</template>
 				<button
 					type="button"
 					@click="activeView = previousView || 'overview'"

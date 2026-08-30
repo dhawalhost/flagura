@@ -273,6 +273,41 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 											<span class="font-mono font-semibold text-blue-700" x-text="res.variant || 'default'"></span>
 										</div>
 									</div>
+
+									<!-- Visual Step-by-Step Rule Execution Trace (Option 2) -->
+									<template x-if="evalTraces[key] && evalTraces[key].steps && evalTraces[key].steps.length > 0">
+										<div class="mt-3 pt-3 border-t border-slate-200 space-y-2 bg-white/70 rounded-xl p-3 border border-slate-200/70" x-data="{ showTrace: true }">
+											<div class="flex items-center justify-between cursor-pointer" @click="showTrace = !showTrace">
+												<div class="flex items-center gap-1.5 text-[11px] font-mono font-bold text-slate-700 uppercase tracking-tight">
+													<i data-lucide="git-commit" class="h-3.5 w-3.5 text-blue-600"></i>
+													<span>Execution Trace (<span x-text="evalTraces[key].steps.length"></span> steps)</span>
+												</div>
+												<span class="text-[10px] text-blue-600 font-mono" x-text="showTrace ? 'Hide Trace' : 'Show Trace'"></span>
+											</div>
+
+											<div class="space-y-2 pt-2" x-show="showTrace">
+												<template x-for="step in evalTraces[key].steps" :key="step.step_index">
+													<div class="flex items-start gap-2 text-xs font-mono">
+														<span
+															class="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
+															:class="step.passed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'"
+														>
+															<template x-if="step.passed">
+																<span>✓</span>
+															</template>
+															<template x-if="!step.passed">
+																<span>✗</span>
+															</template>
+														</span>
+														<div class="flex-1 min-w-0">
+															<div class="font-semibold text-slate-900" x-text="step.name"></div>
+															<div class="text-[11px] text-slate-500" x-text="step.detail"></div>
+														</div>
+													</div>
+												</template>
+											</div>
+										</div>
+									</template>
 								</div>
 							</div>
 						</template>

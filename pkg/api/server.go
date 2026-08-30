@@ -19,15 +19,22 @@ type Server struct {
 	evalCount   uint64
 	authLimiter *IPRateLimiter
 	apiLimiter  *IPRateLimiter
+	streamHub   *StreamHub
+	telemetry   *TelemetryAggregator
 }
 
 func NewServer(st store.Store) (*Server, error) {
+	hub := NewStreamHub()
+	go hub.Run()
+
 	s := &Server{
 		store:       st,
 		mux:         http.NewServeMux(),
 		startTime:   time.Now().UTC(),
 		authLimiter: NewIPRateLimiter(5, 10, 1*time.Minute),
 		apiLimiter:  NewIPRateLimiter(200, 400, 1*time.Minute),
+		streamHub:   hub,
+		telemetry:   NewTelemetryAggregator(),
 	}
 	s.routes()
 	s.handler = SecurityHeadersMiddleware(MaxBytesMiddleware(1<<20, s.mux))
@@ -58,6 +65,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/livez", s.handleHealthz)
 	s.mux.HandleFunc("/readyz", s.handleReadyz)
 	s.mux.HandleFunc("/metrics", s.handleMetrics)
+	s.mux.HandleFunc("/api/v1/flags/stream", s.handleFlagsStream)
+	s.mux.HandleFunc("/api/v1/telemetry/events", s.apiLimiter.LimitHandler(s.handleIngestTelemetry))
+	s.mux.HandleFunc("/api/v1/telemetry/stats", s.handleGetTelemetryStats)
+	s.mux.HandleFunc("/api/v1/webhooks/kill-switch/", s.apiLimiter.LimitHandler(s.handleWebhookKillSwitch))
 	s.mux.HandleFunc("/api/v1/flags", s.apiLimiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -80,6 +91,12 @@ func (s *Server) routes() {
 		if strings.HasSuffix(path, "/rollout") {
 			if r.Method == http.MethodPatch || r.Method == http.MethodPost {
 				s.RequireAuth(s.handleUpdateRollout)(w, r)
+				return
+			}
+		}
+		if strings.HasSuffix(path, "/promote") {
+			if r.Method == http.MethodPost {
+				s.RequireAuth(s.handlePromoteEnvironment)(w, r)
 				return
 			}
 		}

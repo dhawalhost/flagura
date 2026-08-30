@@ -59,12 +59,133 @@ func TestObservabilityEndpoints(t *testing.T) {
 
 	metricsText := string(body)
 	if !strings.Contains(metricsText, "flagura_up 1") {
-		t.Errorf("metrics missing flagura_up: %s", metricsText)
+		t.Errorf("expected flagura_up metric in Prometheus output")
+	}
+	if !strings.Contains(metricsText, "flagura_evaluations_total") {
+		t.Errorf("expected flagura_evaluations_total metric in Prometheus output")
 	}
 	if !strings.Contains(metricsText, "flagura_build_info") {
 		t.Errorf("metrics missing flagura_build_info: %s", metricsText)
 	}
 	if !strings.Contains(metricsText, "flagura_flags_total") {
 		t.Errorf("metrics missing flagura_flags_total: %s", metricsText)
+	}
+}
+
+func TestWebhookKillSwitch(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
+		ID:   "flag_webhook_test",
+		Key:  "webhook-target",
+		Name: "Webhook Target",
+		Type: "boolean",
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {Enabled: true, Strategy: domain.StrategyBoolean},
+		},
+	}, "system")
+
+	server, err := api.NewServer(memStore)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	ts := httptest.NewServer(server)
+	defer ts.Close()
+
+	client := ts.Client()
+
+	// 1. Trigger automated kill-switch via webhook
+	resp, err := client.Post(ts.URL+"/api/v1/webhooks/kill-switch/webhook-target?env=production", "application/json", nil)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK from webhook kill-switch, got: %v (code %d)", err, resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	// 2. Verify flag is disabled
+	flag, err := memStore.GetFlag(context.Background(), "webhook-target")
+	if err != nil {
+		t.Fatalf("failed to retrieve flag: %v", err)
+	}
+	if flag.Environments[domain.EnvProduction].Enabled {
+		t.Fatalf("expected flag to be disabled after webhook kill-switch")
+	}
+
+	// 3. Test non-existent flag returns 404
+	resp404, _ := client.Post(ts.URL+"/api/v1/webhooks/kill-switch/non-existent", "application/json", nil)
+	if resp404.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404 Not Found for non-existent flag, got %d", resp404.StatusCode)
+	}
+	resp404.Body.Close()
+}
+
+func TestPromoteEnvironment(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
+		ID:   "flag_promote_test",
+		Key:  "promote-target",
+		Name: "Promote Target",
+		Type: "boolean",
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvStaging: {
+				Enabled:    true,
+				Strategy:   domain.StrategyPercentage,
+				Percentage: 75,
+				Rules: []domain.TargetingRule{
+					{
+						ID:        "rule_beta",
+						Name:      "Beta Testers",
+						Attribute: domain.AttrTier,
+						Operator:  domain.OpEquals,
+						Values:    []string{"beta"},
+						Action:    domain.ActionForceEnabled,
+					},
+				},
+			},
+			domain.EnvProduction: {
+				Enabled:    false,
+				Strategy:   domain.StrategyBoolean,
+				Percentage: 0,
+			},
+		},
+	}, "system")
+
+	server, err := api.NewServer(memStore)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	ts := httptest.NewServer(server)
+	defer ts.Close()
+
+	// 1. Sign up to get session cookie
+	signUpBody := `{"name":"Admin User","email":"admin@flagura.dev","password":"Password123!","role":"admin"}`
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/auth/signup", strings.NewReader(signUpBody))
+	req.Header.Set("Content-Type", "application/json")
+	signUpResp, err := ts.Client().Do(req)
+	if err != nil || signUpResp.StatusCode != http.StatusCreated {
+		t.Fatalf("signup failed: %v (code %d)", err, signUpResp.StatusCode)
+	}
+	cookie := signUpResp.Header.Get("Set-Cookie")
+	signUpResp.Body.Close()
+
+	// 2. Promote staging to production
+	promoteReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/flags/promote-target/promote?from=staging&to=production", nil)
+	promoteReq.Header.Set("Cookie", cookie)
+	promoteResp, err := ts.Client().Do(promoteReq)
+	if err != nil || promoteResp.StatusCode != http.StatusOK {
+		t.Fatalf("promote request failed: %v (status %d)", err, promoteResp.StatusCode)
+	}
+	promoteResp.Body.Close()
+
+	// 3. Verify production environment has been promoted
+	flag, err := memStore.GetFlag(context.Background(), "promote-target")
+	if err != nil {
+		t.Fatalf("failed to get flag: %v", err)
+	}
+
+	prodConfig := flag.Environments[domain.EnvProduction]
+	if !prodConfig.Enabled || prodConfig.Percentage != 75 || len(prodConfig.Rules) != 1 {
+		t.Fatalf("expected production to match staging config, got enabled=%v, pct=%v, rules=%d",
+			prodConfig.Enabled, prodConfig.Percentage, len(prodConfig.Rules))
 	}
 }

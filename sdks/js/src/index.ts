@@ -24,6 +24,7 @@ export interface FlaguraClientOptions {
   apiKey?: string;
   defaultEnvironment?: string;
   timeoutMs?: number;
+  enableStreaming?: boolean;
 }
 
 export class FlaguraClient {
@@ -31,12 +32,89 @@ export class FlaguraClient {
   private apiKey?: string;
   private defaultEnvironment: string;
   private timeoutMs: number;
+  private localFlags: Map<string, any> = new Map();
+  private listeners: Array<(flags: Map<string, any>) => void> = [];
+  private abortController: AbortController | null = null;
 
   constructor(options: FlaguraClientOptions) {
     this.endpoint = options.endpoint.replace(/\/+$/, '');
     this.apiKey = options.apiKey;
     this.defaultEnvironment = options.defaultEnvironment || 'production';
     this.timeoutMs = options.timeoutMs || 5000;
+
+    if (options.enableStreaming) {
+      this.startSSEStream();
+    }
+  }
+
+  /**
+   * Registers a listener callback invoked whenever feature flags update in real time.
+   */
+  onUpdate(callback: (flags: Map<string, any>) => void): () => void {
+    this.listeners.push(callback);
+    return () => {
+      this.listeners = this.listeners.filter((l) => l !== callback);
+    };
+  }
+
+  /**
+   * Starts a persistent real-time Server-Sent Events stream from the Flagura control plane.
+   */
+  private async startSSEStream(): Promise<void> {
+    if (typeof fetch === 'undefined') return;
+
+    this.abortController = new AbortController();
+    const url = `${this.endpoint}/api/v1/flags/stream`;
+    const headers: Record<string, string> = { Accept: 'text/event-stream' };
+    if (this.apiKey) {
+      headers['Authorization'] = `Bearer ${this.apiKey}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        headers,
+        signal: this.abortController.signal,
+      });
+
+      if (!response.ok || !response.body) return;
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (line.startsWith('data:')) {
+            try {
+              const dataStr = line.slice(5).trim();
+              const flags = JSON.parse(dataStr);
+              if (Array.isArray(flags)) {
+                this.localFlags.clear();
+                for (const f of flags) {
+                  this.localFlags.set(f.key, f);
+                }
+                for (const listener of this.listeners) {
+                  listener(new Map(this.localFlags));
+                }
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch {
+      // Reconnect with backoff if not aborted
+      if (this.abortController && !this.abortController.signal.aborted) {
+        setTimeout(() => this.startSSEStream(), 3000);
+      }
+    }
   }
 
   async evaluate<T = any>(flagKey: string, context: EvaluationContext): Promise<EvaluationResult<T>> {
@@ -100,15 +178,25 @@ export class FlaguraClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Flagura evaluation failed with HTTP status ${response.status}`);
+        throw new Error(`Flagura evaluation failed with status ${response.status}`);
       }
 
       const data = await response.json();
-      return (data.results || {}) as Record<string, EvaluationResult<T>>;
+      return data.results || {};
     } finally {
       clearTimeout(timeout);
     }
   }
+
+  /**
+   * Closes active streaming connections.
+   */
+  close(): void {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+  }
 }
 
-export * from './openfeature';
+export { FlaguraOpenFeatureProvider } from './openfeature';

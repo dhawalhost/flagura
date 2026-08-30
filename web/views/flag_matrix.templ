@@ -166,6 +166,18 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 
 							<!-- Tags & Rules Indicators -->
 							<div class="flex flex-wrap items-center gap-2 pt-0.5">
+								if report := domain.AnalyzeFlagHealth(f); report.Status == domain.HealthStatusStale {
+									<span class="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-mono text-amber-800 font-bold shadow-2xs" title={ report.SuggestedAction }>
+										<i data-lucide="sparkles" class="h-3 w-3 text-amber-600"></i>
+										Ready for Cleanup (100% Launched)
+									</span>
+								} else if report.Status == domain.HealthStatusDead {
+									<span class="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-mono text-slate-600 font-medium" title={ report.SuggestedAction }>
+										<i data-lucide="archive" class="h-3 w-3 text-slate-500"></i>
+										Inactive (Dead Flag)
+									</span>
+								}
+
 								for _, tag := range f.Tags {
 									<span class="rounded-full bg-slate-50 border border-slate-200 px-2.5 py-0.5 text-[11px] font-mono text-slate-600">
 										#{ tag }

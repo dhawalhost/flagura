@@ -143,6 +143,8 @@ func (s *Server) handleCreateFlag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.broadcastCurrentFlags(r.Context())
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -172,6 +174,8 @@ func (s *Server) handleUpdateFlag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.broadcastCurrentFlags(r.Context())
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"flag":  flag,
@@ -190,6 +194,8 @@ func (s *Server) handleDeleteFlag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
+
+	s.broadcastCurrentFlags(r.Context())
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -226,6 +232,8 @@ func (s *Server) handleToggleFlag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
+
+	s.broadcastCurrentFlags(r.Context())
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -268,6 +276,8 @@ func (s *Server) handleUpdateRollout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.broadcastCurrentFlags(r.Context())
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"flag_key":    flag.Key,
@@ -284,11 +294,14 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Flags   []string                 `json:"flags"`
 		Context domain.EvaluationContext `json:"context"`
+		Trace   bool                     `json:"trace"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	includeTrace := req.Trace || r.URL.Query().Get("trace") == "true"
 
 	allFlags, err := s.store.ListFlags(r.Context())
 	if err != nil {
@@ -297,6 +310,7 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	results := make(map[string]domain.EvaluationResult)
+	traces := make(map[string]engine.EvaluationTrace)
 	targetMap := make(map[string]domain.FeatureFlag)
 	for _, f := range allFlags {
 		targetMap[f.Key] = f
@@ -306,8 +320,14 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 	if len(req.Flags) > 0 {
 		for _, k := range req.Flags {
 			if flag, ok := targetMap[k]; ok {
-				res := engine.EvaluateFlag(flag, req.Context)
-				results[flag.Key] = res
+				if includeTrace {
+					res, trace := engine.EvaluateFlagWithTrace(flag, req.Context)
+					results[flag.Key] = res
+					traces[flag.Key] = trace
+				} else {
+					res := engine.EvaluateFlag(flag, req.Context)
+					results[flag.Key] = res
+				}
 			} else {
 				results[k] = domain.EvaluationResult{
 					FlagKey:             k,
@@ -322,8 +342,14 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		for _, flag := range allFlags {
-			res := engine.EvaluateFlag(flag, req.Context)
-			results[flag.Key] = res
+			if includeTrace {
+				res, trace := engine.EvaluateFlagWithTrace(flag, req.Context)
+				results[flag.Key] = res
+				traces[flag.Key] = trace
+			} else {
+				res := engine.EvaluateFlag(flag, req.Context)
+				results[flag.Key] = res
+			}
 		}
 	}
 
@@ -331,6 +357,16 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 	atomic.AddUint64(&s.evalCount, uint64(len(results)))
 
 	w.Header().Set("Content-Type", "application/json")
+	if includeTrace {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"results":           results,
+			"traces":            traces,
+			"evaluated_count":   len(results),
+			"total_duration_us": durationUs,
+		})
+		return
+	}
+
 	_ = json.NewEncoder(w).Encode(domain.BatchEvaluationResponse{
 		Results:         results,
 		TotalFlags:      len(results),
@@ -393,10 +429,145 @@ func (s *Server) handleReset(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	s.broadcastCurrentFlags(r.Context())
 	flags, _ := s.store.ListFlags(r.Context())
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message":     "Database reset to default seed flags",
 		"flags_count": len(flags),
+	})
+}
+
+// handleWebhookKillSwitch engages the kill-switch for a flag triggered by automated alerts (e.g. Datadog/Sentry).
+func (s *Server) handleWebhookKillSwitch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	key := strings.TrimPrefix(r.URL.Path, "/api/v1/webhooks/kill-switch/")
+	key = strings.TrimSpace(strings.Split(key, "/")[0])
+	if key == "" {
+		http.Error(w, "flag key is required in url path", http.StatusBadRequest)
+		return
+	}
+
+	envStr := r.URL.Query().Get("env")
+	if envStr == "" {
+		envStr = "production"
+	}
+	env := domain.Environment(envStr)
+
+	disabled := false
+	actor := "webhook-alert-automation"
+
+	flag, log, err := s.store.ToggleFlag(r.Context(), key, env, &disabled, actor)
+	if err != nil {
+		http.Error(w, "Flag not found or failed to disable: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	s.broadcastCurrentFlags(r.Context())
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":      "kill_switch_engaged",
+		"flag_key":    flag.Key,
+		"environment": env,
+		"enabled":     false,
+		"audit":       log,
+	})
+}
+
+// handlePromoteEnvironment copies flag rules and configuration from one environment to another.
+func (s *Server) handlePromoteEnvironment(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	key := strings.TrimPrefix(r.URL.Path, "/api/v1/flags/")
+	key = strings.TrimSuffix(key, "/promote")
+	key = strings.TrimSpace(key)
+	if key == "" {
+		http.Error(w, "flag key is required", http.StatusBadRequest)
+		return
+	}
+
+	fromEnv := domain.Environment(r.URL.Query().Get("from"))
+	toEnv := domain.Environment(r.URL.Query().Get("to"))
+	if fromEnv == "" || toEnv == "" {
+		http.Error(w, "query parameters 'from' and 'to' are required", http.StatusBadRequest)
+		return
+	}
+
+	flag, err := s.store.GetFlag(r.Context(), key)
+	if err != nil {
+		http.Error(w, "flag not found: "+err.Error(), http.StatusNotFound)
+		return
+	}
+
+	srcConfig, ok := flag.Environments[fromEnv]
+	if !ok {
+		http.Error(w, fmt.Sprintf("source environment %q does not exist on flag", fromEnv), http.StatusBadRequest)
+		return
+	}
+
+	// Clone source environment configuration
+	rulesCopy := make([]domain.TargetingRule, len(srcConfig.Rules))
+	for i, r := range srcConfig.Rules {
+		vals := make([]string, len(r.Values))
+		copy(vals, r.Values)
+		rulesCopy[i] = domain.TargetingRule{
+			ID:           r.ID,
+			Name:         r.Name,
+			Attribute:    r.Attribute,
+			CustomKey:    r.CustomKey,
+			Operator:     r.Operator,
+			Values:       vals,
+			Action:       r.Action,
+			ServeVariant: r.ServeVariant,
+		}
+	}
+
+	variantsCopy := make([]domain.FlagVariant, len(srcConfig.Variants))
+	for i, v := range srcConfig.Variants {
+		variantsCopy[i] = domain.FlagVariant{
+			Key:         v.Key,
+			Name:        v.Name,
+			Value:       v.Value,
+			Weight:      v.Weight,
+			Description: v.Description,
+		}
+	}
+
+	flag.Environments[toEnv] = domain.EnvironmentConfig{
+		Enabled:        srcConfig.Enabled,
+		Strategy:       srcConfig.Strategy,
+		Percentage:     srcConfig.Percentage,
+		Rules:          rulesCopy,
+		Variants:       variantsCopy,
+		DefaultVariant: srcConfig.DefaultVariant,
+		OffVariant:     srcConfig.OffVariant,
+	}
+	flag.UpdatedAt = time.Now().UTC()
+
+	actor := s.getActorFromRequest(r, "system")
+
+	auditLog, err := s.store.SaveFlag(r.Context(), *flag, actor)
+	if err != nil {
+		http.Error(w, "failed to promote environment: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	s.broadcastCurrentFlags(r.Context())
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   "promoted",
+		"flag_key": flag.Key,
+		"from":     fromEnv,
+		"to":       toEnv,
+		"audit":    auditLog,
 	})
 }

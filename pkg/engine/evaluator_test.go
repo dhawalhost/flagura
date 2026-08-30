@@ -117,4 +117,35 @@ func BenchmarkGetStickyBucket(b *testing.B) {
 	}
 }
 
+func TestEvaluateFlagWithTrace(t *testing.T) {
+	flag := sampleFlag()
+
+	// 1. Trace rule match
+	ctxStaff := domain.EvaluationContext{
+		UserID:      "usr_1",
+		Email:       "alice@flagship.dev",
+		Environment: domain.EnvProduction,
+	}
+	res, trace := EvaluateFlagWithTrace(flag, ctxStaff)
+	if !res.Enabled || trace.FinalReason != domain.ReasonTargetingRuleMatch {
+		t.Fatalf("expected rule match trace, got %v (%s)", res.Enabled, trace.FinalReason)
+	}
+	if len(trace.Steps) == 0 {
+		t.Fatalf("expected trace steps to be populated")
+	}
+
+	// 2. Trace kill-switched flag
+	flagDisabled := flag
+	flagDisabled.Environments[domain.EnvProduction] = domain.EnvironmentConfig{
+		Enabled: false,
+	}
+	resOff, traceOff := EvaluateFlagWithTrace(flagDisabled, ctxStaff)
+	if resOff.Enabled || traceOff.FinalReason != domain.ReasonKillSwitchDisabled {
+		t.Fatalf("expected kill-switch trace, got %v (%s)", resOff.Enabled, traceOff.FinalReason)
+	}
+	if len(traceOff.Steps) != 1 || traceOff.Steps[0].Passed {
+		t.Fatalf("expected first step in trace to be kill-switch failed")
+	}
+}
+
 
