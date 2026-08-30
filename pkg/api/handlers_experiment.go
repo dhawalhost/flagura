@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"strings"
 
@@ -111,7 +112,11 @@ func (s *Server) handleGetExperimentReport(w http.ResponseWriter, r *http.Reques
 		statsData := s.telemetry.Stats(flagKey)
 		if vMap, ok := statsData["variants"].(map[string]uint64); ok {
 			for v, count := range vMap {
-				exposures[v] = int64(count)
+				if count > math.MaxInt64 {
+					exposures[v] = math.MaxInt64
+				} else {
+					exposures[v] = int64(count)
+				}
 			}
 		}
 	}
