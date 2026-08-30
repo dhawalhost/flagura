@@ -50,24 +50,32 @@ func main() {
 	case "version", "-v", "--version":
 		fmt.Printf("Flagura CLI %s\n", version)
 	case "list", "ls":
-		_ = fs.Parse(os.Args[2:])
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
 		runList()
 	case "get":
-		_ = fs.Parse(os.Args[2:])
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
 		if fs.NArg() < 1 {
 			fmt.Fprintf(os.Stderr, "Usage: flagura get <flag-key>\n")
 			os.Exit(1)
 		}
 		runGet(fs.Arg(0))
 	case "toggle":
-		_ = fs.Parse(os.Args[2:])
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
 		if fs.NArg() < 1 {
 			fmt.Fprintf(os.Stderr, "Usage: flagura toggle <flag-key> [--env=production]\n")
 			os.Exit(1)
 		}
 		runToggle(fs.Arg(0))
 	case "rollout":
-		_ = fs.Parse(os.Args[2:])
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
 		if fs.NArg() < 2 {
 			fmt.Fprintf(os.Stderr, "Usage: flagura rollout <flag-key> <percentage> [--env=production]\n")
 			os.Exit(1)
@@ -82,7 +90,9 @@ func main() {
 		userFlag := fs.String("user", "usr_cli_01", "User ID for evaluation context")
 		emailFlag := fs.String("email", "dev@flagura.dev", "Email for evaluation context")
 		traceFlag := fs.Bool("trace", false, "Include step-by-step visual execution trace")
-		_ = fs.Parse(os.Args[2:])
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
 		if fs.NArg() < 1 {
 			fmt.Fprintf(os.Stderr, "Usage: flagura evaluate <flag-key> [--user=<id>] [--email=<email>] [--trace]\n")
 			os.Exit(1)
@@ -91,17 +101,23 @@ func main() {
 	case "promote":
 		fromFlag := fs.String("from", "staging", "Source environment")
 		toFlag := fs.String("to", "production", "Destination environment")
-		_ = fs.Parse(os.Args[2:])
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
 		if fs.NArg() < 1 {
 			fmt.Fprintf(os.Stderr, "Usage: flagura promote <flag-key> [--from=staging] [--to=production]\n")
 			os.Exit(1)
 		}
 		runPromote(fs.Arg(0), *fromFlag, *toFlag)
 	case "clean-up", "cleanup":
-		_ = fs.Parse(os.Args[2:])
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
 		runCleanup()
 	case "health":
-		_ = fs.Parse(os.Args[2:])
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
 		runHealth()
 	case "help", "--help", "-h":
 		printHelp()
@@ -224,7 +240,9 @@ func runList() {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			f.Key, f.Type, status, rollout, string(prodEnv.Strategy), health)
 	}
-	w.Flush()
+	if err := w.Flush(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error rendering output table: %v\n", err)
+	}
 	fmt.Println()
 }
 
@@ -238,7 +256,10 @@ func runGet(key string) {
 	var data struct {
 		Flags []domain.FeatureFlag `json:"flags"`
 	}
-	_ = json.Unmarshal(body, &data)
+	if err := json.Unmarshal(body, &data); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing response: %v\n", err)
+		os.Exit(1)
+	}
 
 	var target *domain.FeatureFlag
 	for _, f := range data.Flags {
@@ -415,7 +436,10 @@ func runCleanup() {
 	var data struct {
 		Flags []domain.FeatureFlag `json:"flags"`
 	}
-	_ = json.Unmarshal(body, &data)
+	if err := json.Unmarshal(body, &data); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing flags response: %v\n", err)
+		os.Exit(1)
+	}
 
 	staleCount := 0
 	fmt.Println("\n🧹 Flagura Technical Debt & Stale Flag Report")
