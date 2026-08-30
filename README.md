@@ -41,17 +41,23 @@ Flagura evaluates rules and percentage rollouts locally in-memory using **determ
 
 ## ⚖️ How Flagura Compares
 
-| Feature / Metric | ⚡ Flagura | LaunchDarkly | Unleash | Flagsmith | GrowthBook |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Core Architecture** | **Go (Native Binary)** | Cloud SaaS / Daemon | Node.js / TypeScript | Python (Django) | TypeScript / Next.js |
-| **P50 Local Evaluation Latency** | **`~109 ns`** | ~25 µs (In-Process SDK) | ~25 µs (Proxy SDK) | ~50 µs | ~30 µs |
-| **Memory Footprint** | **`~35 MB`** | High (Relay Daemon) | `~450 MB – 800 MB` | `~400 MB – 1 GB` | `~350 MB – 600 MB` |
-| **Pricing Model** | **100% Free & Open Source** | **$500 – $5,000+/mo** | Freemium ($80+/mo) | Freemium ($45+/mo) | Freemium ($20+/mo) |
-| **Zero DB I/O on Evaluation** | **✅ Yes (In-Memory)** | ⚠️ Requires Proxy | ⚠️ Requires Redis/Proxy | ❌ Queries DB/Cache | ⚠️ Requires Cache |
-| **Data Privacy (Self-Hostable)** | **✅ 100% (Your DB)** | ❌ 3rd-Party SaaS | ✅ Yes | ✅ Yes | ✅ Yes |
-| **Deployment Model** | **Single Binary / Docker / Vercel** | Cloud SaaS Only | Multi-tier (Node + Redis + DB) | Multi-tier (Django + DB) | Multi-tier (Next + DB) |
+| Feature / Capability             |             ⚡ Flagura (`v1.4.0`)     |      LaunchDarkly       |            Unleash             |        Flagsmith         |       GrowthBook       |
+| :------------------------------- | :---------------------------------: | :---------------------: | :----------------------------: | :----------------------: | :--------------------: |
+| **Core Architecture**            |       **Go (Native Binary)**        |   Cloud SaaS / Daemon   |      Node.js / TypeScript      |     Python (Django)      |  TypeScript / Next.js  |
+| **P50 Local Evaluation Latency** |      **`~13 ns – 220 ns`**          | ~25 µs (In-Process SDK) |       ~25 µs (Proxy SDK)       |          ~50 µs          |         ~30 µs         |
+| **Data Sovereignty & Privacy**   |   **✅ 100% Private (Your DB/VPC)** |    ❌ 3rd-Party Cloud   |             ✅ Yes             |          ✅ Yes          |         ✅ Yes         |
+| **Zero Vendor Lock-in**          |  **✅ Native OpenFeature Provider** | ⚠️ Proprietary SDKs     | ⚠️ Proprietary SDKs            | ⚠️ Proprietary SDKs      | ⚠️ Proprietary SDKs    |
+| **4-Eyes Change Governance**     |     **✅ Included (100% Free)**     |   🔒 Enterprise ($$$)   |      🔒 Enterprise ($$$)       |   🔒 Enterprise ($$$)    |  🔒 Enterprise ($$$)   |
+| **Built-in Statistical A/B**     | **✅ Native ($Z$, $P$-Value, Lift)**| 🔒 Experimentation Addon|     ❌ Basic Variants Only     |  ❌ Basic Variants Only  |  ✅ Python / SQL Engine|
+| **Automated Canary + Guardrails**|     **✅ Native Stage Ramp**        | 🔒 Enterprise Guardrails|         ❌ Manual Ramp         |      ❌ Manual Ramp      |     ❌ Manual Ramp     |
+| **Prometheus Metrics (`/metrics`)** | **✅ Native Exporter**          |    ⚠️ Requires Sidecar  |        ⚠️ Requires Addon       |    ⚠️ Requires Plugin    |   ⚠️ Requires Addon    |
+| **Stale Flag Codebase Auditor**  |       **✅ `flagura audit` CLI**    | 🔒 Code References Addon|            ❌ Manual           |        ❌ Manual         |        ❌ Manual       |
+| **Memory Footprint**             |            **`~25 MB – 40 MB`**     |   High (Relay Daemon)   |       `~450 MB – 800 MB`       |     `~400 MB – 1 GB`     |   `~350 MB – 600 MB`   |
+| **Pricing Model**                |     **100% Free & Open Source**     |  **$500 – $5,000+/mo**  |       Freemium ($80+/mo)       |    Freemium ($45+/mo)    |   Freemium ($20+/mo)   |
+| **Zero DB I/O on Evaluation**    |    **✅ Yes (`atomic.Pointer` CoW)**|    ⚠️ Requires Proxy    |    ⚠️ Requires Redis/Proxy     |   ❌ Queries DB/Cache    |   ⚠️ Requires Cache    |
+| **Deployment Model**             | **Single Binary / Docker / Vercel** |     Cloud SaaS Only     | Multi-tier (Node + Redis + DB) | Multi-tier (Django + DB) | Multi-tier (Next + DB) |
 
-> **Benchmark Methodology:** Evaluated on Apple M3 Pro using standard Go benchmarks (`go test -bench=. -benchmem ./pkg/engine/...`): Percentage Rollout ~109 ns (32 B/op), Rule Match ~90 ns (16 B/op), Bare FNV-1a Hash ~13 ns (0 B/op). Competitor metrics reflect typical client SDK in-memory evaluation / relay daemon documentation.
+> **Benchmark Methodology:** Evaluated on Apple M3 Pro using standard Go benchmarks (`go test -bench=. -benchmem ./pkg/engine/...`): Percentage Rollout ~111 ns (32 B/op), Rule Match ~91 ns (16 B/op), Bare FNV-1a Hash ~13 ns (0 B/op), Regex Match (Cached) ~221 ns (32 B/op). Competitor metrics reflect typical client SDK in-memory evaluation / relay daemon documentation.
 
 [👉 Read full architectural comparison in documentation](docs/product/comparison.md)
 
@@ -65,7 +71,7 @@ Flagura is engineered for maximum execution speed, zero runtime overhead, and si
 ┌────────────────────────────────────────────────────────────────────────┐
 │                              FLAGURA ENGINE                            │
 ├────────────────────────────────────────────────────────────────────────┤
-│  • Go 1.22+ Core          ── High-concurrency engine & FNV-1a hashing   │
+│  • Go 1.26+ Core          ── High-concurrency engine & FNV-1a hashing   │
 │  • Direct SQL Store       ── Pure database/sql + lib/pq for Supabase   │
 │  • API-First Design       ── Ultra-fast batch & single evaluation API  │
 │  • Compiled Views         ── Type-safe compiled HTML views & CSS      │
@@ -224,25 +230,25 @@ curl -X POST http://localhost:3000/api/v1/evaluate \
 
 ### 2. Flag Management & API Endpoints
 
-| Method   | Endpoint                                  | Description                                                           |
-| :------- | :---------------------------------------- | :-------------------------------------------------------------------- |
-| `GET`    | `/healthz` / `/livez`                     | Kubernetes liveness health probe                                      |
-| `GET`    | `/readyz`                                 | Kubernetes readiness probe (checks storage availability)              |
-| `GET`    | `/metrics`                                | Prometheus metrics exposition (`flagura_evaluations_total`, etc.)     |
-| `GET`    | `/api/v1/flags/stream`                    | Real-time HTTP/2 Server-Sent Events (SSE) flag synchronization stream |
-| `GET`    | `/api/v1/flags`                           | List all feature flags across environments                            |
-| `GET`    | `/api/v1/flags/:key`                      | Retrieve configuration and rules for a specific flag                  |
-| `POST`   | `/api/v1/flags`                           | Create or update a feature flag configuration                         |
-| `PATCH`  | `/api/v1/flags/:key/toggle`               | Instant 1-click toggle for master kill-switch                         |
-| `PATCH`  | `/api/v1/flags/:key/rollout`              | Dynamically update percentage rollout (0–100%)                        |
-| `POST`   | `/api/v1/flags/:key/promote`              | Promote flag configuration (e.g. `?from=staging&to=production`)       |
-| `POST`   | `/api/v1/webhooks/kill-switch/:key`       | Automated kill-switch endpoint for APM alerts (Datadog/Sentry)         |
-| `POST`   | `/api/v1/telemetry/events`                | Ingest batched evaluation counts from client SDKs                     |
-| `GET`    | `/api/v1/telemetry/stats`                 | Query 24h evaluation velocity and variant distribution                |
-| `DELETE` | `/api/v1/flags/:key`                      | Permanently remove a feature flag (Requires Admin role)               |
-| `POST`   | `/api/v1/evaluate`                        | Evaluate flags (`?trace=true` returns visual execution trace)         |
-| `POST`   | `/api/v1/benchmark`                       | Execute live in-process latency stress test                           |
-| `GET`    | `/api/v1/audit-logs`                      | Fetch immutable audit trail history                                   |
+| Method   | Endpoint                            | Description                                                           |
+| :------- | :---------------------------------- | :-------------------------------------------------------------------- |
+| `GET`    | `/healthz` / `/livez`               | Kubernetes liveness health probe                                      |
+| `GET`    | `/readyz`                           | Kubernetes readiness probe (checks storage availability)              |
+| `GET`    | `/metrics`                          | Prometheus metrics exposition (`flagura_evaluations_total`, etc.)     |
+| `GET`    | `/api/v1/flags/stream`              | Real-time HTTP/2 Server-Sent Events (SSE) flag synchronization stream |
+| `GET`    | `/api/v1/flags`                     | List all feature flags across environments                            |
+| `GET`    | `/api/v1/flags/:key`                | Retrieve configuration and rules for a specific flag                  |
+| `POST`   | `/api/v1/flags`                     | Create or update a feature flag configuration                         |
+| `PATCH`  | `/api/v1/flags/:key/toggle`         | Instant 1-click toggle for master kill-switch                         |
+| `PATCH`  | `/api/v1/flags/:key/rollout`        | Dynamically update percentage rollout (0–100%)                        |
+| `POST`   | `/api/v1/flags/:key/promote`        | Promote flag configuration (e.g. `?from=staging&to=production`)       |
+| `POST`   | `/api/v1/webhooks/kill-switch/:key` | Automated kill-switch endpoint for APM alerts (Datadog/Sentry)        |
+| `POST`   | `/api/v1/telemetry/events`          | Ingest batched evaluation counts from client SDKs                     |
+| `GET`    | `/api/v1/telemetry/stats`           | Query 24h evaluation velocity and variant distribution                |
+| `DELETE` | `/api/v1/flags/:key`                | Permanently remove a feature flag (Requires Admin role)               |
+| `POST`   | `/api/v1/evaluate`                  | Evaluate flags (`?trace=true` returns visual execution trace)         |
+| `POST`   | `/api/v1/benchmark`                 | Execute live in-process latency stress test                           |
+| `GET`    | `/api/v1/audit-logs`                | Fetch immutable audit trail history                                   |
 
 ---
 
@@ -251,6 +257,7 @@ curl -X POST http://localhost:3000/api/v1/evaluate \
 Flagura provides drop-in **OpenFeature Providers** across Go, TypeScript/JavaScript, and Python, ensuring zero vendor lock-in:
 
 ### 1. Go OpenFeature Provider (`pkg/openfeature`)
+
 ```bash
 go get github.com/dhawalhost/flagura/pkg/openfeature
 go get github.com/open-feature/go-sdk
@@ -295,13 +302,14 @@ func main() {
 ```
 
 ### 2. TypeScript / Node.js OpenFeature Provider (`sdks/js`)
+
 ```typescript
-import { OpenFeature } from '@openfeature/server-sdk';
-import { FlaguraOpenFeatureProvider } from 'flagura-sdk';
+import { OpenFeature } from "@openfeature/server-sdk";
+import { FlaguraOpenFeatureProvider } from "flagura-sdk";
 
 // 1. Initialize and register Flagura OpenFeature provider
 const provider = new FlaguraOpenFeatureProvider({
-  endpoint: 'https://flagura.dhawalhost.com',
+  endpoint: "https://flagura.dhawalhost.com",
   apiKey: process.env.FLAGURA_API_KEY,
   enableStreaming: true, // <5ms live flag sync
 });
@@ -310,14 +318,15 @@ await OpenFeature.setProviderAndWait(provider);
 const client = OpenFeature.getClient();
 
 // 2. Evaluate with OpenFeature context
-const isEnabled = await client.getBooleanValue('ai-smart-search', false, {
-  targetingKey: 'usr_123',
-  email: 'dev@flagura.dev',
-  tier: 'enterprise',
+const isEnabled = await client.getBooleanValue("ai-smart-search", false, {
+  targetingKey: "usr_123",
+  email: "dev@flagura.dev",
+  tier: "enterprise",
 });
 ```
 
 ### 3. Python OpenFeature Provider (`sdks/python`)
+
 ```python
 from openfeature import api
 from openfeature.evaluation_context import EvaluationContext
@@ -341,9 +350,11 @@ is_enabled = client.get_boolean_value("ai-smart-search", False, ctx)
 ## ⚡ Real-Time Streaming & Resilience
 
 ### 1. Sub-5ms SSE Flag Streaming (`GET /api/v1/flags/stream`)
+
 Whenever a flag is toggled, rolled out, or promoted in the Flagura console or via API, the control plane broadcasts an instant Server-Sent Event (SSE) to all connected microservices worldwide. Your in-memory cache synchronizes in **`< 5ms`** without polling delays.
 
 ### 2. Offline Snapshot Persistence & 3-State Circuit Breaker
+
 - **Offline Snapshot (`WithSnapshotFile`)**: Writes atomic snapshots to disk. If your database or control plane goes down, your application cold-boots in **0ms** from disk cache with zero evaluation downtime.
 - **3-State Circuit Breaker (`CLOSED` ↔ `OPEN` ↔ `HALF_OPEN`)**: Automatically fast-fails remote network requests in `< 20µs` during server interruptions, shielding your application from latency spikes.
 
@@ -358,6 +369,7 @@ Connect Flagura to your APM and monitoring infrastructure (**Datadog, Sentry, Pr
 curl -X POST "https://flagura.dhawalhost.com/api/v1/webhooks/kill-switch/ai-smart-search?env=production" \
   -H "Content-Type: application/json"
 ```
+
 When an alert triggers, Flagura instantly flips the master kill-switch and broadcasts the disable event to all microservices over SSE in **`< 5ms`**.
 
 ---
@@ -379,14 +391,26 @@ curl -X POST "https://flagura.dhawalhost.com/api/v1/evaluate?trace=true" \
     }
   }'
 ```
+
 **Trace Output:**
+
 ```json
 {
   "traces": {
     "ai-smart-search": {
       "steps": [
-        { "step_index": 1, "name": "Master Kill-Switch Check", "passed": true, "detail": "Flag is active in production." },
-        { "step_index": 2, "name": "Targeting Rule Match: Enterprise VIP", "passed": true, "detail": "Condition matched (tier equals [enterprise]). Action: force_enabled." }
+        {
+          "step_index": 1,
+          "name": "Master Kill-Switch Check",
+          "passed": true,
+          "detail": "Flag is active in production."
+        },
+        {
+          "step_index": 2,
+          "name": "Targeting Rule Match: Enterprise VIP",
+          "passed": true,
+          "detail": "Condition matched (tier equals [enterprise]). Action: force_enabled."
+        }
       ],
       "final_reason": "TARGETING_RULE_MATCH",
       "final_variant": "treatment",
@@ -420,6 +444,7 @@ go build -o /usr/local/bin/flagura ./cmd/flagura
 ```
 
 ### CLI Commands:
+
 ```bash
 # List all feature flags and their current status
 flagura list
@@ -504,8 +529,14 @@ interface FlagEvaluation {
 
 export async function evaluateFlag(
   flagKey: string,
-  context: { userId: string; email?: string; country?: string; role?: string; environment?: string },
-  endpoint = "https://flagura.dhawalhost.com"
+  context: {
+    userId: string;
+    email?: string;
+    country?: string;
+    role?: string;
+    environment?: string;
+  },
+  endpoint = "https://flagura.dhawalhost.com",
 ): Promise<FlagEvaluation> {
   const res = await fetch(`${endpoint}/api/v1/evaluate`, {
     method: "POST",
