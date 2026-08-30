@@ -6,173 +6,193 @@ import (
 )
 
 templ LiveEvaluator(flags []domain.FeatureFlag) {
-	<div class="space-y-8" x-show="activeView === 'evaluator'" x-data="liveEvaluatorComponent()">
-		<!-- Top Header Card -->
-		<div class="console-card p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+	<div class="space-y-6" x-show="activeView === 'evaluator'" x-data="liveEvaluatorComponent()">
+		<!-- Top Bar: Title & Primary Controls -->
+		<div class="console-card p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
 			<div class="flex items-center gap-3.5">
-				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 border border-blue-200 text-blue-600">
-					<i data-lucide="zap" class="h-5 w-5 fill-blue-600"></i>
+				<div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 border border-blue-100 text-blue-600 shadow-2xs">
+					<i data-lucide="play-circle" class="h-6 w-6"></i>
 				</div>
 				<div>
 					<div class="flex items-center gap-2">
 						<h2 class="text-lg font-bold text-slate-900 font-display">Live Evaluation Sandbox</h2>
-						<span class="rounded-md bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[10px] font-mono text-blue-700 font-bold uppercase">
-							Deterministic
+						<span class="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-mono text-emerald-700 font-bold">
+							Sub-Microsecond Engine
 						</span>
 					</div>
-					<p class="text-xs text-slate-600 mt-1">
-						Test user persona targeting, sticky percentage bucketing (FNV-1a hash), and variant payload resolution in real-time.
+					<p class="text-xs text-slate-500 mt-0.5">
+						Simulate real user contexts, inspect targeting rule matches, and verify sticky hash bucketing in real-time.
 					</p>
 				</div>
 			</div>
 
-			<div class="flex items-center gap-2 self-end sm:self-auto">
+			<!-- Environment & Action Buttons -->
+			<div class="flex items-center gap-3">
+				<div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+					<button
+						type="button"
+						@click="currentEnv = 'production'; evaluateNow()"
+						class="px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer"
+						:class="currentEnv === 'production' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'"
+					>
+						PROD
+					</button>
+					<button
+						type="button"
+						@click="currentEnv = 'staging'; evaluateNow()"
+						class="px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer"
+						:class="currentEnv === 'staging' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'"
+					>
+						STAGING
+					</button>
+					<button
+						type="button"
+						@click="currentEnv = 'development'; evaluateNow()"
+						class="px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer"
+						:class="currentEnv === 'development' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'"
+					>
+						DEV
+					</button>
+				</div>
+
 				<button
+					type="button"
 					@click="evaluateNow()"
-					class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+					class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all shadow-xs flex items-center gap-2 cursor-pointer"
 				>
 					<i data-lucide="refresh-cw" class="h-3.5 w-3.5" :class="evaluating ? 'animate-spin' : ''"></i>
-					<span>Re-evaluate</span>
+					<span>Evaluate</span>
 				</button>
 			</div>
 		</div>
 
-		<!-- Main Two-Column Layout -->
-		<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-			<!-- Left Column: Context & Personas (5 cols) -->
-			<div class="lg:col-span-5 console-card p-6 sm:p-7 space-y-6">
-				<!-- Quick Presets -->
-				<div class="space-y-3">
-					<div class="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Quick Test Personas</div>
-					<div class="flex flex-wrap gap-2 font-mono text-xs">
-						<button
-							type="button"
-							@click="applyPreset('usr_dhawal_01', 'dhawal@flagura.dev', 'US', 'admin', 'enterprise')"
-							class="rounded-xl border px-3 py-2 text-xs transition-all shadow-2xs cursor-pointer"
-							:class="context.user_id === 'usr_dhawal_01' ? 'bg-slate-900 text-white border-slate-900 font-semibold' : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'"
-						>
-							Dhawal (Staff Whitelist)
-						</button>
-						<button
-							type="button"
-							@click="applyPreset('usr_vip_enterprise_88', 'cto@acme-corp.com', 'US', 'user', 'enterprise')"
-							class="rounded-xl border px-3 py-2 text-xs transition-all shadow-2xs cursor-pointer"
-							:class="context.user_id === 'usr_vip_enterprise_88' ? 'bg-slate-900 text-white border-slate-900 font-semibold' : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'"
-						>
-							Enterprise VIP Client
-						</button>
-						<button
-							type="button"
-							@click="applyPreset('usr_qa_lead_44', 'qa.lead@company.com', 'CA', 'qa_engineer', 'pro')"
-							class="rounded-xl border px-3 py-2 text-xs transition-all shadow-2xs cursor-pointer"
-							:class="context.user_id === 'usr_qa_lead_44' ? 'bg-slate-900 text-white border-slate-900 font-semibold' : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'"
-						>
-							QA & Finance Tester
-						</button>
-						<button
-							type="button"
-							@click="applyPreset('usr_uk_beta_09', 'emma@london-tech.co.uk', 'GB', 'beta_tester', 'free')"
-							class="rounded-xl border px-3 py-2 text-xs transition-all shadow-2xs cursor-pointer"
-							:class="context.user_id === 'usr_uk_beta_09' ? 'bg-slate-900 text-white border-slate-900 font-semibold' : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'"
-						>
-							Beta Tester (UK/Europe)
-						</button>
-						<button
-							type="button"
-							@click="applyPreset('usr_anon_3948', 'standard.user@gmail.com', 'DE', 'user', 'free')"
-							class="rounded-xl border px-3 py-2 text-xs transition-all shadow-2xs cursor-pointer"
-							:class="context.user_id === 'usr_anon_3948' ? 'bg-slate-900 text-white border-slate-900 font-semibold' : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'"
-						>
-							Standard Free User
-						</button>
-					</div>
-				</div>
+		<!-- Quick Personas Bar -->
+		<div class="flex flex-wrap items-center gap-2 p-3 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+			<span class="text-[11px] font-bold text-slate-400 font-mono uppercase px-2">Quick Personas:</span>
+			<button
+				type="button"
+				@click="applyPreset('usr_dhawal_01', 'dhawal@flagura.dev', 'US', 'admin', 'enterprise')"
+				class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer border"
+				:class="context.user_id === 'usr_dhawal_01' ? 'bg-blue-50 text-blue-700 border-blue-300 font-bold shadow-2xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'"
+			>
+				<span>🛠️</span>
+				<span>Staff Admin (US)</span>
+			</button>
+			<button
+				type="button"
+				@click="applyPreset('usr_vip_enterprise_88', 'cto@acme-corp.com', 'US', 'user', 'enterprise')"
+				class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer border"
+				:class="context.user_id === 'usr_vip_enterprise_88' ? 'bg-blue-50 text-blue-700 border-blue-300 font-bold shadow-2xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'"
+			>
+				<span>👑</span>
+				<span>Enterprise VIP</span>
+			</button>
+			<button
+				type="button"
+				@click="applyPreset('usr_qa_lead_44', 'qa.lead@company.com', 'CA', 'qa_engineer', 'pro')"
+				class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer border"
+				:class="context.user_id === 'usr_qa_lead_44' ? 'bg-blue-50 text-blue-700 border-blue-300 font-bold shadow-2xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'"
+			>
+				<span>🧪</span>
+				<span>QA Engineer (CA)</span>
+			</button>
+			<button
+				type="button"
+				@click="applyPreset('usr_uk_beta_09', 'emma@london-tech.co.uk', 'GB', 'beta_tester', 'free')"
+				class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer border"
+				:class="context.user_id === 'usr_uk_beta_09' ? 'bg-blue-50 text-blue-700 border-blue-300 font-bold shadow-2xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'"
+			>
+				<span>🌍</span>
+				<span>EU Beta Tester</span>
+			</button>
+			<button
+				type="button"
+				@click="applyPreset('usr_anon_3948', 'standard.user@gmail.com', 'DE', 'user', 'free')"
+				class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer border"
+				:class="context.user_id === 'usr_anon_3948' ? 'bg-blue-50 text-blue-700 border-blue-300 font-bold shadow-2xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'"
+			>
+				<span>👤</span>
+				<span>Standard Free User</span>
+			</button>
+		</div>
 
-				<!-- Target Flag & Environment -->
-				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
-					<div>
-						<label class="text-xs font-semibold text-slate-700 mb-1.5 block">Target Flag Scope</label>
+		<!-- Main Two-Column Layout -->
+		<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+			<!-- Left Column: Context Configuration (5 cols) -->
+			<div class="lg:col-span-5 console-card p-6 space-y-5">
+				<!-- Flag Selector -->
+				<div>
+					<label class="text-xs font-bold text-slate-700 mb-1.5 block">Select Target Flag</label>
+					<div class="relative">
 						<select
 							x-model="selectedFlagKey"
 							@change="evaluateNow()"
-							class="input-clean w-full font-mono text-xs"
+							class="input-clean w-full font-mono text-xs font-bold text-slate-900 pr-8"
 						>
-							<option value="all">⚡ All Flags ({ fmt.Sprintf("%d", len(flags)) })</option>
+							<option value="all">⚡ All Feature Flags ({ fmt.Sprintf("%d", len(flags)) })</option>
 							for _, f := range flags {
 								<option value={ f.Key }>{ f.Key } ({ f.Type })</option>
 							}
 						</select>
 					</div>
-
-					<div>
-						<label class="text-xs font-semibold text-slate-700 mb-1.5 block">Environment</label>
-						<select
-							x-model="currentEnv"
-							@change="evaluateNow()"
-							class="input-clean w-full font-mono uppercase text-xs"
-						>
-							<option value="production">Production</option>
-							<option value="staging">Staging</option>
-							<option value="development">Development</option>
-						</select>
-					</div>
 				</div>
 
-				<!-- Standard Attributes -->
-				<div class="space-y-4 pt-4 border-t border-slate-100">
-					<div class="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">User Identity & Attributes</div>
-
+				<!-- Identity Attributes Card -->
+				<div class="space-y-4 pt-3 border-t border-slate-100">
 					<div>
-						<div class="flex items-center justify-between text-xs mb-1.5 font-mono">
-							<span class="text-slate-600">User ID (Hash Salt):</span>
-							<span class="text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-200" x-text="'Bucket #' + currentBucket + '%'"></span>
+						<div class="flex items-center justify-between text-xs mb-1.5">
+							<label class="font-bold text-slate-700">User ID</label>
+							<span class="text-[11px] font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200" x-text="'FNV-1a: ' + currentBucket + '%'"></span>
 						</div>
 						<input
 							type="text"
 							x-model="context.user_id"
 							@input.debounce.250ms="evaluateNow()"
-							class="input-clean w-full font-mono text-xs"
-							placeholder="usr_12345"
+							class="input-clean w-full font-mono text-xs font-medium"
+							placeholder="e.g. usr_alex_42"
 						/>
 					</div>
 
-					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<div class="grid grid-cols-2 gap-3">
 						<div>
-							<label class="text-xs font-semibold text-slate-700 mb-1.5 block">Email</label>
+							<label class="text-xs font-semibold text-slate-700 mb-1 block">Email</label>
 							<input
-								type="text"
+								type="email"
 								x-model="context.email"
 								@input.debounce.250ms="evaluateNow()"
 								class="input-clean w-full text-xs font-mono"
+								placeholder="alex@company.com"
 							/>
 						</div>
 						<div>
-							<label class="text-xs font-semibold text-slate-700 mb-1.5 block">Country</label>
+							<label class="text-xs font-semibold text-slate-700 mb-1 block">Country Code</label>
 							<input
 								type="text"
 								x-model="context.country"
 								@input.debounce.250ms="evaluateNow()"
 								class="input-clean w-full text-xs font-mono uppercase"
+								placeholder="US, CA, GB..."
 							/>
 						</div>
 					</div>
 
-					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<div class="grid grid-cols-2 gap-3">
 						<div>
-							<label class="text-xs font-semibold text-slate-700 mb-1.5 block">Role</label>
+							<label class="text-xs font-semibold text-slate-700 mb-1 block">Role</label>
 							<input
 								type="text"
 								x-model="context.role"
 								@input.debounce.250ms="evaluateNow()"
 								class="input-clean w-full text-xs font-mono"
+								placeholder="admin, user..."
 							/>
 						</div>
 						<div>
-							<label class="text-xs font-semibold text-slate-700 mb-1.5 block">Plan Tier</label>
+							<label class="text-xs font-semibold text-slate-700 mb-1 block">Plan Tier</label>
 							<select
 								x-model="context.tier"
 								@change="evaluateNow()"
-								class="input-clean w-full text-xs font-mono"
+								class="input-clean w-full text-xs font-mono font-semibold"
 							>
 								<option value="enterprise">enterprise</option>
 								<option value="pro">pro</option>
@@ -183,128 +203,128 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 					</div>
 				</div>
 
-				<!-- Custom Context JSON -->
-				<div class="space-y-2 pt-4 border-t border-slate-100">
-					<div class="flex items-center justify-between">
-						<span class="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Custom JSON Attributes</span>
-						<span class="text-[10px] text-slate-400 font-mono">Arbitrary key-values</span>
+				<!-- Collapsible Advanced JSON Attributes -->
+				<div class="pt-3 border-t border-slate-100" x-data="{ showAdvanced: false }">
+					<button
+						type="button"
+						@click="showAdvanced = !showAdvanced"
+						class="flex items-center justify-between w-full text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+					>
+						<span class="flex items-center gap-1.5">
+							<i data-lucide="sliders" class="h-3.5 w-3.5"></i>
+							<span>Custom JSON Attributes</span>
+						</span>
+						<span class="text-[11px] text-blue-600 font-mono" x-text="showAdvanced ? 'Hide' : 'Expand'"></span>
+					</button>
+
+					<div x-show="showAdvanced" class="pt-2.5 space-y-2">
+						<textarea
+							rows="3"
+							x-model="customJson"
+							@input.debounce.300ms="evaluateNow()"
+							class="input-clean w-full text-xs font-mono leading-relaxed"
+							placeholder='{ "app_version": "2.4.0", "beta": true }'
+						></textarea>
 					</div>
-					<textarea
-						rows="3"
-						x-model="customJson"
-						@input.debounce.300ms="evaluateNow()"
-						class="input-clean w-full text-xs font-mono"
-					></textarea>
 				</div>
 			</div>
 
-			<!-- Right Column: Instant Deterministic Results & cURL (7 cols) -->
-			<div class="lg:col-span-7 space-y-8">
-				<!-- Results Container -->
-				<div class="console-card p-6 sm:p-7 space-y-5">
-					<!-- Status bar -->
-					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
-						<div class="flex items-center gap-2">
-							<span class="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Engine Telemetry:</span>
-							<span class="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-								&lt; 0.05 ms (~80ns native)
-							</span>
-						</div>
-						<div class="text-xs text-slate-500 font-mono">
-							Evaluated: <span class="font-bold text-slate-900" x-text="Object.keys(evalResults).length"></span> flag(s)
-						</div>
-					</div>
-
-					<!-- Flag Evaluation Results Cards -->
-					<div class="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">
-						<template x-for="(res, key) in evalResults" :key="key">
-							<div
-								class="console-card-subtle p-5 transition-all"
-								:class="res.enabled ? 'border-blue-300 bg-blue-50/20' : 'border-slate-200 bg-slate-50/80'"
-							>
-								<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-									<div>
-										<span class="font-mono text-sm font-bold text-slate-900" x-text="key"></span>
+			<!-- Right Column: Evaluation Verdict & Results (7 cols) -->
+			<div class="lg:col-span-7 space-y-4">
+				<!-- Single Flag Hero Result (When a specific flag is chosen) -->
+				<template x-if="selectedFlagKey !== 'all' && evalResults[selectedFlagKey]">
+					<div class="space-y-4">
+						<!-- Hero Verdict Banner -->
+						<div
+							class="p-6 rounded-3xl border transition-all space-y-4 shadow-sm"
+							:class="evalResults[selectedFlagKey].enabled ? 'bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-white border-emerald-200' : 'bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-white border-rose-200'"
+						>
+							<div class="flex items-start justify-between gap-4">
+								<div>
+									<div class="flex items-center gap-2">
+										<span class="font-mono text-xs text-slate-400 font-bold uppercase">FLAG EVALUATION VERDICT</span>
+										<span class="font-mono text-[11px] text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full font-bold">~80ns</span>
 									</div>
-
-									<div class="flex items-center gap-2 self-end sm:self-auto">
-										<span
-											class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1 text-xs font-mono font-bold uppercase shadow-2xs"
-											:class="res.enabled ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-rose-50 border border-rose-200 text-rose-700'"
-										>
-											<i data-lucide="check-circle-2" class="h-3.5 w-3.5 text-emerald-600" x-show="res.enabled"></i>
-											<i data-lucide="x-circle" class="h-3.5 w-3.5 text-rose-600" x-show="!res.enabled"></i>
-											<span x-text="res.enabled ? 'ON (Served)' : 'OFF (Blocked)'"></span>
-										</span>
-									</div>
+									<h3 class="text-2xl font-black font-display text-slate-900 mt-1" x-text="selectedFlagKey"></h3>
 								</div>
 
-								<!-- Evaluation Logic Breakdown -->
-								<div class="mt-3.5 pt-3 border-t border-slate-200/80 space-y-2.5 text-xs">
-									<div class="flex items-center justify-between text-slate-600">
-										<span>Reason / Strategy:</span>
-										<span class="font-mono font-semibold text-slate-900" x-text="res.reason"></span>
+								<!-- Huge Status Badge -->
+								<div
+									class="px-4 py-2 rounded-2xl font-mono text-sm font-black flex items-center gap-2 shadow-2xs"
+									:class="evalResults[selectedFlagKey].enabled ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'"
+								>
+									<i data-lucide="check-circle" class="h-4 w-4" x-show="evalResults[selectedFlagKey].enabled"></i>
+									<i data-lucide="x-circle" class="h-4 w-4" x-show="!evalResults[selectedFlagKey].enabled"></i>
+									<span x-text="evalResults[selectedFlagKey].enabled ? 'ENABLED' : 'DISABLED'"></span>
+								</div>
+							</div>
+
+							<!-- Decision Rationale Pill -->
+							<div class="p-3.5 rounded-2xl bg-white/80 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+								<div class="flex items-center gap-2">
+									<span class="text-xs font-bold text-slate-500 font-mono">MATCH REASON:</span>
+									<span class="text-xs font-mono font-bold text-slate-900" x-text="evalResults[selectedFlagKey].reason"></span>
+								</div>
+								<div class="flex items-center gap-2 font-mono text-xs">
+									<span class="text-slate-400">RESOLVED VARIANT:</span>
+									<span class="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200" x-text="evalResults[selectedFlagKey].variant || 'default'"></span>
+								</div>
+							</div>
+
+							<!-- Sticky Hash Bucketing Progress Visualizer -->
+							<div class="p-4 rounded-2xl bg-white/80 border border-slate-200/80 space-y-2">
+								<div class="flex items-center justify-between text-xs font-mono">
+									<span class="text-slate-500">User Sticky Hash Position:</span>
+									<span class="font-bold text-slate-900" x-text="'Bucket #' + currentBucket + '%' + (currentBucket <= (evalResults[selectedFlagKey].bucket || 50) ? ' (Included in Rollout)' : ' (Excluded)')"></span>
+								</div>
+								<div class="relative h-2.5 w-full rounded-full bg-slate-100 overflow-hidden">
+									<div
+										class="absolute top-0 bottom-0 left-0 bg-blue-500 rounded-full transition-all duration-300"
+										:style="'width: ' + (evalResults[selectedFlagKey].bucket || 50) + '%'"
+									></div>
+									<div
+										class="absolute top-0 bottom-0 w-3 bg-amber-500 border-2 border-white rounded-full shadow-md transition-all duration-300"
+										:style="'left: ' + Math.min(currentBucket, 97) + '%'"
+									></div>
+								</div>
+								<div class="flex justify-between text-[10px] font-mono text-slate-400">
+									<span>0%</span>
+									<span x-text="'Rollout Gate: ' + (evalResults[selectedFlagKey].bucket || 50) + '%'"></span>
+									<span>100%</span>
+								</div>
+							</div>
+						</div>
+
+						<!-- Visual Step-by-Step Rule Pipeline Execution Trace -->
+						<template x-if="evalTraces[selectedFlagKey] && evalTraces[selectedFlagKey].steps && evalTraces[selectedFlagKey].steps.length > 0">
+							<div class="console-card p-5 space-y-3">
+								<div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+									<div class="flex items-center gap-2">
+										<i data-lucide="git-commit" class="h-4 w-4 text-blue-600"></i>
+										<span class="text-xs font-bold text-slate-800 font-display">Rule Execution Pipeline</span>
 									</div>
+									<span class="text-[11px] font-mono text-slate-400" x-text="evalTraces[selectedFlagKey].steps.length + ' evaluation steps'"></span>
+								</div>
 
-									<!-- Sticky Hash Bucket Progress Bar -->
-									<template x-if="res.bucket_val !== undefined">
-										<div class="space-y-1.5 bg-white p-3 rounded-xl border border-slate-200">
-											<div class="flex justify-between text-xs font-mono">
-												<span class="text-slate-500">User FNV-1a Sticky Bucket:</span>
-												<span class="font-bold text-slate-900" x-text="'Bucket #' + res.bucket_val + '%'"></span>
-											</div>
-											<div class="relative h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-												<div
-													class="absolute top-0 bottom-0 left-0 bg-blue-600 rounded-full"
-													style="width: 50%"
-												></div>
-												<div
-													class="absolute top-0 bottom-0 w-2 bg-rose-500 shadow-sm"
-													:style="'left: ' + Math.min(res.bucket_val, 98) + '%'"
-												></div>
-											</div>
-										</div>
-									</template>
-
-									<!-- Variant & Payload Value -->
-									<div class="flex items-start justify-between pt-1 border-t border-slate-200/60 text-xs">
-										<span class="text-slate-500 font-mono">Resolved Variant:</span>
-										<div class="text-right">
-											<span class="font-mono font-semibold text-blue-700" x-text="res.variant || 'default'"></span>
-										</div>
-									</div>
-
-									<!-- Visual Step-by-Step Rule Execution Trace (Option 2) -->
-									<template x-if="evalTraces[key] && evalTraces[key].steps && evalTraces[key].steps.length > 0">
-										<div class="mt-3 pt-3 border-t border-slate-200 space-y-2 bg-white/70 rounded-xl p-3 border border-slate-200/70" x-data="{ showTrace: true }">
-											<div class="flex items-center justify-between cursor-pointer" @click="showTrace = !showTrace">
-												<div class="flex items-center gap-1.5 text-[11px] font-mono font-bold text-slate-700 uppercase tracking-tight">
-													<i data-lucide="git-commit" class="h-3.5 w-3.5 text-blue-600"></i>
-													<span>Execution Trace (<span x-text="evalTraces[key].steps.length"></span> steps)</span>
+								<div class="space-y-2">
+									<template x-for="step in evalTraces[selectedFlagKey].steps" :key="step.step_index">
+										<div class="flex items-start gap-3 p-2.5 rounded-xl border text-xs font-mono transition-all" :class="step.passed ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50/50 border-slate-200'">
+											<span
+												class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold mt-0.5"
+												:class="step.passed ? 'bg-emerald-600 text-white shadow-2xs' : 'bg-slate-300 text-slate-600'"
+											>
+												<span x-text="step.passed ? '✓' : '✗'"></span>
+											</span>
+											<div class="flex-1 min-w-0">
+												<div class="flex items-center justify-between">
+													<span class="font-bold text-slate-900" x-text="step.name"></span>
+													<span
+														class="text-[10px] font-bold px-1.5 py-0.5 rounded"
+														:class="step.passed ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'"
+														x-text="step.passed ? 'PASSED' : 'SKIPPED'"
+													></span>
 												</div>
-												<span class="text-[10px] text-blue-600 font-mono" x-text="showTrace ? 'Hide Trace' : 'Show Trace'"></span>
-											</div>
-
-											<div class="space-y-2 pt-2" x-show="showTrace">
-												<template x-for="step in evalTraces[key].steps" :key="step.step_index">
-													<div class="flex items-start gap-2 text-xs font-mono">
-														<span
-															class="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
-															:class="step.passed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'"
-														>
-															<template x-if="step.passed">
-																<span>✓</span>
-															</template>
-															<template x-if="!step.passed">
-																<span>✗</span>
-															</template>
-														</span>
-														<div class="flex-1 min-w-0">
-															<div class="font-semibold text-slate-900" x-text="step.name"></div>
-															<div class="text-[11px] text-slate-500" x-text="step.detail"></div>
-														</div>
-													</div>
-												</template>
+												<div class="text-[11px] text-slate-500 mt-0.5" x-text="step.detail"></div>
 											</div>
 										</div>
 									</template>
@@ -312,25 +332,71 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 							</div>
 						</template>
 					</div>
-				</div>
+				</template>
 
-				<!-- Generated cURL Section -->
-				<div class="console-card p-6 sm:p-7 space-y-3.5">
-					<div class="flex items-center justify-between">
-						<div class="flex items-center gap-2 text-xs font-semibold text-slate-900">
-							<i data-lucide="terminal" class="h-4 w-4 text-blue-600"></i>
-							<span class="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Direct API cURL Request</span>
+				<!-- All Flags Mode (Compact & Clean List) -->
+				<template x-if="selectedFlagKey === 'all'">
+					<div class="console-card p-5 space-y-4">
+						<div class="flex items-center justify-between border-b border-slate-100 pb-3">
+							<div class="flex items-center gap-2">
+								<span class="text-xs font-bold text-slate-800 font-display">Batch Evaluation Matrix</span>
+								<span class="text-[10px] font-mono font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200" x-text="Object.keys(evalResults).length + ' flags'"></span>
+							</div>
+							<span class="text-xs font-mono text-emerald-600 font-bold">&lt; 0.05ms batch total</span>
 						</div>
-						<button
-							type="button"
-							@click="copyCurl()"
-							class="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-mono font-semibold transition cursor-pointer shadow-2xs flex items-center gap-1.5"
-						>
-							<i data-lucide="copy" class="h-3.5 w-3.5"></i>
-							<span x-text="copiedCurl ? 'Copied!' : 'Copy cURL'"></span>
-						</button>
+
+						<div class="space-y-2.5 max-h-[550px] overflow-y-auto pr-1">
+							<template x-for="(res, key) in evalResults" :key="key">
+								<div
+									@click="selectedFlagKey = key; evaluateNow()"
+									class="p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-4 hover:border-blue-400 hover:shadow-xs"
+									:class="res.enabled ? 'border-slate-200 bg-white' : 'border-slate-200 bg-slate-50/70'"
+								>
+									<div class="min-w-0 space-y-1">
+										<div class="flex items-center gap-2">
+											<span class="font-mono text-xs font-bold text-slate-900 truncate" x-text="key"></span>
+											<span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium" x-text="res.variant || 'default'"></span>
+										</div>
+										<p class="text-[11px] font-mono text-slate-500 truncate" x-text="res.reason"></p>
+									</div>
+
+									<div class="shrink-0 flex items-center gap-3">
+										<span
+											class="px-3 py-1 rounded-xl font-mono text-[11px] font-bold flex items-center gap-1.5 shadow-2xs"
+											:class="res.enabled ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-rose-50 border border-rose-200 text-rose-700'"
+										>
+											<span class="h-1.5 w-1.5 rounded-full" :class="res.enabled ? 'bg-emerald-500' : 'bg-rose-500'"></span>
+											<span x-text="res.enabled ? 'ENABLED' : 'DISABLED'"></span>
+										</span>
+										<i data-lucide="chevron-right" class="h-4 w-4 text-slate-400"></i>
+									</div>
+								</div>
+							</template>
+						</div>
 					</div>
-					<pre class="overflow-x-auto rounded-xl bg-slate-900 text-slate-100 p-4 text-xs font-mono shadow-sm leading-relaxed" x-text="getCurlCommand()"></pre>
+				</template>
+
+				<!-- Compact cURL / API Code Drawer -->
+				<div class="console-card p-4 space-y-2" x-data="{ openCurl: false }">
+					<div class="flex items-center justify-between cursor-pointer" @click="openCurl = !openCurl">
+						<div class="flex items-center gap-2 text-xs font-bold text-slate-700 font-mono">
+							<i data-lucide="terminal" class="h-4 w-4 text-blue-600"></i>
+							<span>cURL API Command</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<button
+								type="button"
+								@click.stop="copyCurl()"
+								class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-mono font-semibold transition cursor-pointer flex items-center gap-1"
+							>
+								<i data-lucide="copy" class="h-3 w-3"></i>
+								<span x-text="copiedCurl ? 'Copied!' : 'Copy'"></span>
+							</button>
+							<span class="text-[11px] text-blue-600 font-mono" x-text="openCurl ? 'Collapse' : 'Expand'"></span>
+						</div>
+					</div>
+
+					<pre x-show="openCurl" class="overflow-x-auto rounded-xl bg-slate-900 text-slate-100 p-3.5 text-xs font-mono leading-relaxed mt-2" x-text="getCurlCommand()"></pre>
 				</div>
 			</div>
 		</div>

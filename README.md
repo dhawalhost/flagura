@@ -105,9 +105,14 @@ No database installation required to get started. Flagura includes a built-in in
 git clone https://github.com/dhawalhost/flagura.git
 cd flagura
 
-# Run the Go server
-go run main.go
+# Run with Make (auto-generates templates & starts server)
+make dev
+
+# Or build both server and developer CLI binaries into bin/
+make build
 ```
+
+> **Tip:** Run `make help` to see all available local workflows (testing, benchmarks, docker, code coverage).
 
 Open your browser to:
 
