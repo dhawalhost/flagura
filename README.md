@@ -403,6 +403,38 @@ curl -X POST "https://flagura.dhawalhost.com/api/v1/flags/ai-smart-search/promot
 
 ---
 
+## 💻 Flagura Developer CLI (`cmd/flagura`)
+
+Flagura includes a single-binary CLI tool for developers, terminal evaluation, and CI/CD automated rollouts:
+
+```bash
+# Build / install CLI
+go build -o /usr/local/bin/flagura ./cmd/flagura
+```
+
+### CLI Commands:
+```bash
+# List all feature flags and their current status
+flagura list
+
+# Instant master kill-switch toggle
+flagura toggle ai-smart-search --env=production
+
+# Update percentage rollout
+flagura rollout ai-smart-search 25% --env=production
+
+# Evaluate flag in terminal with visual execution trace
+flagura evaluate ai-smart-search --user=usr_alex_42 --trace
+
+# Promote staging configuration to production
+flagura promote ai-smart-search --from=staging --to=production
+
+# Scan codebase technical debt and stale flags
+flagura clean-up
+```
+
+---
+
 ## 💻 Polyglot SDK Quickstart
 
 ### 1. Official Go Native SDK (`pkg/client`)

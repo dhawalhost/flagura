@@ -9,8 +9,28 @@ before:
     - go mod tidy
 
 builds:
-  - id: flagura
+  - id: flagura-server
     main: ./main.go
+    binary: flagura-server
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version=v{{.Version}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+  - id: flagura-cli
+    main: ./cmd/flagura/main.go
     binary: flagura
     env:
       - CGO_ENABLED=0
@@ -32,6 +52,9 @@ builds:
 archives:
   - id: flagura-archive
     name_template: "{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - flagura-server
+      - flagura-cli
     format_overrides:
       - goos: windows
         formats:
