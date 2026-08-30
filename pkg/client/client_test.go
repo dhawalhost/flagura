@@ -179,3 +179,33 @@ func TestClientLocalEvaluation(t *testing.T) {
 		t.Errorf("unexpected flag key in local evaluation: %s", res.FlagKey)
 	}
 }
+
+func TestClientSnapshotPersistenceAndOfflineBootstrap(t *testing.T) {
+	ts := mockServer(t)
+
+	tmpFile := t.TempDir() + "/flagura_snapshot.json"
+
+	// 1. Initial client syncs from server and saves snapshot to disk
+	c1 := client.New(ts.URL, client.WithLocalEvaluation(1*time.Second), client.WithSnapshotFile(tmpFile))
+	c1.Close()
+	ts.Close() // Simulate server shutdown / network partition
+
+	// 2. New client boots up pointing to dead endpoint with snapshot file
+	c2 := client.New("http://127.0.0.1:54321", client.WithLocalEvaluation(1*time.Second), client.WithSnapshotFile(tmpFile))
+	defer c2.Close()
+
+	ctx := context.Background()
+	evalCtx := client.Context{
+		UserID: "offline_user_1",
+		Email:  "user@example.com",
+	}
+
+	// 3. Evaluation must succeed locally from offline snapshot
+	res, err := c2.Evaluate(ctx, "ai-smart-search", evalCtx)
+	if err != nil {
+		t.Fatalf("expected offline evaluation to succeed from snapshot, got error: %v", err)
+	}
+	if res.FlagKey != "ai-smart-search" {
+		t.Fatalf("expected flag_key 'ai-smart-search', got '%s'", res.FlagKey)
+	}
+}

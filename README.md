@@ -7,12 +7,13 @@
 ![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go&logoColor=white)
 ![Evaluation Latency](https://img.shields.io/badge/P99%20Latency-%3C%2080ns-emerald?style=flat&logo=speedtest&logoColor=white)
 ![Build & Tests](<https://img.shields.io/badge/Tests-Passing%20(100%25)-emerald?style=flat&logo=githubactions&logoColor=white>)
+![OpenFeature](https://img.shields.io/badge/OpenFeature-Compatible-7c3aed?style=flat&logo=openfeature&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
-**Ship feature flags at the speed of thought without breaking production.**  
-_Deterministic in-memory evaluation, gradual percentage rollouts, and instant kill-switch circuit breakers._
+**Feature flags that disappear from your critical path.**  
+_Sub-microsecond deterministic in-memory evaluation, OpenFeature native provider, gradual rollouts, and instant kill-switch circuit breakers._
 
-[Live Demo & Console](#-quickstart) • [Architecture](#-architecture) • [API Reference](#-rest-api-reference) • [SDK Integration](#-polyglot-sdk-quickstart) • [Deployment](#-deployment-options) • [Runbooks](docs/runbooks/README.md)
+[Live Demo & Console](#-quickstart) • [Architecture](#-architecture) • [OpenFeature](#-openfeature-go-provider) • [API Reference](#-rest-api-reference) • [SDK Integration](#-polyglot-sdk-quickstart) • [Deployment](#-deployment-options) • [Runbooks](docs/runbooks/README.md)
 
 </div>
 
@@ -20,7 +21,7 @@ _Deterministic in-memory evaluation, gradual percentage rollouts, and instant ki
 
 ## 📖 Overview
 
-**Flagura** is a modern, high-performance feature flag and release management platform engineered for zero-latency in-memory flag evaluation. Traditional SaaS feature flagging services introduce remote HTTP network hops (~20–80ms) that slow down user interactions and degrade Core Web Vitals.
+**Flagura** is a modern, high-performance feature flag and release management engine engineered for zero-latency in-process flag evaluation. Traditional SaaS feature flagging services introduce remote HTTP network hops (~20–80ms) that slow down user interactions and degrade Core Web Vitals.
 
 Flagura solves this by evaluating rules and percentage rollouts locally in-memory using **deterministic 64-bit FNV-1a hashing** and atomic rule bitmaps, executing in **sub-microsecond time (< 80 nanoseconds)** with zero database roundtrips on evaluation hot paths.
 
@@ -29,11 +30,12 @@ Flagura solves this by evaluating rules and percentage rollouts locally in-memor
 ## ⚡ Key Highlights
 
 - **⚡ Sub-Microsecond Resolution:** In-memory deterministic rule engine resolving flags in 80ns – 4µs without blocking the main event loop.
-- **🎯 Deterministic Sticky Percentage Bucketing:** Pure mathematical FNV-1a 64-bit hashing ensures users consistently land in the exact same rollout bucket across all sessions, platforms, and server restarts.
+- **🌐 Native OpenFeature Provider:** Drop-in vendor-neutral `open-feature/go-sdk` integration—switch or adopt Flagura with zero code lock-in.
+- **🛡️ Resilient Offline Snapshot Mode:** SDK caches rules to disk and boots seamlessly during server outages with zero request failures.
+- **🎯 Deterministic Sticky Percentage Bucketing:** Pure mathematical FNV-1a 64-bit hashing ensures users consistently land in the exact same rollout bucket across all sessions and platforms.
 - **🚨 Instant Master Kill-Switch:** 1-click edge circuit breaker to instantly shut down buggy features in production with zero code redeployments.
-- **🛡️ Attribute-Based Targeting Rules:** Granular conditions based on User ID, Email domain (`@company.com`), Geographic country, Role, and Plan tier.
+- **📊 Production Observability:** Built-in Prometheus `/metrics` endpoint and Kubernetes `/healthz`, `/livez`, `/readyz` probes.
 - **💎 Clean, Stripe-Grade UI/UX:** Docked developer console, interactive switchboard playground, live evaluation sandbox, latency benchmark suite, and immutable audit trails.
-- **🚀 Dual-Deployment Ready:** Runs as a standalone Go binary, a containerized Docker service, or serverless functions on **Vercel** backed by **Supabase PostgreSQL**.
 
 ---
 
@@ -217,6 +219,9 @@ curl -X POST http://localhost:3000/api/v1/evaluate \
 
 | Method   | Endpoint                     | Description                                    |
 | :------- | :--------------------------- | :--------------------------------------------- |
+| `GET`    | `/healthz` / `/livez`        | Kubernetes liveness health probe               |
+| `GET`    | `/readyz`                    | Kubernetes readiness probe (checks storage)    |
+| `GET`    | `/metrics`                   | Standard Prometheus metrics exposition         |
 | `GET`    | `/api/v1/flags`              | List all feature flags across environments     |
 | `GET`    | `/api/v1/flags/:key`         | Retrieve details for a specific flag           |
 | `POST`   | `/api/v1/flags`              | Create or update a feature flag configuration  |
@@ -228,9 +233,56 @@ curl -X POST http://localhost:3000/api/v1/evaluate \
 
 ---
 
-## 💻 SDK & Integration Quickstart
+## 🌐 OpenFeature Go Provider
 
-### 1. Official Go SDK (`pkg/client`)
+Flagura includes a first-class, official **OpenFeature Provider** implementing the CNCF vendor-neutral specification:
+
+```bash
+go get github.com/dhawalhost/flagura/pkg/openfeature
+go get github.com/open-feature/go-sdk
+```
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+	"time"
+
+	"github.com/dhawalhost/flagura/pkg/client"
+	flaguraOF "github.com/dhawalhost/flagura/pkg/openfeature"
+	of "github.com/open-feature/go-sdk/openfeature"
+)
+
+func main() {
+	// 1. Initialize Flagura in-memory client
+	flaguraClient := client.New("https://flagura.dhawalhost.com",
+		client.WithLocalEvaluation(30*time.Second),
+		client.WithSnapshotFile("/tmp/flagura-cache.json"), // offline resilience
+	)
+	defer flaguraClient.Close()
+
+	// 2. Register Flagura as your global OpenFeature Provider
+	_ = of.SetProviderAndWait(flaguraOF.NewProvider(flaguraClient))
+
+	// 3. Evaluate flags using standard OpenFeature APIs
+	ofClient := of.NewClient("checkout-service")
+	evalCtx := of.NewEvaluationContext("usr_alex_42", map[string]interface{}{
+		"email": "alex@company.com",
+		"tier":  "enterprise",
+	})
+
+	enabled, _ := ofClient.BooleanValue(context.Background(), "ai-smart-search", false, evalCtx)
+	log.Printf("Flag Status: %v", enabled)
+}
+```
+
+---
+
+## 💻 Polyglot SDK Quickstart
+
+### 1. Official Go Native SDK (`pkg/client`)
 
 The built-in Go client supports **sub-microsecond in-memory evaluations** (cached in-process) and remote evaluations:
 
@@ -250,14 +302,14 @@ import (
 )
 
 func main() {
-	// Initialize Flagura client with background local synchronization
+	// Initialize Flagura client with in-memory caching and offline snapshot
 	c := client.New("https://flagura.dhawalhost.com",
-		client.WithLocalEvaluation(true),
-		client.WithSyncInterval(30*time.Second),
+		client.WithLocalEvaluation(30*time.Second),
+		client.WithSnapshotFile("/tmp/flagura-cache.json"),
 	)
 	defer c.Close()
 
-	// Evaluate flag locally in ~400 nanoseconds
+	// Evaluate flag locally in < 80 nanoseconds
 	result, err := c.Evaluate(context.Background(), "ai-smart-search", client.Context{
 		UserID:  "usr_dhawal_01",
 		Email:   "dhawal@flagura.dev",

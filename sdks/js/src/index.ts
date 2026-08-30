@@ -110,3 +110,5 @@ export class FlaguraClient {
     }
   }
 }
+
+export * from './openfeature';

@@ -2,14 +2,83 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/engine"
 )
+
+func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
+}
+
+func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
+	_, err := s.store.ListFlags(r.Context())
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"status":"unavailable","error":"storage not ready"}`))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"status":"ready"}`))
+}
+
+func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	flags, _ := s.store.ListFlags(r.Context())
+	uptime := time.Since(s.startTime).Seconds()
+	totalEvals := atomic.LoadUint64(&s.evalCount)
+
+	prodEnabled := 0
+	stagingEnabled := 0
+	devEnabled := 0
+	for _, f := range flags {
+		if f.EnvConfig("production").Enabled {
+			prodEnabled++
+		}
+		if f.EnvConfig("staging").Enabled {
+			stagingEnabled++
+		}
+		if f.EnvConfig("development").Enabled {
+			devEnabled++
+		}
+	}
+
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	fmt.Fprintf(w, "# HELP flagura_up 1 if the service is operational\n")
+	fmt.Fprintf(w, "# TYPE flagura_up gauge\n")
+	fmt.Fprintf(w, "flagura_up 1\n\n")
+
+	fmt.Fprintf(w, "# HELP flagura_build_info Version and metadata\n")
+	fmt.Fprintf(w, "# TYPE flagura_build_info gauge\n")
+	fmt.Fprintf(w, "flagura_build_info{version=\"1.1.0\",engine=\"deterministic-fastpath\"} 1\n\n")
+
+	fmt.Fprintf(w, "# HELP flagura_uptime_seconds Engine uptime in seconds\n")
+	fmt.Fprintf(w, "# TYPE flagura_uptime_seconds gauge\n")
+	fmt.Fprintf(w, "flagura_uptime_seconds %.2f\n\n", uptime)
+
+	fmt.Fprintf(w, "# HELP flagura_evaluations_total Total flag evaluations served\n")
+	fmt.Fprintf(w, "# TYPE flagura_evaluations_total counter\n")
+	fmt.Fprintf(w, "flagura_evaluations_total %d\n\n", totalEvals)
+
+	fmt.Fprintf(w, "# HELP flagura_flags_total Total feature flags in catalog\n")
+	fmt.Fprintf(w, "# TYPE flagura_flags_total gauge\n")
+	fmt.Fprintf(w, "flagura_flags_total %d\n\n", len(flags))
+
+	fmt.Fprintf(w, "# HELP flagura_flags_enabled Total active flags by environment\n")
+	fmt.Fprintf(w, "# TYPE flagura_flags_enabled gauge\n")
+	fmt.Fprintf(w, "flagura_flags_enabled{environment=\"production\"} %d\n", prodEnabled)
+	fmt.Fprintf(w, "flagura_flags_enabled{environment=\"staging\"} %d\n", stagingEnabled)
+	fmt.Fprintf(w, "flagura_flags_enabled{environment=\"development\"} %d\n", devEnabled)
+}
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	flags, _ := s.store.ListFlags(r.Context())
@@ -17,7 +86,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":      "ok",
 		"service":     "flagura-engine",
-		"version":     "1.22.4",
+		"version":     "1.1.0",
 		"engine":      "Flagura-FastPath-Deterministic",
 		"driver":      s.store.DriverName(),
 		"timestamp":   time.Now().UTC(),
@@ -259,6 +328,7 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	durationUs := float64(time.Since(start).Nanoseconds()) / 1000.0
+	atomic.AddUint64(&s.evalCount, uint64(len(results)))
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(domain.BatchEvaluationResponse{

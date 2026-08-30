@@ -110,17 +110,17 @@ templ LandingPage() {
 						<!-- Hero Title Block -->
 						<div class="text-center max-w-3xl mx-auto space-y-5">
 							<div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50/90 border border-blue-200/80 text-blue-700 text-xs font-semibold shadow-2xs">
-								<i data-lucide="sliders" class="h-3.5 w-3.5 text-blue-600"></i>
-								<span>Feature Flags & Progressive Releases</span>
+								<i data-lucide="zap" class="h-3.5 w-3.5 text-blue-600"></i>
+								<span>Sub-Microsecond & OpenFeature Native Engine</span>
 							</div>
 
 							<h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight font-display">
-								Launch features safely. <br/>
-								<span class="text-blue-600">Control releases in real time.</span>
+								Feature flags that disappear <br/>
+								<span class="text-blue-600">from your critical path.</span>
 							</h1>
 
 							<p class="text-base sm:text-lg text-slate-600 font-normal leading-relaxed max-w-2xl mx-auto">
-								Manage feature rollouts with deterministic percentage bucketing, targeting rules, and master kill-switches—powered by local in-memory evaluation.
+								Sub-microsecond, in-process evaluation with deterministic rollouts, instant kill-switches, and native OpenFeature support.
 							</p>
 
 							<div class="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -586,6 +586,13 @@ templ LandingPage() {
 
 								<div class="flex items-center gap-1.5 text-xs">
 									<button
+										@click="sdkLang = 'openfeature'"
+										class="px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold uppercase text-[11px]"
+										:class="sdkLang === 'openfeature' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'"
+									>
+										OpenFeature
+									</button>
+									<button
 										@click="sdkLang = 'go'"
 										class="px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold uppercase text-[11px]"
 										:class="sdkLang === 'go' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-200'"
@@ -842,14 +849,46 @@ templ LandingPage() {
 					},
 					getSdkSnippet() {
 						const origin = window.location.origin || 'http://localhost:3000';
-						if (this.sdkLang === 'go') {
-							return `// 1. Official Go In-Memory SDK (123 ns / Zero Network Latency)\npackage main\n\nimport (\n    "context"\n    "log"\n    "github.com/dhawalhost/flagura/pkg/client"\n)\n\nfunc main() {\n    // Caches flag rules in RAM and background syncs every 30s\n    c := client.New("${origin}", client.WithLocalEvaluation(true))\n    defer c.Close()\n\n    res, err := c.Evaluate(context.Background(), "ai-smart-search", client.Context{\n        UserID: "usr_alex_42",\n        Attributes: map[string]interface{}{\n            "email": "alex@company.com",\n            "tier":  "enterprise",\n        },\n    })\n    if err == nil && res.Enabled {\n        log.Printf("Treatment Enabled: %v (Bucket: %v%%)", res.Enabled, res.Bucket)\n    }\n}`;
+						if (this.sdkLang === 'openfeature') {
+							return `// 1. Official OpenFeature Go Provider (Vendor-Neutral / Zero Latency)
+package main
+
+import (
+    "context"
+    "log"
+    "time"
+
+    "github.com/dhawalhost/flagura/pkg/client"
+    flaguraOF "github.com/dhawalhost/flagura/pkg/openfeature"
+    of "github.com/open-feature/go-sdk/openfeature"
+)
+
+func main() {
+    // 1. Initialize Flagura in-memory client
+    flaguraClient := client.New("${origin}", client.WithLocalEvaluation(30*time.Second))
+    defer flaguraClient.Close()
+
+    // 2. Register Flagura as your global OpenFeature Provider
+    _ = of.SetProviderAndWait(flaguraOF.NewProvider(flaguraClient))
+
+    // 3. Evaluate flags using standard OpenFeature APIs
+    ofClient := of.NewClient("checkout-service")
+    evalCtx := of.NewEvaluationContext("usr_alex_42", map[string]interface{}{
+        "email": "alex@company.com",
+        "tier":  "enterprise",
+    })
+
+    enabled, _ := ofClient.BooleanValue(context.Background(), "ai-smart-search", false, evalCtx)
+    log.Printf("Feature Enabled: %v", enabled)
+}`;
+						} else if (this.sdkLang === 'go') {
+							return `// 2. Official Go Native SDK (123 ns / In-Memory Evaluation)\npackage main\n\nimport (\n    "context"\n    "log"\n    "time"\n    "github.com/dhawalhost/flagura/pkg/client"\n)\n\nfunc main() {\n    // Caches flag rules in RAM and background syncs every 30s\n    c := client.New("${origin}", client.WithLocalEvaluation(30*time.Second))\n    defer c.Close()\n\n    res, err := c.Evaluate(context.Background(), "ai-smart-search", client.Context{\n        UserID: "usr_alex_42",\n        Email:  "alex@company.com",\n        Tier:   "enterprise",\n    })\n    if err == nil && res.Enabled {\n        log.Printf("Treatment Enabled: %v (Bucket: %v%%)", res.Enabled, res.Bucket)\n    }\n}`;
 						} else if (this.sdkLang === 'react') {
-							return `// 2. TypeScript / React Feature Flag Client\nexport async function isFeatureEnabled(flagKey: string, userId: string, tier = "starter"): Promise<boolean> {\n  try {\n    const res = await fetch("${origin}/api/v1/evaluate", {\n      method: "POST",\n      headers: { "Content-Type": "application/json" },\n      body: JSON.stringify({\n        flag_key: flagKey,\n        context: { user_id: userId, tier }\n      })\n    });\n    const data = await res.json();\n    return data.enabled ?? false;\n  } catch {\n    return false; // Safe control group fallback\n  }\n}`;
+							return `// 3. TypeScript / React Feature Flag Client\nexport async function isFeatureEnabled(flagKey: string, userId: string, tier = "starter"): Promise<boolean> {\n  try {\n    const res = await fetch("${origin}/api/v1/evaluate", {\n      method: "POST",\n      headers: { "Content-Type": "application/json" },\n      body: JSON.stringify({\n        flags: [flagKey],\n        context: { user_id: userId, tier }\n      })\n    });\n    const data = await res.json();\n    return data.results?.[flagKey]?.enabled ?? false;\n  } catch {\n    return false; // Safe control group fallback\n  }\n}`;
 						} else if (this.sdkLang === 'python') {
-							return `# 3. Python Fast Evaluation Client\nimport requests\n\ndef is_feature_enabled(flag_key: str, user_id: str, tier: str = "starter") -> bool:\n    try:\n        res = requests.post(\n            "${origin}/api/v1/evaluate",\n            json={"flag_key": flag_key, "context": {"user_id": user_id, "tier": tier}},\n            timeout=0.5,\n        )\n        return res.json().get("enabled", False)\n    except Exception:\n        return False  # Safe control group fallback`;
+							return `# 4. Python Fast Evaluation Client\nimport requests\n\ndef is_feature_enabled(flag_key: str, user_id: str, tier: str = "starter") -> bool:\n    try:\n        res = requests.post(\n            "${origin}/api/v1/evaluate",\n            json={"flags": [flag_key], "context": {"user_id": user_id, "tier": tier}},\n            timeout=0.5,\n        )\n        results = res.json().get("results", {})\n        return results.get(flag_key, {}).get("enabled", False)\n    except Exception:\n        return False  # Safe control group fallback`;
 						}
-						return `# 4. Zero-Dependency cURL / REST API\ncurl -X POST "${origin}/api/v1/evaluate" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "flag_key": "ai-smart-search",\n    "context": {\n      "user_id": "usr_sarah_99",\n      "email": "sarah@company.com",\n      "country": "US",\n      "tier": "enterprise"\n    }\n  }'`;
+						return `# 5. Zero-Dependency cURL / REST API\ncurl -X POST "${origin}/api/v1/evaluate" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "flags": ["ai-smart-search"],\n    "context": {\n      "user_id": "usr_sarah_99",\n      "email": "sarah@company.com",\n      "country": "US",\n      "tier": "enterprise"\n    }\n  }'`;
 					},
 					copyCode() {
 						window.synth.playClick(720);
