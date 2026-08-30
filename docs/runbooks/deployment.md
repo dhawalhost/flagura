@@ -11,11 +11,22 @@ This runbook covers procedures for building, deploying, verifying, and rolling b
 | `PORT` | HTTP Server Port | `3000` | Optional (default: 3000) |
 | `ENVIRONMENT` | Deployment Environment (`production`, `staging`, `development`) | `production` | **Required in Prod** |
 | `DATABASE_URL` | Supabase / PostgreSQL connection string with SSL | `postgres://postgres.[REF]:[PW]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require` | Recommended |
-| `APP_URL` | Canonical application URL (for CORS and cookies) | `https://flagura.yourdomain.com` | Optional |
+| `FLAGURA_APP_URL` | Canonical application URL (for password reset links and redirects) | `https://flagura.yourdomain.com` | Recommended |
+| `ENABLE_LANDING_PAGE` | Public product landing page toggle (`false` goes directly to `/auth`) | `false` | Optional (default: `false`) |
+| `SMTP_HOST` | Outbound SMTP server (SendGrid, AWS SES, Resend, etc.) | `smtp.sendgrid.net` | Optional (Email disabled if unset) |
+| `SMTP_PORT` | Outbound SMTP port (`587` STARTTLS, `465` SMTPS) | `587` | Optional (default: 587) |
+| `SMTP_USERNAME` | SMTP authentication username / API key | `apikey` | Optional |
+| `SMTP_PASSWORD` | SMTP authentication password / API secret | `SG.xxxxxxxx` | Optional |
+| `SMTP_FROM` | Outbound sender email address | `no-reply@yourcompany.com` | Optional (default: `no-reply@localhost`) |
+| `FLAGURA_BRAND_NAME` | Custom brand title rendered in emails and headers | `Flagura` | Optional |
+| `FLAGURA_SUPPORT_EMAIL` | Internal helpdesk address shown in footers | `devops@yourcompany.com` | Optional |
+| `FLAGURA_GOVERNANCE_EMAILS`| Reviewer emails for 4-eyes approvals (auto-resolves DB admins if unset) | `approver1@company.com,approver2@company.com` | Optional |
+| `ENABLE_CONSOLE_MAILER`| Opt-in developer terminal email logging for local testing | `false` | Optional |
 | `SECURE_COOKIE`| Explicitly enforce `Secure: true` on cookies | `true` | Optional |
 
 > [!IMPORTANT]
-> When using Supabase PostgreSQL on serverless platforms (Vercel, AWS Lambda), always use the **Transaction Connection Pooler** on port **`6543`** to prevent PostgreSQL client connection exhaustion.
+> - When using Supabase PostgreSQL on serverless platforms (Vercel, AWS Lambda), always use the **Transaction Connection Pooler** on port **`6543`** to prevent PostgreSQL client connection exhaustion.
+> - If `SMTP_HOST` is left unset, transactional email delivery is **disabled by default** to avoid unexpected network errors or misconfigured relay attempts. Password reset requests will return an informative notice directing users to workspace admins.
 
 ---
 

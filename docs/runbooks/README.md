@@ -8,42 +8,48 @@ This directory contains the operational runbooks and standard operating procedur
 
 | Incident Scenario | Severity | Immediate Action | Runbook Link |
 | :--- | :---: | :--- | :--- |
-| **Buggy Feature in Production** | **P0** | Trigger Flag Kill-Switch via UI Console or `PATCH /api/v1/flags/{id}/toggle` | [Emergency Kill Switch](file:///Users/dhawal.dyavanpalli/go/src/flagura/docs/runbooks/incident-response.md#1-emergency-feature-flag-kill-switch) |
-| **PostgreSQL Outage / Connection Drop** | **P1** | Flagura automatically falls back to In-Memory Edge Store. Check Supabase Pooler status | [Database Incident Response](file:///Users/dhawal.dyavanpalli/go/src/flagura/docs/runbooks/incident-response.md#2-database-connectivity-outage--edge-fallback) |
-| **High Latency (> 10ms on Evaluation)** | **P1** | Check network latency / switch client SDK to Local In-Memory Evaluation mode | [Latency & Performance Runbook](file:///Users/dhawal.dyavanpalli/go/src/flagura/docs/runbooks/incident-response.md#3-high-evaluation-latency-troubleshooting) |
-| **Compromised Admin Credentials** | **P0** | Revoke sessions in `sessions` table, update bcrypt hash, rotate API keys | [Security & Credential Revocation](file:///Users/dhawal.dyavanpalli/go/src/flagura/docs/runbooks/security-and-access.md#2-compromised-credentials--session-revocation) |
-| **Failed Deployment / Build Error** | **P2** | Rollback Vercel / Docker deployment to previous stable release SHA | [Deployment & Rollback Runbook](file:///Users/dhawal.dyavanpalli/go/src/flagura/docs/runbooks/deployment.md#4-rollback-procedures) |
+| **Buggy Feature in Production** | **P0** | Trigger Flag Kill-Switch via UI Console or `PATCH /api/v1/flags/{id}/toggle` | [Emergency Kill Switch](incident-response.md#1-emergency-feature-flag-kill-switch-p0) |
+| **PostgreSQL Outage / Connection Drop** | **P1** | Flagura automatically falls back to In-Memory Edge Store. Check Supabase Pooler status | [Database Incident Response](incident-response.md#2-database-connectivity-outage--edge-fallback-p1) |
+| **High Latency (> 10ms on Evaluation)** | **P1** | Check network latency / switch client SDK to Local In-Memory Evaluation mode | [Latency & Performance Runbook](incident-response.md#3-high-evaluation-latency-troubleshooting-p1) |
+| **Compromised Admin Credentials** | **P0** | Revoke sessions in `sessions` table, update bcrypt hash, rotate API keys | [Security & Credential Revocation](security-and-access.md#4-compromised-credentials--session-revocation) |
+| **Email / Password Reset Outage** | **P2** | Check SMTP logs or perform manual database password reset via SQL | [Email Delivery Remediation](incident-response.md#5-email-delivery--password-reset-failures-p2) |
+| **Failed Deployment / Build Error** | **P2** | Rollback Vercel / Docker deployment to previous stable release SHA | [Deployment & Rollback Runbook](deployment.md#4-rollback-procedures) |
 
 ---
 
 ## 📑 Runbook Directory
 
-1. **[Deployment & Release Management](file:///Users/dhawal.dyavanpalli/go/src/flagura/docs/runbooks/deployment.md)**
+1. **[Deployment & Release Management](deployment.md)**
+   - Complete Environment Variables Reference
    - Standalone Binary & Systemd Service
    - Docker Containerization
    - Vercel Serverless Function Deployment
    - Health Check Verification & Smoke Tests
    - Rollback Procedures
 
-2. **[Incident Response & Emergency Operations](file:///Users/dhawal.dyavanpalli/go/src/flagura/docs/runbooks/incident-response.md)**
+2. **[Incident Response & Emergency Operations](incident-response.md)**
    - 1-Click Kill Switch Activation (UI & REST API)
    - PostgreSQL Outage & Edge Fallback Handling
    - High Latency & Slow Evaluation Debugging
    - Audit Log Forensic Inspection
+   - Transactional Email Delivery & Reset Troubleshooting
 
-3. **[Database Operations & Disaster Recovery](file:///Users/dhawal.dyavanpalli/go/src/flagura/docs/runbooks/database-operations.md)**
+3. **[Database Operations & Disaster Recovery](database-operations.md)**
    - Supabase PostgreSQL Schema Setup & Indexes
    - Connection Pooling & Port 6543 Configuration
    - Backup & Point-In-Time Recovery (PITR)
    - Database Reset & Controlled Migration Steps
 
-4. **[Security, Access & Credential Management](file:///Users/dhawal.dyavanpalli/go/src/flagura/docs/runbooks/security-and-access.md)**
+4. **[Security, Access & Credential Management](security-and-access.md)**
    - User Provisioning & Role-Based Access Control (RBAC)
-   - Session & API Key Rotation
+   - Password Security Policy & Real-Time Client Validation
+   - Self-Service & Admin Password Recovery Flows
+   - Session & Credential Revocation
+   - Transactional Email & 4-Eyes Governance Configuration
    - SAST / SCA Vulnerability Triage (Gosec, Govulncheck, Dependabot)
    - HTTP Security Headers & DoS Defense Verification
 
-5. **[Supabase & Vercel Cloud Integration Guide](file:///Users/dhawal.dyavanpalli/go/src/flagura/docs/integrations/supabase-vercel-setup.md)**
+5. **[Supabase & Vercel Cloud Integration Guide](../integrations/supabase-vercel-setup.md)**
    - End-to-end Supabase project creation & connection pooler setup
    - Vercel Serverless Function import and environment variables
    - GitHub Actions automated continuous deployment pipeline

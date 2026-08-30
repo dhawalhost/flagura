@@ -120,3 +120,23 @@ Sample Output:
   "details": "Disabled (Kill Switch) flag for production environment."
 }
 ```
+
+---
+
+## 5. Email Delivery & Password Reset Failures (P2)
+
+If users report not receiving password reset emails or 4-eyes governance approval notifications:
+
+### Step 1: Check SMTP Configuration & Logs
+1. Verify if `SMTP_HOST` is configured in your environment variables.
+   - If `SMTP_HOST` is unset, email delivery is **disabled by default**. `POST /api/v1/auth/forgot-password` returns HTTP 400 with `"Email Service Disabled"`.
+2. Inspect server logs for SMTP dial or authentication failures:
+   ```bash
+   # Search logs for SMTP errors
+   journalctl -u flagura | grep -i "smtp"
+   # or
+   docker logs flagura-prod 2>&1 | grep -i "smtp"
+   ```
+
+### Step 2: Emergency Workaround (Manual Password Reset)
+If SMTP provider is experiencing an outage, administrators can manually reset the user's password via PostgreSQL as outlined in [Security & Access Runbook](security-and-access.md#scenario-b-self-hosted-reset-when-smtp-is-not-configured).
