@@ -215,28 +215,35 @@ curl -X POST http://localhost:3000/api/v1/evaluate \
 
 ---
 
-### 2. Flag Management Endpoints
+### 2. Flag Management & API Endpoints
 
-| Method   | Endpoint                     | Description                                    |
-| :------- | :--------------------------- | :--------------------------------------------- |
-| `GET`    | `/healthz` / `/livez`        | Kubernetes liveness health probe               |
-| `GET`    | `/readyz`                    | Kubernetes readiness probe (checks storage)    |
-| `GET`    | `/metrics`                   | Standard Prometheus metrics exposition         |
-| `GET`    | `/api/v1/flags`              | List all feature flags across environments     |
-| `GET`    | `/api/v1/flags/:key`         | Retrieve details for a specific flag           |
-| `POST`   | `/api/v1/flags`              | Create or update a feature flag configuration  |
-| `PATCH`  | `/api/v1/flags/:key/toggle`  | Instant 1-click toggle for master kill-switch  |
-| `PATCH`  | `/api/v1/flags/:key/rollout` | Dynamically update percentage rollout (0–100%) |
-| `DELETE` | `/api/v1/flags/:key`         | Permanently remove a feature flag              |
-| `POST`   | `/api/v1/benchmark`          | Execute live in-process latency stress test    |
-| `GET`    | `/api/v1/audit-logs`         | Fetch immutable audit trail history            |
+| Method   | Endpoint                                  | Description                                                           |
+| :------- | :---------------------------------------- | :-------------------------------------------------------------------- |
+| `GET`    | `/healthz` / `/livez`                     | Kubernetes liveness health probe                                      |
+| `GET`    | `/readyz`                                 | Kubernetes readiness probe (checks storage availability)              |
+| `GET`    | `/metrics`                                | Prometheus metrics exposition (`flagura_evaluations_total`, etc.)     |
+| `GET`    | `/api/v1/flags/stream`                    | Real-time HTTP/2 Server-Sent Events (SSE) flag synchronization stream |
+| `GET`    | `/api/v1/flags`                           | List all feature flags across environments                            |
+| `GET`    | `/api/v1/flags/:key`                      | Retrieve configuration and rules for a specific flag                  |
+| `POST`   | `/api/v1/flags`                           | Create or update a feature flag configuration                         |
+| `PATCH`  | `/api/v1/flags/:key/toggle`               | Instant 1-click toggle for master kill-switch                         |
+| `PATCH`  | `/api/v1/flags/:key/rollout`              | Dynamically update percentage rollout (0–100%)                        |
+| `POST`   | `/api/v1/flags/:key/promote`              | Promote flag configuration (e.g. `?from=staging&to=production`)       |
+| `POST`   | `/api/v1/webhooks/kill-switch/:key`       | Automated kill-switch endpoint for APM alerts (Datadog/Sentry)         |
+| `POST`   | `/api/v1/telemetry/events`                | Ingest batched evaluation counts from client SDKs                     |
+| `GET`    | `/api/v1/telemetry/stats`                 | Query 24h evaluation velocity and variant distribution                |
+| `DELETE` | `/api/v1/flags/:key`                      | Permanently remove a feature flag (Requires Admin role)               |
+| `POST`   | `/api/v1/evaluate`                        | Evaluate flags (`?trace=true` returns visual execution trace)         |
+| `POST`   | `/api/v1/benchmark`                       | Execute live in-process latency stress test                           |
+| `GET`    | `/api/v1/audit-logs`                      | Fetch immutable audit trail history                                   |
 
 ---
 
-## 🌐 OpenFeature Go Provider
+## 🌐 OpenFeature Polyglot Ecosystem
 
-Flagura includes a first-class, official **OpenFeature Provider** implementing the CNCF vendor-neutral specification:
+Flagura provides drop-in **OpenFeature Providers** across Go, TypeScript/JavaScript, and Python, ensuring zero vendor lock-in:
 
+### 1. Go OpenFeature Provider (`pkg/openfeature`)
 ```bash
 go get github.com/dhawalhost/flagura/pkg/openfeature
 go get github.com/open-feature/go-sdk
@@ -256,14 +263,16 @@ import (
 )
 
 func main() {
-	// 1. Initialize Flagura in-memory client
+	// 1. Initialize Flagura client with Real-Time Streaming and Offline Snapshot
 	flaguraClient := client.New("https://flagura.dhawalhost.com",
 		client.WithLocalEvaluation(30*time.Second),
-		client.WithSnapshotFile("/tmp/flagura-cache.json"), // offline resilience
+		client.WithStreaming(true),                          // <5ms instant updates via SSE
+		client.WithSnapshotFile("/tmp/flagura-cache.json"),  // offline resilience
+		client.WithCircuitBreaker(5, 10*time.Second),        // 3-state failure circuit breaker
 	)
 	defer flaguraClient.Close()
 
-	// 2. Register Flagura as your global OpenFeature Provider
+	// 2. Register Flagura as global OpenFeature Provider (includes live eventing)
 	_ = of.SetProviderAndWait(flaguraOF.NewProvider(flaguraClient))
 
 	// 3. Evaluate flags using standard OpenFeature APIs
@@ -276,6 +285,120 @@ func main() {
 	enabled, _ := ofClient.BooleanValue(context.Background(), "ai-smart-search", false, evalCtx)
 	log.Printf("Flag Status: %v", enabled)
 }
+```
+
+### 2. TypeScript / Node.js OpenFeature Provider (`sdks/js`)
+```typescript
+import { OpenFeature } from '@openfeature/server-sdk';
+import { FlaguraOpenFeatureProvider } from 'flagura-sdk';
+
+// 1. Initialize and register Flagura OpenFeature provider
+const provider = new FlaguraOpenFeatureProvider({
+  endpoint: 'https://flagura.dhawalhost.com',
+  apiKey: process.env.FLAGURA_API_KEY,
+  enableStreaming: true, // <5ms live flag sync
+});
+
+await OpenFeature.setProviderAndWait(provider);
+const client = OpenFeature.getClient();
+
+// 2. Evaluate with OpenFeature context
+const isEnabled = await client.getBooleanValue('ai-smart-search', false, {
+  targetingKey: 'usr_123',
+  email: 'dev@flagura.dev',
+  tier: 'enterprise',
+});
+```
+
+### 3. Python OpenFeature Provider (`sdks/python`)
+```python
+from openfeature import api
+from openfeature.evaluation_context import EvaluationContext
+from flagura.openfeature_provider import FlaguraOpenFeatureProvider
+
+# 1. Register Flagura OpenFeature provider
+api.set_provider(FlaguraOpenFeatureProvider(
+    endpoint="https://flagura.dhawalhost.com",
+    api_key="your-api-key",
+    enable_streaming=True, # <5ms live flag sync
+))
+client = api.get_client()
+
+# 2. Evaluate flags
+ctx = EvaluationContext(targeting_key="usr_123", attributes={"email": "alice@flagura.dev"})
+is_enabled = client.get_boolean_value("ai-smart-search", False, ctx)
+```
+
+---
+
+## ⚡ Real-Time Streaming & Resilience
+
+### 1. Sub-5ms SSE Flag Streaming (`GET /api/v1/flags/stream`)
+Whenever a flag is toggled, rolled out, or promoted in the Flagura console or via API, the control plane broadcasts an instant Server-Sent Event (SSE) to all connected microservices worldwide. Your in-memory cache synchronizes in **`< 5ms`** without polling delays.
+
+### 2. Offline Snapshot Persistence & 3-State Circuit Breaker
+- **Offline Snapshot (`WithSnapshotFile`)**: Writes atomic snapshots to disk. If your database or control plane goes down, your application cold-boots in **0ms** from disk cache with zero evaluation downtime.
+- **3-State Circuit Breaker (`CLOSED` ↔ `OPEN` ↔ `HALF_OPEN`)**: Automatically fast-fails remote network requests in `< 20µs` during server interruptions, shielding your application from latency spikes.
+
+---
+
+## 🚨 Automated Alert Webhook Kill-Switches
+
+Connect Flagura to your APM and monitoring infrastructure (**Datadog, Sentry, Prometheus Alertmanager, PagerDuty**):
+
+```bash
+# Example: Automated rollback webhook from Datadog alert or CI/CD
+curl -X POST "https://flagura.dhawalhost.com/api/v1/webhooks/kill-switch/ai-smart-search?env=production" \
+  -H "Content-Type: application/json"
+```
+When an alert triggers, Flagura instantly flips the master kill-switch and broadcasts the disable event to all microservices over SSE in **`< 5ms`**.
+
+---
+
+## 🔍 Visual Rule Execution Trace ("Why Did I Get This Variant?")
+
+Debug complex targeting rules and multivariate splits using the on-demand trace engine:
+
+```bash
+curl -X POST "https://flagura.dhawalhost.com/api/v1/evaluate?trace=true" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "flags": ["ai-smart-search"],
+    "context": {
+      "user_id": "usr_alex_42",
+      "email": "alex@acme.com",
+      "tier": "enterprise",
+      "environment": "production"
+    }
+  }'
+```
+**Trace Output:**
+```json
+{
+  "traces": {
+    "ai-smart-search": {
+      "steps": [
+        { "step_index": 1, "name": "Master Kill-Switch Check", "passed": true, "detail": "Flag is active in production." },
+        { "step_index": 2, "name": "Targeting Rule Match: Enterprise VIP", "passed": true, "detail": "Condition matched (tier equals [enterprise]). Action: force_enabled." }
+      ],
+      "final_reason": "TARGETING_RULE_MATCH",
+      "final_variant": "treatment",
+      "final_enabled": true,
+      "elapsed_ns": 78
+    }
+  }
+}
+```
+
+---
+
+## 🔀 Environment Promotion (Staging ➔ Production)
+
+Promote verified rules and multivariate traffic allocations from Staging to Production in 1-click via the Dashboard or API:
+
+```bash
+curl -X POST "https://flagura.dhawalhost.com/api/v1/flags/ai-smart-search/promote?from=staging&to=production" \
+  -H "Cookie: flagura_session=..."
 ```
 
 ---

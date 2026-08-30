@@ -13,7 +13,7 @@ The Go client is designed for high-concurrency microservices, providing both **l
 go get github.com/dhawalhost/flagura/pkg/client
 ```
 
-### High-Performance Local Evaluation (Recommended)
+### High-Performance In-Memory Local Evaluation with Real-Time Streaming (Recommended)
 ```go
 package main
 
@@ -26,15 +26,18 @@ import (
 )
 
 func main() {
-	// Initialize client with local evaluation enabled
+	// Initialize client with SSE streaming, offline snapshot disk cache, and circuit breaking
 	c := client.New("https://flagura.dhawalhost.com",
-		client.WithLocalEvaluation(true),
-		client.WithSyncInterval(30*time.Second),
-		client.WithAPIKey("your-api-key"), // optional
+		client.WithLocalEvaluation(30*time.Second),
+		client.WithStreaming(true),                          // <5ms instant updates via SSE
+		client.WithSnapshotFile("/tmp/flagura-cache.json"),  // 0ms offline cold-boot
+		client.WithCircuitBreaker(5, 10*time.Second),        // 3-state failure circuit breaker
+		client.WithTelemetryFlushInterval(60*time.Second),   // evaluation metrics push
+		client.WithAPIKey("your-api-key"),                   // optional
 	)
 	defer c.Close()
 
-	// Evaluate flag locally in ~400 nanoseconds
+	// Evaluate flag locally in < 80 nanoseconds
 	result, err := c.Evaluate(context.Background(), "ai-smart-search", client.Context{
 		UserID:  "usr_dhawal_01",
 		Email:   "dhawal@flagura.dev",
@@ -48,6 +51,13 @@ func main() {
 	fmt.Printf("Flag: %s | Enabled: %v | Variant: %s (in %d ns)\n",
 		result.FlagKey, result.Enabled, result.Variant, result.EvaluationLatencyNs)
 }
+```
+
+### Register Real-Time Change Listeners
+```go
+c.RegisterUpdateListener(func(flags map[string]domain.FeatureFlag, changedKeys []string) {
+	fmt.Printf("Real-time flag change detected for keys: %v\n", changedKeys)
+})
 ```
 
 ### Boolean Evaluation Helper
@@ -130,40 +140,63 @@ export function SmartSearchBanner() {
 
 ---
 
-## 3. Python (FastAPI, Django, AI Agents)
+## 3. Python SDK (`flagura`)
+
+The official Python client supports batch evaluations, real-time SSE streaming, and thread-safe callbacks:
 
 ```python
-import requests
+from flagura import FlaguraClient, EvaluationContext
 
-def evaluate_flag(flag_key: str, user_id: str, email: str = "", endpoint: str = "https://flagura.dhawalhost.com") -> bool:
-    try:
-        response = requests.post(f"{endpoint}/api/v1/evaluate", json={
-            "flags": [flag_key],
-            "context": {
-                "user_id": user_id,
-                "email": email,
-                "environment": "production"
-            }
-        }, timeout=2.0)
-        response.raise_for_status()
-        data = response.json()
-        return data.get("results", {}).get(flag_key, {}).get("enabled", False)
-    except Exception as e:
-        print(f"[WARN] Flag evaluation fallback to false: {e}")
-        return False
+# Initialize client with real-time SSE streaming
+client = FlaguraClient(
+    endpoint="https://flagura.dhawalhost.com",
+    api_key="your-api-key",
+    enable_streaming=True, # <5ms live flag updates
+)
 
-# Usage
-if evaluate_flag("ai-smart-search", user_id="usr_dhawal_01", email="dhawal@flagura.dev"):
-    print("AI Smart Search enabled")
+# Register real-time change listener
+client.on_update(lambda flags: print(f"Flags updated in real-time! Count: {len(flags)}"))
+
+# Evaluate flag
+context = EvaluationContext(
+    user_id="usr_dhawal_01",
+    email="dhawal@flagura.dev",
+    tier="enterprise",
+)
+
+if client.is_enabled("ai-smart-search", context):
+    variant = client.get_variant("ai-smart-search", context)
+    print(f"AI Smart Search is ON! Variant: {variant}")
 ```
 
 ---
 
-## 4. REST API Reference
+## 4. OpenFeature Universal Standard
 
-### Evaluate Flags (`POST /api/v1/evaluate`)
+Adopt Flagura with zero vendor lock-in across Go, TypeScript, and Python:
+
+```go
+// Go OpenFeature
+_ = of.SetProviderAndWait(flaguraOF.NewProvider(flaguraClient))
+```
+
+```typescript
+// TypeScript OpenFeature
+await OpenFeature.setProviderAndWait(new FlaguraOpenFeatureProvider({ endpoint: "https://flagura.dhawalhost.com", enableStreaming: true }));
+```
+
+```python
+# Python OpenFeature
+api.set_provider(FlaguraOpenFeatureProvider(endpoint="https://flagura.dhawalhost.com", enable_streaming=True))
+```
+
+---
+
+## 5. REST API Reference
+
+### 1. Evaluate Flags with Execution Trace (`POST /api/v1/evaluate?trace=true`)
 ```bash
-curl -X POST https://flagura.dhawalhost.com/api/v1/evaluate \
+curl -X POST "https://flagura.dhawalhost.com/api/v1/evaluate?trace=true" \
   -H "Content-Type: application/json" \
   -d '{
     "flags": ["ai-smart-search"],
@@ -175,23 +208,13 @@ curl -X POST https://flagura.dhawalhost.com/api/v1/evaluate \
   }'
 ```
 
-**Response (`200 OK`)**:
-```json
-{
-  "results": {
-    "ai-smart-search": {
-      "flag_key": "ai-smart-search",
-      "enabled": true,
-      "variant": "treatment",
-      "value": true,
-      "reason": "TARGETING_RULE_MATCH",
-      "matched_rule_id": "rule_staff_domain",
-      "matched_rule_name": "Staff & Internal Testing Domain",
-      "evaluation_latency_ns": 4152,
-      "evaluation_latency_us": 4.152
-    }
-  },
-  "total_flags": 1,
-  "environment": "production"
-}
+### 2. Automated Webhook Kill-Switch (`POST /api/v1/webhooks/kill-switch/:key`)
+```bash
+curl -X POST "https://flagura.dhawalhost.com/api/v1/webhooks/kill-switch/ai-smart-search?env=production"
+```
+
+### 3. Environment Promotion (`POST /api/v1/flags/:key/promote`)
+```bash
+curl -X POST "https://flagura.dhawalhost.com/api/v1/flags/ai-smart-search/promote?from=staging&to=production" \
+  -H "Cookie: flagura_session=..."
 ```
