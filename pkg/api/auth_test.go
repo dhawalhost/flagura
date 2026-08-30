@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
+	"github.com/dhawalhost/flagura/pkg/email"
 	"github.com/dhawalhost/flagura/pkg/store"
 )
 
@@ -24,7 +25,7 @@ func TestAuthFlow(t *testing.T) {
 	signUpPayload := domain.SignUpRequest{
 		Name:     "Test User",
 		Email:    "test.user@company.com",
-		Password: "password123",
+		Password: "FlaguraPass123!",
 		Role:     domain.RoleDeveloper,
 	}
 	body, _ := json.Marshal(signUpPayload)
@@ -73,7 +74,7 @@ func TestAuthFlow(t *testing.T) {
 	// 3. Test Login with valid credentials
 	loginPayload := domain.LoginRequest{
 		Email:    "test.user@company.com",
-		Password: "password123",
+		Password: "FlaguraPass123!",
 	}
 	loginBody, _ := json.Marshal(loginPayload)
 	reqLogin := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(loginBody))
@@ -88,7 +89,7 @@ func TestAuthFlow(t *testing.T) {
 	// 4. Test Login with invalid password (should fail with 401 Unauthorized)
 	badLoginPayload := domain.LoginRequest{
 		Email:    "test.user@company.com",
-		Password: "wrongpassword",
+		Password: "WrongPassword123!",
 	}
 	badLoginBody, _ := json.Marshal(badLoginPayload)
 	reqBadLogin := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(badLoginBody))
@@ -186,7 +187,7 @@ func TestSignupCannotSelfAssignAdminRole(t *testing.T) {
 	// Attacker tries to register as admin
 	payload := map[string]string{
 		"email":    "attacker@evil.com",
-		"password": "hunter2password",
+		"password": "Hunter2Password!",
 		"role":     "admin",
 	}
 	body, _ := json.Marshal(payload)
@@ -211,3 +212,136 @@ func TestSignupCannotSelfAssignAdminRole(t *testing.T) {
 		t.Fatalf("Expected default RoleDeveloper, got %s", createdUser.Role)
 	}
 }
+
+func TestPasswordComplexityValidation(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	server, _ := NewServer(memStore)
+
+	testCases := []struct {
+		name     string
+		password string
+	}{
+		{"TooShort", "Aa1!"},
+		{"NoUppercase", "lowercase123!"},
+		{"NoLowercase", "UPPERCASE123!"},
+		{"NoNumber", "NoNumbersHere!"},
+		{"NoSpecialChar", "NoSpecialChars123"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			payload := domain.SignUpRequest{
+				Name:     "Tester",
+				Email:    "test_" + tc.name + "@company.com",
+				Password: tc.password,
+				Role:     domain.RoleDeveloper,
+			}
+			body, _ := json.Marshal(payload)
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/signup", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			server.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("Expected 400 Bad Request for weak password '%s', got: %d", tc.password, w.Code)
+			}
+		})
+	}
+}
+
+func TestForgotPasswordAndResetFlow(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	server, err := NewServer(memStore)
+	if err != nil {
+		t.Fatalf("Failed to create server: %v", err)
+	}
+
+	forgotPayload := domain.ForgotPasswordRequest{
+		Email: "dhawal@flagura.dev",
+	}
+	body, _ := json.Marshal(forgotPayload)
+
+	// 1. When SMTP is not configured, email is disabled by default -> 400 Bad Request
+	reqDisabled := httptest.NewRequest(http.MethodPost, "/api/v1/auth/forgot-password", bytes.NewReader(body))
+	reqDisabled.Header.Set("Content-Type", "application/json")
+	wDisabled := httptest.NewRecorder()
+	server.ServeHTTP(wDisabled, reqDisabled)
+
+	if wDisabled.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 Bad Request when email service is disabled, got %d: %s", wDisabled.Code, wDisabled.Body.String())
+	}
+
+	// 2. Enable mailer (e.g. SMTP configured or ConsoleMailer enabled)
+	server.SetMailer(email.NewConsoleMailer())
+
+	reqForgot := httptest.NewRequest(http.MethodPost, "/api/v1/auth/forgot-password", bytes.NewReader(body))
+	reqForgot.Header.Set("Content-Type", "application/json")
+	wForgot := httptest.NewRecorder()
+	server.ServeHTTP(wForgot, reqForgot)
+
+	if wForgot.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK on forgot password when mailer is enabled, got %d: %s", wForgot.Code, wForgot.Body.String())
+	}
+
+	// 2. Generate a reset token directly from store to simulate receiving link via email
+	resetToken, err := memStore.CreatePasswordResetToken(context.Background(), "dhawal@flagura.dev", 15*time.Minute)
+	if err != nil {
+		t.Fatalf("Failed to create reset token: %v", err)
+	}
+
+	// 3. Reset password using valid token
+	resetPayload := domain.ResetPasswordRequest{
+		Token:       resetToken,
+		NewPassword: "newSecurePassword456!",
+	}
+	resetBody, _ := json.Marshal(resetPayload)
+	reqReset := httptest.NewRequest(http.MethodPost, "/api/v1/auth/reset-password", bytes.NewReader(resetBody))
+	reqReset.Header.Set("Content-Type", "application/json")
+	wReset := httptest.NewRecorder()
+	server.ServeHTTP(wReset, reqReset)
+
+	if wReset.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK on password reset, got %d: %s", wReset.Code, wReset.Body.String())
+	}
+
+	// 4. Old password must fail
+	oldLogin := domain.LoginRequest{
+		Email:    "dhawal@flagura.dev",
+		Password: "password123",
+	}
+	oldBody, _ := json.Marshal(oldLogin)
+	reqOld := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(oldBody))
+	reqOld.Header.Set("Content-Type", "application/json")
+	wOld := httptest.NewRecorder()
+	server.ServeHTTP(wOld, reqOld)
+
+	if wOld.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 Unauthorized for old password, got %d", wOld.Code)
+	}
+
+	// 5. New password must succeed
+	newLogin := domain.LoginRequest{
+		Email:    "dhawal@flagura.dev",
+		Password: "newSecurePassword456!",
+	}
+	newBody, _ := json.Marshal(newLogin)
+	reqNew := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(newBody))
+	reqNew.Header.Set("Content-Type", "application/json")
+	wNew := httptest.NewRecorder()
+	server.ServeHTTP(wNew, reqNew)
+
+	if wNew.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for new password, got %d", wNew.Code)
+	}
+
+	// 6. Token reuse must fail (single-use token)
+	reqReuse := httptest.NewRequest(http.MethodPost, "/api/v1/auth/reset-password", bytes.NewReader(resetBody))
+	reqReuse.Header.Set("Content-Type", "application/json")
+	wReuse := httptest.NewRecorder()
+	server.ServeHTTP(wReuse, reqReuse)
+
+	if wReuse.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 Bad Request for reused token, got %d", wReuse.Code)
+	}
+}
+

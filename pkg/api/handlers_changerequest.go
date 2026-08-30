@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -63,6 +64,40 @@ func (s *Server) handleCreateChangeRequest(w http.ResponseWriter, r *http.Reques
 
 	if s.streamHub != nil {
 		s.streamHub.Broadcast("change_request_created", created)
+	}
+
+	if s.mailer != nil && s.mailer.IsEnabled() {
+		scheme := "http"
+		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+			scheme = "https"
+		}
+		host := r.Host
+		if host == "" {
+			host = "localhost:3000"
+		}
+		reviewURL := fmt.Sprintf("%s://%s/dashboard", scheme, host)
+		govEmails := s.mailer.GetGovernanceEmails()
+		if len(govEmails) == 0 {
+			if users, err := s.store.ListUsers(r.Context()); err == nil {
+				for _, u := range users {
+					if u.Role == domain.RoleAdmin && u.ID != req.AuthorUserID {
+						govEmails = append(govEmails, u.Email)
+					}
+				}
+			}
+		}
+
+		if len(govEmails) > 0 {
+			go func(gov []string, req domain.ChangeRequest, revURL string) {
+				actionType := req.Title
+				if actionType == "" {
+					actionType = "Config Modification"
+				}
+				for _, recipient := range gov {
+					_ = s.mailer.SendChangeRequestNotification(recipient, "Governance Reviewer", req.AuthorName, req.FlagKey, string(req.Environment), actionType, revURL)
+				}
+			}(govEmails, *created, reviewURL)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

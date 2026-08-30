@@ -130,6 +130,41 @@ func (s *Server) getUserFromRequest(r *http.Request) (*domain.User, error) {
 	return sess.User, nil
 }
 
+func validatePasswordComplexity(password string) error {
+	if len(password) < 8 {
+		return fmt.Errorf("password must be at least 8 characters long")
+	}
+
+	var hasUpper, hasLower, hasDigit, hasSpecial bool
+	for _, ch := range password {
+		switch {
+		case ch >= 'A' && ch <= 'Z':
+			hasUpper = true
+		case ch >= 'a' && ch <= 'z':
+			hasLower = true
+		case ch >= '0' && ch <= '9':
+			hasDigit = true
+		case strings.ContainsRune("!@#$%^&*()_+-=[]{};':\"|,.<>/?`~", ch):
+			hasSpecial = true
+		}
+	}
+
+	if !hasUpper {
+		return fmt.Errorf("password must contain at least one uppercase letter (A-Z)")
+	}
+	if !hasLower {
+		return fmt.Errorf("password must contain at least one lowercase letter (a-z)")
+	}
+	if !hasDigit {
+		return fmt.Errorf("password must contain at least one number (0-9)")
+	}
+	if !hasSpecial {
+		return fmt.Errorf("password must contain at least one special symbol (!@#$%%^&*)")
+	}
+
+	return nil
+}
+
 func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -149,8 +184,8 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "A valid email address is required", http.StatusBadRequest)
 		return
 	}
-	if len(req.Password) < 6 {
-		http.Error(w, "Password must be at least 6 characters long", http.StatusBadRequest)
+	if err := validatePasswordComplexity(req.Password); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if req.Name == "" {
@@ -207,6 +242,22 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 
 	s.setSessionCookie(w, r, token, expiresAt)
 
+	// Send welcome email in background if email service is active
+	if s.mailer != nil && s.mailer.IsEnabled() {
+		scheme := "http"
+		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+			scheme = "https"
+		}
+		host := r.Host
+		if host == "" {
+			host = "localhost:3000"
+		}
+		dashboardURL := fmt.Sprintf("%s://%s/dashboard", scheme, host)
+		go func(email, name, dashURL string) {
+			_ = s.mailer.SendWelcomeEmail(email, name, dashURL)
+		}(createdUser.Email, createdUser.Name, dashboardURL)
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(domain.AuthResponse{
@@ -228,19 +279,14 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
-	if req.Email == "" || req.Password == "" {
-		http.Error(w, "Email and password are required", http.StatusBadRequest)
-		return
-	}
-
-	user, err := s.store.GetUserByEmail(r.Context(), req.Email)
+	email := strings.TrimSpace(strings.ToLower(req.Email))
+	user, err := s.store.GetUserByEmail(r.Context(), email)
 	if err != nil {
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 		return
 	}
 
-	// Compare bcrypt hash
+	// Verify bcrypt hash
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 		return
@@ -298,3 +344,111 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(user)
 }
+
+func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.mailer == nil || !s.mailer.IsEnabled() {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "Email Service Disabled",
+			"message": "Email delivery is disabled on this instance (SMTP is not configured). Please contact your workspace administrator to reset your credentials.",
+		})
+		return
+	}
+
+	var req domain.ForgotPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request payload: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	if email == "" {
+		http.Error(w, "Email is required", http.StatusBadRequest)
+		return
+	}
+
+	// Create 15-minute token (if user exists)
+	user, err := s.store.GetUserByEmail(r.Context(), email)
+	if err == nil && user != nil {
+		token, err := s.store.CreatePasswordResetToken(r.Context(), email, 15*time.Minute)
+		if err == nil {
+			scheme := "http"
+			if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+				scheme = "https"
+			}
+			host := r.Host
+			if host == "" {
+				host = "localhost:3000"
+			}
+			resetURL := fmt.Sprintf("%s://%s/auth?mode=reset&token=%s", scheme, host, token)
+			_ = s.mailer.SendPasswordReset(user.Email, user.Name, resetURL)
+		}
+	}
+
+	// Always return 200 OK to prevent user enumeration attacks
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "If an account with that email exists, password reset instructions have been dispatched.",
+	})
+}
+
+func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req domain.ResetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request payload: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	token := strings.TrimSpace(req.Token)
+	newPassword := req.NewPassword
+
+	if token == "" {
+		http.Error(w, "Reset token is required", http.StatusBadRequest)
+		return
+	}
+	if err := validatePasswordComplexity(newPassword); err != nil {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "Weak Password",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Hash new password
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.store.ResetPasswordWithToken(r.Context(), token, string(hash)); err != nil {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "Invalid or Expired Token",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Password has been successfully updated. You can now sign in with your new credentials.",
+	})
+}
+

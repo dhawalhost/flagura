@@ -173,6 +173,16 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
 	CREATE INDEX IF NOT EXISTS idx_api_keys_created ON api_keys(created_at DESC);
+
+	CREATE TABLE IF NOT EXISTS password_reset_tokens (
+		token TEXT PRIMARY KEY,
+		email TEXT NOT NULL,
+		expires_at TIMESTAMPTZ NOT NULL,
+		used BOOLEAN NOT NULL DEFAULT FALSE,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_reset_tokens_email ON password_reset_tokens(email);
+	CREATE INDEX IF NOT EXISTS idx_reset_tokens_expires ON password_reset_tokens(expires_at);
 	`
 	if _, err := s.db.ExecContext(ctx, schema); err != nil {
 		return err
@@ -505,6 +515,30 @@ func (s *PostgresStore) CreateUser(ctx context.Context, user domain.User) (*doma
 	}
 
 	return &user, nil
+}
+
+func (s *PostgresStore) ListUsers(ctx context.Context) ([]domain.User, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, email, name, role, avatar_url, created_at, updated_at
+		FROM users
+		ORDER BY created_at ASC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []domain.User
+	for rows.Next() {
+		var u domain.User
+		var roleStr string
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &roleStr, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			return nil, err
+		}
+		u.Role = domain.UserRole(roleStr)
+		users = append(users, u)
+	}
+	return users, rows.Err()
 }
 
 func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
@@ -962,3 +996,88 @@ func (s *PostgresStore) RevokeAPIKey(ctx context.Context, id string, actor strin
 
 	return nil
 }
+
+func (s *PostgresStore) CreatePasswordResetToken(ctx context.Context, email string, ttl time.Duration) (string, error) {
+	var count int
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users WHERE email = $1", email).Scan(&count); err != nil || count == 0 {
+		return "", fmt.Errorf("user not found with email: %s", email)
+	}
+
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	token := fmt.Sprintf("flg_rst_%s", hex.EncodeToString(b))
+	now := time.Now().UTC()
+	expiresAt := now.Add(ttl)
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO password_reset_tokens (token, email, expires_at, used, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`, token, email, expiresAt, false, now)
+	if err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+func (s *PostgresStore) GetPasswordResetToken(ctx context.Context, token string) (*domain.PasswordResetToken, error) {
+	var t domain.PasswordResetToken
+	err := s.db.QueryRowContext(ctx, `
+		SELECT token, email, expires_at, used, created_at
+		FROM password_reset_tokens
+		WHERE token = $1
+	`, token).Scan(&t.Token, &t.Email, &t.ExpiresAt, &t.Used, &t.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("invalid or expired password reset token")
+	}
+	return &t, nil
+}
+
+func (s *PostgresStore) ResetPasswordWithToken(ctx context.Context, token string, newPasswordHash string) error {
+	t, err := s.GetPasswordResetToken(ctx, token)
+	if err != nil {
+		return err
+	}
+	if t.Used {
+		return fmt.Errorf("reset token has already been used")
+	}
+	if t.IsExpired() {
+		return fmt.Errorf("reset token has expired")
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Update user password
+	now := time.Now().UTC()
+	res, err := tx.ExecContext(ctx, `
+		UPDATE users
+		SET password_hash = $1, updated_at = $2
+		WHERE email = $3
+	`, newPasswordHash, now, t.Email)
+	if err != nil {
+		return err
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found for email: %s", t.Email)
+	}
+
+	// Mark token used
+	if _, err := tx.ExecContext(ctx, `UPDATE password_reset_tokens SET used = TRUE WHERE token = $1`, token); err != nil {
+		return err
+	}
+
+	// Delete active sessions for this user
+	_, _ = tx.ExecContext(ctx, `
+		DELETE FROM sessions
+		WHERE user_id IN (SELECT id FROM users WHERE email = $1)
+	`, t.Email)
+
+	return tx.Commit()
+}
+

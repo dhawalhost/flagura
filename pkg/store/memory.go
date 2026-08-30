@@ -42,11 +42,12 @@ type MemoryStore struct {
 	mu             sync.RWMutex // protects mutable tables: users, sessions, auditLogs, events, changeRequests, apiKeys
 	auditLogs      []domain.AuditLogEntry
 	events         []domain.ExperimentEvent
-	users          map[string]domain.User    // indexed by email and id
-	sessions       map[string]domain.Session // indexed by token
-	changeRequests map[string]domain.ChangeRequest
-	apiKeys        map[string]domain.APIKey // indexed by key ID
-	apiKeysByHash  map[string]string        // hash -> key ID
+	users               map[string]domain.User    // indexed by email and id
+	sessions            map[string]domain.Session // indexed by token
+	changeRequests      map[string]domain.ChangeRequest
+	apiKeys             map[string]domain.APIKey // indexed by key ID
+	apiKeysByHash       map[string]string        // hash -> key ID
+	passwordResetTokens map[string]domain.PasswordResetToken
 }
 
 func getSeedFlags() []domain.FeatureFlag {
@@ -340,12 +341,13 @@ func getSeedAuditLogs() []domain.AuditLogEntry {
 
 func NewMemoryStore() *MemoryStore {
 	store := &MemoryStore{
-		auditLogs:      getSeedAuditLogs(),
-		users:          make(map[string]domain.User),
-		sessions:       make(map[string]domain.Session),
-		changeRequests: make(map[string]domain.ChangeRequest),
-		apiKeys:        make(map[string]domain.APIKey),
-		apiKeysByHash:  make(map[string]string),
+		auditLogs:           getSeedAuditLogs(),
+		users:               make(map[string]domain.User),
+		sessions:            make(map[string]domain.Session),
+		changeRequests:      make(map[string]domain.ChangeRequest),
+		apiKeys:             make(map[string]domain.APIKey),
+		apiKeysByHash:       make(map[string]string),
+		passwordResetTokens: make(map[string]domain.PasswordResetToken),
 	}
 
 	initialSnap := newFlagSnapshot(getSeedFlags())
@@ -398,6 +400,23 @@ func (s *MemoryStore) CreateUser(ctx context.Context, user domain.User) (*domain
 	s.users[user.ID] = user
 
 	return &user, nil
+}
+
+func (s *MemoryStore) ListUsers(ctx context.Context) ([]domain.User, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	seen := make(map[string]bool)
+	var users []domain.User
+	for _, u := range s.users {
+		if !seen[u.ID] {
+			seen[u.ID] = true
+			uCopy := u
+			uCopy.PasswordHash = ""
+			users = append(users, uCopy)
+		}
+	}
+	return users, nil
 }
 
 func (s *MemoryStore) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
@@ -1033,3 +1052,83 @@ func (s *MemoryStore) RevokeAPIKey(ctx context.Context, id string, actor string)
 
 	return nil
 }
+
+func (s *MemoryStore) CreatePasswordResetToken(ctx context.Context, email string, ttl time.Duration) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	user, exists := s.users[email]
+	if !exists {
+		return "", fmt.Errorf("user not found with email: %s", email)
+	}
+
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	token := fmt.Sprintf("flg_rst_%s", hex.EncodeToString(b))
+
+	now := time.Now().UTC()
+	s.passwordResetTokens[token] = domain.PasswordResetToken{
+		Token:     token,
+		Email:     user.Email,
+		ExpiresAt: now.Add(ttl),
+		Used:      false,
+		CreatedAt: now,
+	}
+
+	return token, nil
+}
+
+func (s *MemoryStore) GetPasswordResetToken(ctx context.Context, token string) (*domain.PasswordResetToken, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	t, exists := s.passwordResetTokens[token]
+	if !exists {
+		return nil, fmt.Errorf("invalid or expired password reset token")
+	}
+
+	tCopy := t
+	return &tCopy, nil
+}
+
+func (s *MemoryStore) ResetPasswordWithToken(ctx context.Context, token string, newPasswordHash string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	t, exists := s.passwordResetTokens[token]
+	if !exists {
+		return fmt.Errorf("invalid or expired reset token")
+	}
+	if t.Used {
+		return fmt.Errorf("reset token has already been used")
+	}
+	if t.IsExpired() {
+		return fmt.Errorf("reset token has expired")
+	}
+
+	user, exists := s.users[t.Email]
+	if !exists {
+		return fmt.Errorf("user associated with token not found")
+	}
+
+	user.PasswordHash = newPasswordHash
+	user.UpdatedAt = time.Now().UTC()
+	s.users[user.Email] = user
+	s.users[user.ID] = user
+
+	// Mark token as used
+	t.Used = true
+	s.passwordResetTokens[token] = t
+
+	// Invalidate existing sessions for this user for security
+	for tokenKey, sess := range s.sessions {
+		if sess.UserID == user.ID {
+			delete(s.sessions, tokenKey)
+		}
+	}
+
+	return nil
+}
+

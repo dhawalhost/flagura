@@ -2,8 +2,8 @@ package views
 
 templ AuthPage(showLanding ...bool) {
 	@Layout("Authentication — Flagura Console") {
-		<div class="min-h-screen flex items-center justify-center p-4 sm:p-6" x-data="authPageComponent()">
-			<div class="console-card p-8 sm:p-10 w-full max-w-md space-y-6 shadow-xl">
+		<div class="min-h-screen flex items-center justify-center p-4 sm:p-6" x-data="authPageComponent()" x-init="initAuth()">
+			<div class="console-card p-8 sm:p-10 w-full max-w-md space-y-6 shadow-xl relative">
 				<!-- Brand Header -->
 				<div class="text-center space-y-2">
 					<img src="/static/img/flagura-logo.png" alt="Flagura" class="w-12 h-12 rounded-2xl shadow-lg mx-auto" />
@@ -11,11 +11,11 @@ templ AuthPage(showLanding ...bool) {
 					<p class="text-xs text-slate-500">Sub-microsecond deterministic feature flag engine</p>
 				</div>
 
-				<!-- Mode Tabs: Sign In / Create Account -->
-				<div class="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
+				<!-- Mode Tabs: Sign In / Create Account (Hidden during Forgot / Reset Password) -->
+				<div x-show="mode === 'signin' || mode === 'signup'" class="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
 					<button
 						type="button"
-						@click="mode = 'signin'; error = '';"
+						@click="setMode('signin')"
 						class="flex-1 py-2 rounded-lg transition-all text-center cursor-pointer"
 						:class="mode === 'signin' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'"
 					>
@@ -23,7 +23,7 @@ templ AuthPage(showLanding ...bool) {
 					</button>
 					<button
 						type="button"
-						@click="mode = 'signup'; error = '';"
+						@click="setMode('signup')"
 						class="flex-1 py-2 rounded-lg transition-all text-center cursor-pointer"
 						:class="mode === 'signup' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'"
 					>
@@ -39,7 +39,15 @@ templ AuthPage(showLanding ...bool) {
 					</div>
 				</template>
 
-				<!-- Sign In Form -->
+				<!-- Success Alert -->
+				<template x-if="successMessage">
+					<div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-800 flex items-start gap-2.5">
+						<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+						<span x-text="successMessage" class="leading-relaxed font-medium"></span>
+					</div>
+				</template>
+
+				<!-- 1. Sign In Form -->
 				<form x-show="mode === 'signin'" @submit.prevent="submitLogin()" class="space-y-4 text-xs">
 					<div>
 						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Work Email</label>
@@ -54,6 +62,13 @@ templ AuthPage(showLanding ...bool) {
 					<div>
 						<div class="flex items-center justify-between mb-1.5">
 							<label class="text-xs font-semibold text-slate-700">Password</label>
+							<button 
+								type="button" 
+								@click="setMode('forgot')" 
+								class="text-[11px] text-blue-600 hover:text-blue-700 font-semibold transition cursor-pointer"
+							>
+								Forgot password?
+							</button>
 						</div>
 						<input 
 							type="password" 
@@ -75,7 +90,7 @@ templ AuthPage(showLanding ...bool) {
 					</button>
 				</form>
 
-				<!-- Sign Up Form -->
+				<!-- 2. Sign Up Form -->
 				<form x-show="mode === 'signup'" @submit.prevent="submitSignUp()" class="space-y-4 text-xs" style="display: none;">
 					<div>
 						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Full Name</label>
@@ -99,28 +114,64 @@ templ AuthPage(showLanding ...bool) {
 						/>
 					</div>
 
-					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-						<div>
-							<label class="block text-xs font-semibold text-slate-700 mb-1.5">Password</label>
-							<input 
-								type="password" 
-								x-model="signUpForm.password" 
-								required
-								minlength="6"
-								class="input-clean w-full text-xs font-mono"
-								placeholder="Min 6 chars"
-							/>
+					<div class="space-y-2">
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+							<div>
+								<label class="block text-xs font-semibold text-slate-700 mb-1.5">Password</label>
+								<input 
+									type="password" 
+									x-model="signUpForm.password" 
+									@input="evaluatePassword(signUpForm.password)"
+									required
+									minlength="8"
+									class="input-clean w-full text-xs font-mono"
+									placeholder="Min 8 characters"
+								/>
+							</div>
+							<div>
+								<label class="block text-xs font-semibold text-slate-700 mb-1.5">Confirm Password</label>
+								<input 
+									type="password" 
+									x-model="signUpForm.confirmPassword" 
+									required
+									minlength="8"
+									class="input-clean w-full text-xs font-mono"
+									placeholder="Repeat password"
+								/>
+							</div>
 						</div>
-						<div>
-							<label class="block text-xs font-semibold text-slate-700 mb-1.5">Confirm Password</label>
-							<input 
-								type="password" 
-								x-model="signUpForm.confirmPassword" 
-								required
-								minlength="6"
-								class="input-clean w-full text-xs font-mono"
-								placeholder="Repeat password"
-							/>
+
+						<!-- Real-Time Password Complexity Requirements -->
+						<div x-show="signUpForm.password.length > 0" class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-[11px]">
+							<div class="flex items-center justify-between font-semibold">
+								<span class="text-slate-600">Password Strength:</span>
+								<span :class="passwordStrengthColor" x-text="passwordStrengthText"></span>
+							</div>
+							<div class="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden flex gap-1">
+								<div class="h-full rounded-full transition-all duration-300" :class="passwordStrengthClass" :style="'width: ' + passwordStrengthPct + '%'"></div>
+							</div>
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1 text-[10px] font-mono">
+								<div class="flex items-center gap-1.5" :class="criteria.len ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+									<span x-text="criteria.len ? '✓' : '○'"></span>
+									<span>8+ characters</span>
+								</div>
+								<div class="flex items-center gap-1.5" :class="criteria.upper ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+									<span x-text="criteria.upper ? '✓' : '○'"></span>
+									<span>Uppercase letter (A-Z)</span>
+								</div>
+								<div class="flex items-center gap-1.5" :class="criteria.lower ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+									<span x-text="criteria.lower ? '✓' : '○'"></span>
+									<span>Lowercase letter (a-z)</span>
+								</div>
+								<div class="flex items-center gap-1.5" :class="criteria.digit ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+									<span x-text="criteria.digit ? '✓' : '○'"></span>
+									<span>Number (0-9)</span>
+								</div>
+								<div class="flex items-center gap-1.5 sm:col-span-2" :class="criteria.special ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+									<span x-text="criteria.special ? '✓' : '○'"></span>
+									<span>Special symbol (!@#$%^&*)</span>
+								</div>
+							</div>
 						</div>
 					</div>
 
@@ -148,14 +199,168 @@ templ AuthPage(showLanding ...bool) {
 					</button>
 				</form>
 
-				if len(showLanding) > 0 && showLanding[0] {
-					<div class="text-center pt-2 border-t border-slate-100">
-						<a href="/" class="text-xs text-slate-500 hover:text-slate-800 font-medium flex items-center justify-center gap-1.5 transition">
-							<i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
-							<span>Back to Product Overview</span>
-						</a>
+				<!-- 3. Forgot Password View -->
+				<div x-show="mode === 'forgot'" class="space-y-5 text-xs" style="display: none;">
+					<div class="p-4 rounded-xl bg-blue-50/70 border border-blue-200 text-blue-900 space-y-1">
+						<div class="font-bold flex items-center gap-1.5">
+							<i data-lucide="key-round" class="w-4 h-4 text-blue-600"></i>
+							<span>Account Recovery</span>
+						</div>
+						<p class="text-[11px] text-blue-700 leading-relaxed">
+							Enter your registered work email. We'll send you a secure, single-use 15-minute recovery link.
+						</p>
 					</div>
-				}
+
+					<form @submit.prevent="submitForgotPassword()" class="space-y-4">
+						<div>
+							<label class="block text-xs font-semibold text-slate-700 mb-1.5">Registered Email Address</label>
+							<input 
+								type="email" 
+								x-model="forgotForm.email" 
+								required
+								class="input-clean w-full text-xs font-mono"
+								placeholder="you@company.com"
+							/>
+						</div>
+
+						<button 
+							type="submit" 
+							class="w-full py-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer"
+							:disabled="loading"
+						>
+							<i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="loading"></i>
+							<span x-text="loading ? 'Sending Recovery Link...' : 'Send Password Reset Link'"></span>
+							<i data-lucide="mail" class="w-3.5 h-3.5" x-show="!loading"></i>
+						</button>
+					</form>
+
+					<div class="text-center pt-2">
+						<button 
+							type="button" 
+							@click="setMode('signin')" 
+							class="text-xs text-slate-500 hover:text-slate-900 font-semibold flex items-center justify-center gap-1 mx-auto transition cursor-pointer"
+						>
+							<i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+							<span>Back to Sign In</span>
+						</button>
+					</div>
+				</div>
+
+				<!-- 4. Reset Password View -->
+				<div x-show="mode === 'reset'" class="space-y-5 text-xs" style="display: none;">
+					<div class="p-4 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 space-y-1">
+						<div class="font-bold flex items-center gap-1.5">
+							<i data-lucide="shield-check" class="w-4 h-4 text-purple-600"></i>
+							<span>Set New Password</span>
+						</div>
+						<p class="text-[11px] text-purple-700 leading-relaxed">
+							Choose a strong password conforming to security guidelines.
+						</p>
+					</div>
+
+					<form @submit.prevent="submitResetPassword()" class="space-y-4">
+						<div class="space-y-2">
+							<div>
+								<label class="block text-xs font-semibold text-slate-700 mb-1.5">New Password</label>
+								<input 
+									type="password" 
+									x-model="resetForm.password" 
+									@input="evaluatePassword(resetForm.password)"
+									required
+									minlength="8"
+									class="input-clean w-full text-xs font-mono"
+									placeholder="Min 8 characters"
+								/>
+							</div>
+
+							<!-- Real-Time Password Complexity Requirements -->
+							<div x-show="resetForm.password.length > 0" class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-[11px]">
+								<div class="flex items-center justify-between font-semibold">
+									<span class="text-slate-600">Strength:</span>
+									<span :class="passwordStrengthColor" x-text="passwordStrengthText"></span>
+								</div>
+								<div class="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden flex gap-1">
+									<div class="h-full rounded-full transition-all duration-300" :class="passwordStrengthClass" :style="'width: ' + passwordStrengthPct + '%'"></div>
+								</div>
+								<div class="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1 text-[10px] font-mono">
+									<div class="flex items-center gap-1.5" :class="criteria.len ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+										<span x-text="criteria.len ? '✓' : '○'"></span>
+										<span>8+ characters</span>
+									</div>
+									<div class="flex items-center gap-1.5" :class="criteria.upper ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+										<span x-text="criteria.upper ? '✓' : '○'"></span>
+										<span>Uppercase (A-Z)</span>
+									</div>
+									<div class="flex items-center gap-1.5" :class="criteria.lower ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+										<span x-text="criteria.lower ? '✓' : '○'"></span>
+										<span>Lowercase (a-z)</span>
+									</div>
+									<div class="flex items-center gap-1.5" :class="criteria.digit ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+										<span x-text="criteria.digit ? '✓' : '○'"></span>
+										<span>Number (0-9)</span>
+									</div>
+									<div class="flex items-center gap-1.5 sm:col-span-2" :class="criteria.special ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+										<span x-text="criteria.special ? '✓' : '○'"></span>
+										<span>Special symbol (!@#$%^&*)</span>
+									</div>
+								</div>
+							</div>
+
+							<div>
+								<label class="block text-xs font-semibold text-slate-700 mb-1.5">Confirm New Password</label>
+								<input 
+									type="password" 
+									x-model="resetForm.confirmPassword" 
+									required
+									minlength="8"
+									class="input-clean w-full text-xs font-mono"
+									placeholder="Repeat new password"
+								/>
+							</div>
+						</div>
+
+						<button 
+							type="submit" 
+							class="w-full py-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md bg-purple-600 hover:bg-purple-700 text-white transition-all cursor-pointer"
+							:disabled="loading"
+						>
+							<i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="loading"></i>
+							<span x-text="loading ? 'Updating Password...' : 'Save Strong Password & Sign In'"></span>
+							<i data-lucide="check" class="w-3.5 h-3.5" x-show="!loading"></i>
+						</button>
+					</form>
+
+					<div class="text-center pt-2">
+						<button 
+							type="button" 
+							@click="setMode('signin')" 
+							class="text-xs text-slate-500 hover:text-slate-900 font-semibold flex items-center justify-center gap-1 mx-auto transition cursor-pointer"
+						>
+							<i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+							<span>Back to Sign In</span>
+						</button>
+					</div>
+				</div>
+
+				<!-- Email Support & Help Links -->
+				<div class="pt-4 border-t border-slate-100 flex flex-col items-center gap-2 text-center text-[11px] text-slate-400">
+					if len(showLanding) > 0 && showLanding[0] {
+						<div>
+							<span>Need assistance? Contact our team at </span>
+							<a href="mailto:support@flagura.dev" class="text-blue-600 hover:text-blue-700 font-semibold underline decoration-blue-200">support@flagura.dev</a>
+						</div>
+						<div>
+							<a href="/" class="text-slate-500 hover:text-slate-800 font-medium flex items-center justify-center gap-1 transition">
+								<i data-lucide="arrow-left" class="w-3 h-3"></i>
+								<span>Back to Product Overview</span>
+							</a>
+						</div>
+					} else {
+						<div>
+							<span>Flagura Self-Hosted Console • Contact your workspace administrator for access.</span>
+						</div>
+					}
+				</div>
 			</div>
 		</div>
 
@@ -165,6 +370,8 @@ templ AuthPage(showLanding ...bool) {
 					mode: 'signin',
 					loading: false,
 					error: '',
+					successMessage: '',
+					resetToken: '',
 					loginForm: {
 						email: '',
 						password: ''
@@ -176,10 +383,94 @@ templ AuthPage(showLanding ...bool) {
 						confirmPassword: '',
 						role: 'developer'
 					},
+					forgotForm: {
+						email: ''
+					},
+					resetForm: {
+						password: '',
+						confirmPassword: ''
+					},
+					criteria: {
+						len: false,
+						upper: false,
+						lower: false,
+						digit: false,
+						special: false
+					},
+					passwordStrengthPct: 0,
+					passwordStrengthText: '',
+					passwordStrengthColor: '',
+					passwordStrengthClass: '',
+
+					initAuth() {
+						const urlParams = new URLSearchParams(window.location.search);
+						const modeParam = urlParams.get('mode');
+						const tokenParam = urlParams.get('token');
+						if (modeParam === 'reset' && tokenParam) {
+							this.mode = 'reset';
+							this.resetToken = tokenParam;
+						} else if (modeParam === 'forgot') {
+							this.mode = 'forgot';
+						}
+					},
+
+					setMode(newMode) {
+						this.mode = newMode;
+						this.error = '';
+						this.successMessage = '';
+						if (window.synth) window.synth.playClick(600);
+					},
+
+					evaluatePassword(pwd) {
+						if (!pwd) {
+							this.criteria = { len: false, upper: false, lower: false, digit: false, special: false };
+							this.passwordStrengthPct = 0;
+							this.passwordStrengthText = '';
+							return;
+						}
+
+						this.criteria.len = pwd.length >= 8;
+						this.criteria.upper = /[A-Z]/.test(pwd);
+						this.criteria.lower = /[a-z]/.test(pwd);
+						this.criteria.digit = /[0-9]/.test(pwd);
+						this.criteria.special = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(pwd);
+
+						let score = 0;
+						if (this.criteria.len) score += 20;
+						if (this.criteria.upper) score += 20;
+						if (this.criteria.lower) score += 20;
+						if (this.criteria.digit) score += 20;
+						if (this.criteria.special) score += 20;
+
+						this.passwordStrengthPct = score;
+						if (score < 60) {
+							this.passwordStrengthText = 'Weak';
+							this.passwordStrengthColor = 'text-rose-600';
+							this.passwordStrengthClass = 'bg-rose-500';
+						} else if (score < 100) {
+							this.passwordStrengthText = 'Moderate';
+							this.passwordStrengthColor = 'text-amber-600';
+							this.passwordStrengthClass = 'bg-amber-500';
+						} else {
+							this.passwordStrengthText = 'Strong (Meets Policy)';
+							this.passwordStrengthColor = 'text-emerald-600';
+							this.passwordStrengthClass = 'bg-emerald-500';
+						}
+					},
+
+					isPasswordValid(pwd) {
+						return pwd.length >= 8 &&
+							/[A-Z]/.test(pwd) &&
+							/[a-z]/.test(pwd) &&
+							/[0-9]/.test(pwd) &&
+							/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(pwd);
+					},
+
 					async submitLogin() {
 						this.loading = true;
 						this.error = '';
-						window.synth.playClick(600);
+						this.successMessage = '';
+						if (window.synth) window.synth.playClick(600);
 						try {
 							const res = await fetch('/api/v1/auth/login', {
 								method: 'POST',
@@ -201,14 +492,20 @@ templ AuthPage(showLanding ...bool) {
 							this.loading = false;
 						}
 					},
+
 					async submitSignUp() {
+						if (!this.isPasswordValid(this.signUpForm.password)) {
+							this.error = 'Password does not meet all security complexity requirements (8+ chars, uppercase, lowercase, number, and special symbol).';
+							return;
+						}
 						if (this.signUpForm.password !== this.signUpForm.confirmPassword) {
-							this.error = 'Passwords do not match';
+							this.error = 'Passwords do not match.';
 							return;
 						}
 						this.loading = true;
 						this.error = '';
-						window.synth.playClick(600);
+						this.successMessage = '';
+						if (window.synth) window.synth.playClick(600);
 						try {
 							const res = await fetch('/api/v1/auth/signup', {
 								method: 'POST',
@@ -229,6 +526,73 @@ templ AuthPage(showLanding ...bool) {
 							setTimeout(() => {
 								window.location.href = '/dashboard';
 							}, 400);
+						} catch(err) {
+							this.error = 'Network error. Please try again.';
+						} finally {
+							this.loading = false;
+						}
+					},
+
+					async submitForgotPassword() {
+						this.loading = true;
+						this.error = '';
+						this.successMessage = '';
+						if (window.synth) window.synth.playClick(600);
+						try {
+							const res = await fetch('/api/v1/auth/forgot-password', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify(this.forgotForm)
+							});
+							const data = await res.json();
+							if (res.ok) {
+								this.successMessage = data.message || 'Recovery instructions sent to your email.';
+								this.forgotForm.email = '';
+							} else {
+								this.error = data.message || 'Failed to request reset.';
+							}
+						} catch(err) {
+							this.error = 'Network error. Please try again.';
+						} finally {
+							this.loading = false;
+						}
+					},
+
+					async submitResetPassword() {
+						if (!this.isPasswordValid(this.resetForm.password)) {
+							this.error = 'Password does not meet all security complexity requirements (8+ chars, uppercase, lowercase, number, and special symbol).';
+							return;
+						}
+						if (this.resetForm.password !== this.resetForm.confirmPassword) {
+							this.error = 'Passwords do not match.';
+							return;
+						}
+						if (!this.resetToken) {
+							this.error = 'Missing reset token in URL.';
+							return;
+						}
+						this.loading = true;
+						this.error = '';
+						this.successMessage = '';
+						if (window.synth) window.synth.playClick(600);
+						try {
+							const res = await fetch('/api/v1/auth/reset-password', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({
+									token: this.resetToken,
+									newPassword: this.resetForm.password
+								})
+							});
+							const data = await res.json();
+							if (!res.ok) {
+								this.error = data.message || 'Failed to reset password.';
+								return;
+							}
+							this.successMessage = 'Password reset successfully! Redirecting to sign in...';
+							setTimeout(() => {
+								this.setMode('signin');
+							}, 1500);
 						} catch(err) {
 							this.error = 'Network error. Please try again.';
 						} finally {

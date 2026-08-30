@@ -633,17 +633,41 @@ curl -X POST https://flagura.dhawalhost.com/api/v1/evaluate \
 2. Import the project into **Vercel**.
 3. Under **Settings -> Environment Variables**, add:
    - `DATABASE_URL`: `postgres://...` (Your Supabase connection string)
+   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`: (Optional SMTP credentials for password reset and invite emails)
 4. Click **Deploy**. Vercel compiles the serverless handler via [`api/index.go`](api/index.go) and [`vercel.json`](vercel.json).
 
-### Option B: Docker Container
+### Option B: Docker Container / Self-Hosted
 
 ```bash
+# Copy and configure environment variables
+cp .env.example .env
+
 # Build Docker image
 docker build -t flagura:latest .
 
 # Run container
-docker run -p 3000:3000 -e DATABASE_URL="postgres://..." flagura:latest
+docker run -p 3000:3000 --env-file .env flagura:latest
 ```
+
+---
+
+## ⚙️ Environment Variables Reference
+
+See [`.env.example`](.env.example) for a fully annotated template:
+
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `PORT` | `3000` | HTTP listening port |
+| `DATABASE_URL` | *(empty)* | PostgreSQL connection string (uses In-Memory Edge Store if empty) |
+| `FLAGURA_APP_URL` | `http://localhost:3000` | Base URL used for recovery links and redirects |
+| `ENABLE_LANDING_PAGE` | `false` | `false` redirects directly to `/auth`, `true` displays public product showcase |
+| `SMTP_HOST` | *(empty)* | SMTP hostname for password reset & welcome emails (uses terminal logger if empty) |
+| `SMTP_PORT` | `587` | SMTP port (`587` STARTTLS, `465` SMTPS) |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | *(empty)* | SMTP authentication credentials |
+| `SMTP_FROM` | `no-reply@localhost` | Sender address on all outbound transactional emails |
+| `FLAGURA_BRAND_NAME` | `Flagura` | Custom brand title rendered in email headers & greetings |
+| `FLAGURA_SUPPORT_EMAIL` | *(empty)* | Support address shown in footers (defaults to internal admin notice if empty) |
+| `FLAGURA_GOVERNANCE_EMAILS` | *(empty)* | Comma-separated reviewer emails (auto-resolves DB admins if empty) |
 
 ---
 

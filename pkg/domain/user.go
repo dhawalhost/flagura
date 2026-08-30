@@ -67,3 +67,25 @@ type APIKey struct {
 	Revoked    bool       `json:"revoked"`
 }
 
+type PasswordResetToken struct {
+	Token     string    `json:"token"`
+	Email     string    `json:"email"`
+	ExpiresAt time.Time `json:"expiresAt"`
+	Used      bool      `json:"used"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+func (t *PasswordResetToken) IsExpired() bool {
+	return time.Now().After(t.ExpiresAt)
+}
+
+type ForgotPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+type ResetPasswordRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"newPassword"`
+}
+
+

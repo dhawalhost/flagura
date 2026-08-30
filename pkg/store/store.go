@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"time"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
@@ -21,11 +22,15 @@ type Store interface {
 
 	// Users & Authentication
 	CreateUser(ctx context.Context, user domain.User) (*domain.User, error)
+	ListUsers(ctx context.Context) ([]domain.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
 	GetUserByID(ctx context.Context, id string) (*domain.User, error)
 	CreateSession(ctx context.Context, session domain.Session) error
 	GetSession(ctx context.Context, token string) (*domain.Session, error)
 	DeleteSession(ctx context.Context, token string) error
+	CreatePasswordResetToken(ctx context.Context, email string, ttl time.Duration) (string, error)
+	GetPasswordResetToken(ctx context.Context, token string) (*domain.PasswordResetToken, error)
+	ResetPasswordWithToken(ctx context.Context, token string, newPasswordHash string) error
 
 	// Experiments & A/B Testing
 	RecordExperimentEvents(ctx context.Context, events []domain.ExperimentEvent) error

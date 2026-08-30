@@ -9,6 +9,7 @@ import (
 
 	"github.com/dhawalhost/flagura/pkg/canary"
 	"github.com/dhawalhost/flagura/pkg/domain"
+	"github.com/dhawalhost/flagura/pkg/email"
 	"github.com/dhawalhost/flagura/pkg/store"
 	"github.com/dhawalhost/flagura/web"
 )
@@ -24,6 +25,7 @@ type Server struct {
 	streamHub   *StreamHub
 	telemetry   *TelemetryAggregator
 	canary      *canary.CanaryScheduler
+	mailer      email.Mailer
 }
 
 func NewServer(st store.Store) (*Server, error) {
@@ -42,10 +44,15 @@ func NewServer(st store.Store) (*Server, error) {
 		streamHub:   hub,
 		telemetry:   NewTelemetryAggregator(),
 		canary:      canarySched,
+		mailer:      email.NewMailerFromEnv(),
 	}
 	s.routes()
 	s.handler = SecurityHeadersMiddleware(MaxBytesMiddleware(1<<20, s.mux))
 	return s, nil
+}
+
+func (s *Server) SetMailer(m email.Mailer) {
+	s.mailer = m
 }
 
 func (s *Server) routes() {
@@ -63,6 +70,8 @@ func (s *Server) routes() {
 	// Auth API Routes (Rate limited for brute-force protection)
 	s.mux.HandleFunc("/api/v1/auth/signup", s.authLimiter.LimitHandler(s.handleSignUp))
 	s.mux.HandleFunc("/api/v1/auth/login", s.authLimiter.LimitHandler(s.handleLogin))
+	s.mux.HandleFunc("/api/v1/auth/forgot-password", s.authLimiter.LimitHandler(s.handleForgotPassword))
+	s.mux.HandleFunc("/api/v1/auth/reset-password", s.authLimiter.LimitHandler(s.handleResetPassword))
 	s.mux.HandleFunc("/api/v1/auth/logout", s.handleLogout)
 	s.mux.HandleFunc("/api/v1/auth/me", s.handleMe)
 
