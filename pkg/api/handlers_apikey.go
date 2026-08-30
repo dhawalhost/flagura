@@ -37,14 +37,16 @@ func generateRawAPIKey() (string, string, string, error) {
 func (s *Server) handleListOrCreateAPIKeys(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		keys, err := s.store.ListAPIKeys(r.Context())
+		projectID := s.resolveProjectID(r)
+		keys, err := s.store.ListAPIKeysByProject(r.Context(), projectID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"api_keys": keys,
+			"project_id": projectID,
+			"api_keys":   keys,
 		})
 
 	case http.MethodPost:
@@ -80,7 +82,9 @@ func (s *Server) handleListOrCreateAPIKeys(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
+		projectID := s.resolveProjectID(r)
 		apiKey := domain.APIKey{
+			ProjectID:  projectID,
 			Key:        rawKey,
 			KeyPrefix:  prefix,
 			KeyHash:    hash,

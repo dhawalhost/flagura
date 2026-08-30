@@ -13,6 +13,7 @@ import (
 
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/engine"
+	"github.com/dhawalhost/flagura/pkg/store"
 	"github.com/dhawalhost/flagura/pkg/telemetry"
 )
 
@@ -53,17 +54,35 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) resolveProjectID(r *http.Request) string {
+	if p := r.Header.Get("X-Project-ID"); p != "" {
+		return p
+	}
+	if p := r.URL.Query().Get("project_id"); p != "" {
+		return p
+	}
+	if p := r.URL.Query().Get("projectId"); p != "" {
+		return p
+	}
+	if c, err := r.Cookie("flagura_project_id"); err == nil && c.Value != "" {
+		return c.Value
+	}
+	return store.DefaultProjectID
+}
+
 func (s *Server) handleGetFlags(w http.ResponseWriter, r *http.Request) {
-	flags, err := s.store.ListFlags(r.Context())
+	projectID := s.resolveProjectID(r)
+	flags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"flags":     flags,
-		"count":     len(flags),
-		"timestamp": time.Now().UTC(),
+		"project_id": projectID,
+		"flags":      flags,
+		"count":      len(flags),
+		"timestamp":  time.Now().UTC(),
 	})
 }
 
@@ -92,6 +111,9 @@ func (s *Server) handleCreateFlag(w http.ResponseWriter, r *http.Request) {
 	if flag.Key == "" {
 		http.Error(w, "flag key is required", http.StatusBadRequest)
 		return
+	}
+	if flag.ProjectID == "" {
+		flag.ProjectID = s.resolveProjectID(r)
 	}
 
 	actor := s.getActorFromRequest(r, "developer@flagura.dev")
@@ -123,6 +145,9 @@ func (s *Server) handleUpdateFlag(w http.ResponseWriter, r *http.Request) {
 	}
 	if flag.Key == "" {
 		flag.Key = id
+	}
+	if flag.ProjectID == "" {
+		flag.ProjectID = s.resolveProjectID(r)
 	}
 
 	actor := s.getActorFromRequest(r, "developer@flagura.dev")
@@ -262,7 +287,8 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 
 	includeTrace := req.Trace || r.URL.Query().Get("trace") == "true"
 
-	allFlags, err := s.store.ListFlags(r.Context())
+	projectID := s.resolveProjectID(r)
+	allFlags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -322,6 +348,7 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if includeTrace {
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"project_id":        projectID,
 			"results":           results,
 			"traces":            traces,
 			"evaluated_count":   len(results),
@@ -353,7 +380,8 @@ func (s *Server) handleBenchmark(w http.ResponseWriter, r *http.Request) {
 		req.Environment = domain.EnvProduction
 	}
 
-	allFlags, err := s.store.ListFlags(r.Context())
+	projectID := s.resolveProjectID(r)
+	allFlags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil || len(allFlags) == 0 {
 		http.Error(w, "no flags available for benchmark", http.StatusInternalServerError)
 		return
@@ -374,7 +402,8 @@ func (s *Server) handleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	logs, err := s.store.ListAuditLogs(r.Context(), limit)
+	projectID := s.resolveProjectID(r)
+	logs, err := s.store.ListAuditLogsByProject(r.Context(), projectID, limit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -382,8 +411,9 @@ func (s *Server) handleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"logs":  logs,
-		"total": len(logs),
+		"project_id": projectID,
+		"logs":       logs,
+		"total":      len(logs),
 	})
 }
 

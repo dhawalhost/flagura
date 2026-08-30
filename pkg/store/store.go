@@ -7,8 +7,32 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
+const (
+	DefaultOrgID     = "org_default"
+	DefaultOrgName   = "Default Organization"
+	DefaultOrgSlug   = "default-org"
+
+	DefaultProjectID   = "proj_default"
+	DefaultProjectName = "Default Project"
+	DefaultProjectSlug = "default-project"
+)
+
 type Store interface {
-	// Flags & Audit
+	// Organizations & Projects
+	CreateOrganization(ctx context.Context, org domain.Organization) (*domain.Organization, error)
+	GetOrganization(ctx context.Context, idOrSlug string) (*domain.Organization, error)
+	ListOrganizations(ctx context.Context) ([]domain.Organization, error)
+
+	CreateProject(ctx context.Context, project domain.Project) (*domain.Project, error)
+	GetProject(ctx context.Context, idOrSlug string) (*domain.Project, error)
+	ListProjects(ctx context.Context, organizationID string) ([]domain.Project, error)
+
+	// Flags & Audit (Project-Scoped)
+	ListFlagsByProject(ctx context.Context, projectID string) ([]domain.FeatureFlag, error)
+	GetFlagByProject(ctx context.Context, projectID, keyOrID string) (*domain.FeatureFlag, error)
+	ListAuditLogsByProject(ctx context.Context, projectID string, limit int) ([]domain.AuditLogEntry, error)
+
+	// Flags & Audit (Default Project fallback for backward compatibility)
 	ListFlags(ctx context.Context) ([]domain.FeatureFlag, error)
 	GetFlag(ctx context.Context, keyOrID string) (*domain.FeatureFlag, error)
 	SaveFlag(ctx context.Context, flag domain.FeatureFlag, actor string) (*domain.AuditLogEntry, error)
@@ -40,12 +64,14 @@ type Store interface {
 	CreateChangeRequest(ctx context.Context, cr domain.ChangeRequest) (*domain.ChangeRequest, error)
 	GetChangeRequest(ctx context.Context, id string) (*domain.ChangeRequest, error)
 	ListChangeRequests(ctx context.Context, status domain.ChangeRequestStatus) ([]domain.ChangeRequest, error)
+	ListChangeRequestsByProject(ctx context.Context, projectID string, status domain.ChangeRequestStatus) ([]domain.ChangeRequest, error)
 	ReviewChangeRequest(ctx context.Context, id, reviewerID, reviewerEmail, reviewerName string, approved bool, comments string) (*domain.ChangeRequest, error)
 	ApplyChangeRequest(ctx context.Context, id string, actor string) (*domain.FeatureFlag, *domain.ChangeRequest, *domain.AuditLogEntry, error)
 
 	// API Keys & Service Accounts
 	CreateAPIKey(ctx context.Context, key domain.APIKey) (*domain.APIKey, error)
 	ListAPIKeys(ctx context.Context) ([]domain.APIKey, error)
+	ListAPIKeysByProject(ctx context.Context, projectID string) ([]domain.APIKey, error)
 	GetAPIKeyByHash(ctx context.Context, hash string) (*domain.APIKey, error)
 	RevokeAPIKey(ctx context.Context, id string, actor string) error
 }

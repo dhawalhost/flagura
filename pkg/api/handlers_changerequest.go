@@ -14,13 +14,15 @@ func (s *Server) handleListOrCreateChangeRequests(w http.ResponseWriter, r *http
 	switch r.Method {
 	case http.MethodGet:
 		status := domain.ChangeRequestStatus(r.URL.Query().Get("status"))
-		crs, err := s.store.ListChangeRequests(r.Context(), status)
+		projectID := s.resolveProjectID(r)
+		crs, err := s.store.ListChangeRequestsByProject(r.Context(), projectID, status)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"project_id":      projectID,
 			"change_requests": crs,
 		})
 	case http.MethodPost:
@@ -50,6 +52,9 @@ func (s *Server) handleCreateChangeRequest(w http.ResponseWriter, r *http.Reques
 	}
 	if req.Environment == "" {
 		req.Environment = domain.EnvProduction
+	}
+	if req.ProjectID == "" {
+		req.ProjectID = s.resolveProjectID(r)
 	}
 
 	req.AuthorUserID = user.ID

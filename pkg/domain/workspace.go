@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// Workspace represents a top-level tenant organization.
-type Workspace struct {
+// Organization represents a top-level tenant organization (e.g. Acme Corp).
+type Organization struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name"`
 	Slug        string    `json:"slug"`
@@ -15,15 +15,18 @@ type Workspace struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// Project represents an isolated project scope within a Workspace.
+// Workspace is an alias for Organization for backward compatibility.
+type Workspace = Organization
+
+// Project represents an isolated project scope within an Organization.
 type Project struct {
-	ID          string    `json:"id"`
-	WorkspaceID string    `json:"workspace_id"`
-	Name        string    `json:"name"`
-	Slug        string    `json:"slug"`
-	Description string    `json:"description,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID             string    `json:"id"`
+	OrganizationID string    `json:"organization_id"`
+	Name           string    `json:"name"`
+	Slug           string    `json:"slug"`
+	Description    string    `json:"description,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // ChangeRequestStatus represents the review and application status.
@@ -39,6 +42,7 @@ const (
 // ChangeRequest enforces 4-Eyes Principle change approval governance on production flags.
 type ChangeRequest struct {
 	ID             string              `json:"id"`
+	ProjectID      string              `json:"project_id"`
 	FlagKey        string              `json:"flag_key"`
 	Environment    Environment         `json:"environment"`
 	Title          string              `json:"title"`

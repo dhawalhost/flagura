@@ -80,6 +80,37 @@ func (s *PostgresStore) Ping(ctx context.Context) error {
 
 func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	schema := `
+	CREATE TABLE IF NOT EXISTS organizations (
+		id TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		slug TEXT UNIQUE NOT NULL,
+		description TEXT DEFAULT '',
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_organizations_slug ON organizations(slug);
+
+	CREATE TABLE IF NOT EXISTS projects (
+		id TEXT PRIMARY KEY,
+		organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+		name TEXT NOT NULL,
+		slug TEXT NOT NULL,
+		description TEXT DEFAULT '',
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		UNIQUE(organization_id, slug)
+	);
+	CREATE INDEX IF NOT EXISTS idx_projects_org ON projects(organization_id);
+	CREATE INDEX IF NOT EXISTS idx_projects_slug ON projects(slug);
+
+	INSERT INTO organizations (id, name, slug, description)
+	VALUES ('org_default', 'Default Organization', 'default-org', 'Primary workspace organization')
+	ON CONFLICT (id) DO NOTHING;
+
+	INSERT INTO projects (id, organization_id, name, slug, description)
+	VALUES ('proj_default', 'org_default', 'Default Project', 'default-project', 'Primary feature flag project')
+	ON CONFLICT (id) DO NOTHING;
+
 	CREATE TABLE IF NOT EXISTS users (
 		id TEXT PRIMARY KEY,
 		email TEXT UNIQUE NOT NULL,
@@ -103,6 +134,7 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 
 	CREATE TABLE IF NOT EXISTS feature_flags (
 		id TEXT PRIMARY KEY,
+		project_id TEXT NOT NULL DEFAULT 'proj_default',
 		key TEXT UNIQUE NOT NULL,
 		name TEXT NOT NULL,
 		description TEXT,
@@ -114,9 +146,11 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 	);
 	CREATE INDEX IF NOT EXISTS idx_feature_flags_key ON feature_flags(key);
+	CREATE INDEX IF NOT EXISTS idx_feature_flags_proj ON feature_flags(project_id, key);
 
 	CREATE TABLE IF NOT EXISTS audit_logs (
 		id TEXT PRIMARY KEY,
+		project_id TEXT NOT NULL DEFAULT 'proj_default',
 		flag_key TEXT NOT NULL,
 		action TEXT NOT NULL,
 		environment TEXT NOT NULL,
@@ -125,9 +159,11 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 		timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
 	);
 	CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
+	CREATE INDEX IF NOT EXISTS idx_audit_logs_proj ON audit_logs(project_id, timestamp DESC);
 
 	CREATE TABLE IF NOT EXISTS experiment_events (
 		id TEXT PRIMARY KEY,
+		project_id TEXT NOT NULL DEFAULT 'proj_default',
 		flag_key TEXT NOT NULL,
 		variant TEXT NOT NULL,
 		metric_name TEXT NOT NULL,
@@ -141,6 +177,7 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 
 	CREATE TABLE IF NOT EXISTS change_requests (
 		id TEXT PRIMARY KEY,
+		project_id TEXT NOT NULL DEFAULT 'proj_default',
 		flag_key TEXT NOT NULL,
 		environment TEXT NOT NULL,
 		title TEXT NOT NULL,
@@ -162,6 +199,7 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 
 	CREATE TABLE IF NOT EXISTS api_keys (
 		id TEXT PRIMARY KEY,
+		project_id TEXT NOT NULL DEFAULT 'proj_default',
 		key_prefix TEXT NOT NULL,
 		key_hash TEXT UNIQUE NOT NULL,
 		name TEXT NOT NULL,
@@ -183,6 +221,14 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_reset_tokens_email ON password_reset_tokens(email);
 	CREATE INDEX IF NOT EXISTS idx_reset_tokens_expires ON password_reset_tokens(expires_at);
+
+	-- Add project_id columns to existing tables if needed
+	ALTER TABLE feature_flags ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
+	ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
+	ALTER TABLE change_requests ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
+	ALTER TABLE experiment_events ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
+	ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
+	
 	`
 	if _, err := s.db.ExecContext(ctx, schema); err != nil {
 		return err
@@ -221,11 +267,23 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 }
 
 func (s *PostgresStore) ListFlags(ctx context.Context) ([]domain.FeatureFlag, error) {
+	return s.ListFlagsByProject(ctx, DefaultProjectID)
+}
+
+func (s *PostgresStore) GetFlag(ctx context.Context, keyOrID string) (*domain.FeatureFlag, error) {
+	return s.GetFlagByProject(ctx, DefaultProjectID, keyOrID)
+}
+
+func (s *PostgresStore) ListFlagsByProject(ctx context.Context, projectID string) ([]domain.FeatureFlag, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, key, name, description, type, tags, environments, created_at, updated_at
+		SELECT id, project_id, key, name, description, type, tags, environments, created_at, updated_at
 		FROM feature_flags
+		WHERE project_id = $1 OR project_id = 'proj_default'
 		ORDER BY created_at DESC
-	`)
+	`, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +295,7 @@ func (s *PostgresStore) ListFlags(ctx context.Context) ([]domain.FeatureFlag, er
 		var envsJSON []byte
 		var tags []string
 
-		if err := rows.Scan(&f.ID, &f.Key, &f.Name, &f.Description, &f.Type, pq.Array(&tags), &envsJSON, &f.CreatedAt, &f.UpdatedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.Type, pq.Array(&tags), &envsJSON, &f.CreatedAt, &f.UpdatedAt); err != nil {
 			return nil, err
 		}
 		f.Tags = tags
@@ -253,18 +311,22 @@ func (s *PostgresStore) ListFlags(ctx context.Context) ([]domain.FeatureFlag, er
 	return flags, nil
 }
 
-func (s *PostgresStore) GetFlag(ctx context.Context, keyOrID string) (*domain.FeatureFlag, error) {
+func (s *PostgresStore) GetFlagByProject(ctx context.Context, projectID, keyOrID string) (*domain.FeatureFlag, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, key, name, description, type, tags, environments, created_at, updated_at
+		SELECT id, project_id, key, name, description, type, tags, environments, created_at, updated_at
 		FROM feature_flags
-		WHERE key = $1 OR id = $1
-	`, keyOrID)
+		WHERE (project_id = $1 OR project_id = 'proj_default') AND (key = $2 OR id = $2)
+		LIMIT 1
+	`, projectID, keyOrID)
 
 	var f domain.FeatureFlag
 	var envsJSON []byte
 	var tags []string
 
-	if err := row.Scan(&f.ID, &f.Key, &f.Name, &f.Description, &f.Type, pq.Array(&tags), &envsJSON, &f.CreatedAt, &f.UpdatedAt); err != nil {
+	if err := row.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.Type, pq.Array(&tags), &envsJSON, &f.CreatedAt, &f.UpdatedAt); err != nil {
 		return nil, err
 	}
 	f.Tags = tags
@@ -282,6 +344,9 @@ func (s *PostgresStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, a
 	if actor == "" {
 		actor = "developer@flagura.dev"
 	}
+	if flag.ProjectID == "" {
+		flag.ProjectID = DefaultProjectID
+	}
 	if flag.ID == "" {
 		b := make([]byte, 4)
 		_, _ = rand.Read(b)
@@ -296,9 +361,10 @@ func (s *PostgresStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, a
 	}
 
 	query := `
-		INSERT INTO feature_flags (id, key, name, description, type, tags, environments, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO feature_flags (id, project_id, key, name, description, type, tags, environments, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (key) DO UPDATE SET
+			project_id = EXCLUDED.project_id,
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
 			type = EXCLUDED.type,
@@ -307,7 +373,7 @@ func (s *PostgresStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, a
 			updated_at = EXCLUDED.updated_at
 	`
 	_, err = s.db.ExecContext(ctx, query,
-		flag.ID, flag.Key, flag.Name, flag.Description, flag.Type,
+		flag.ID, flag.ProjectID, flag.Key, flag.Name, flag.Description, flag.Type,
 		pq.Array(flag.Tags), envsJSON, now, now,
 	)
 	if err != nil {
@@ -316,6 +382,7 @@ func (s *PostgresStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, a
 
 	log := domain.AuditLogEntry{
 		ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
+		ProjectID:   flag.ProjectID,
 		Timestamp:   now,
 		Actor:       actor,
 		Action:      "FLAG_UPDATED",
@@ -325,9 +392,9 @@ func (s *PostgresStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, a
 	}
 
 	_, _ = s.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (id, flag_key, action, environment, actor, details, timestamp)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, log.ID, log.FlagKey, log.Action, log.Environment, log.Actor, log.Details, log.Timestamp)
+		INSERT INTO audit_logs (id, project_id, flag_key, action, environment, actor, details, timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, log.ID, log.ProjectID, log.FlagKey, log.Action, log.Environment, log.Actor, log.Details, log.Timestamp)
 
 	return &log, nil
 }
@@ -1079,5 +1146,260 @@ func (s *PostgresStore) ResetPasswordWithToken(ctx context.Context, token string
 	`, t.Email)
 
 	return tx.Commit()
+}
+
+func (s *PostgresStore) CreateOrganization(ctx context.Context, org domain.Organization) (*domain.Organization, error) {
+	if org.ID == "" {
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		org.ID = fmt.Sprintf("org_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
+	}
+	if org.Slug == "" {
+		org.Slug = org.ID
+	}
+	now := time.Now().UTC()
+	org.CreatedAt = now
+	org.UpdatedAt = now
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO organizations (id, name, slug, description, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, org.ID, org.Name, org.Slug, org.Description, org.CreatedAt, org.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &org, nil
+}
+
+func (s *PostgresStore) GetOrganization(ctx context.Context, idOrSlug string) (*domain.Organization, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, name, slug, description, created_at, updated_at
+		FROM organizations
+		WHERE id = $1 OR slug = $1
+	`, idOrSlug)
+
+	var org domain.Organization
+	if err := row.Scan(&org.ID, &org.Name, &org.Slug, &org.Description, &org.CreatedAt, &org.UpdatedAt); err != nil {
+		return nil, fmt.Errorf("organization not found: %s", idOrSlug)
+	}
+	return &org, nil
+}
+
+func (s *PostgresStore) ListOrganizations(ctx context.Context) ([]domain.Organization, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, name, slug, description, created_at, updated_at
+		FROM organizations
+		ORDER BY created_at ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orgs []domain.Organization
+	for rows.Next() {
+		var org domain.Organization
+		if err := rows.Scan(&org.ID, &org.Name, &org.Slug, &org.Description, &org.CreatedAt, &org.UpdatedAt); err != nil {
+			return nil, err
+		}
+		orgs = append(orgs, org)
+	}
+	return orgs, nil
+}
+
+func (s *PostgresStore) CreateProject(ctx context.Context, project domain.Project) (*domain.Project, error) {
+	if project.OrganizationID == "" {
+		project.OrganizationID = DefaultOrgID
+	}
+	if project.ID == "" {
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		project.ID = fmt.Sprintf("proj_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
+	}
+	if project.Slug == "" {
+		project.Slug = project.ID
+	}
+	now := time.Now().UTC()
+	project.CreatedAt = now
+	project.UpdatedAt = now
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO projects (id, organization_id, name, slug, description, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, project.ID, project.OrganizationID, project.Name, project.Slug, project.Description, project.CreatedAt, project.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &project, nil
+}
+
+func (s *PostgresStore) GetProject(ctx context.Context, idOrSlug string) (*domain.Project, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, organization_id, name, slug, description, created_at, updated_at
+		FROM projects
+		WHERE id = $1 OR slug = $1
+	`, idOrSlug)
+
+	var proj domain.Project
+	if err := row.Scan(&proj.ID, &proj.OrganizationID, &proj.Name, &proj.Slug, &proj.Description, &proj.CreatedAt, &proj.UpdatedAt); err != nil {
+		return nil, fmt.Errorf("project not found: %s", idOrSlug)
+	}
+	return &proj, nil
+}
+
+func (s *PostgresStore) ListProjects(ctx context.Context, organizationID string) ([]domain.Project, error) {
+	var rows *sql.Rows
+	var err error
+	if organizationID != "" {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, organization_id, name, slug, description, created_at, updated_at
+			FROM projects
+			WHERE organization_id = $1
+			ORDER BY created_at ASC
+		`, organizationID)
+	} else {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, organization_id, name, slug, description, created_at, updated_at
+			FROM projects
+			ORDER BY created_at ASC
+		`)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var projects []domain.Project
+	for rows.Next() {
+		var p domain.Project
+		if err := rows.Scan(&p.ID, &p.OrganizationID, &p.Name, &p.Slug, &p.Description, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, err
+		}
+		projects = append(projects, p)
+	}
+	return projects, nil
+}
+
+func (s *PostgresStore) ListAuditLogsByProject(ctx context.Context, projectID string, limit int) ([]domain.AuditLogEntry, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, project_id, flag_key, action, environment, actor, details, timestamp
+		FROM audit_logs
+		WHERE project_id = $1 OR project_id = 'proj_default'
+		ORDER BY timestamp DESC
+		LIMIT $2
+	`, projectID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var logs []domain.AuditLogEntry
+	for rows.Next() {
+		var l domain.AuditLogEntry
+		if err := rows.Scan(&l.ID, &l.ProjectID, &l.FlagKey, &l.Action, &l.Environment, &l.Actor, &l.Details, &l.Timestamp); err != nil {
+			return nil, err
+		}
+		logs = append(logs, l)
+	}
+	return logs, nil
+}
+
+func (s *PostgresStore) ListChangeRequestsByProject(ctx context.Context, projectID string, status domain.ChangeRequestStatus) ([]domain.ChangeRequest, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+	var rows *sql.Rows
+	var err error
+	if status != "" {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, project_id, flag_key, environment, title, description,
+			       author_user_id, author_email, author_name,
+			       proposed_config, status, reviewer_user_id, reviewer_email,
+			       reviewer_name, review_comments, created_at, reviewed_at, applied_at
+			FROM change_requests
+			WHERE (project_id = $1 OR project_id = 'proj_default') AND status = $2
+			ORDER BY created_at DESC
+		`, projectID, status)
+	} else {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, project_id, flag_key, environment, title, description,
+			       author_user_id, author_email, author_name,
+			       proposed_config, status, reviewer_user_id, reviewer_email,
+			       reviewer_name, review_comments, created_at, reviewed_at, applied_at
+			FROM change_requests
+			WHERE project_id = $1 OR project_id = 'proj_default'
+			ORDER BY created_at DESC
+		`, projectID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []domain.ChangeRequest
+	for rows.Next() {
+		var cr domain.ChangeRequest
+		var cfgBytes []byte
+		var reviewedAt, appliedAt sql.NullTime
+
+		if err := rows.Scan(
+			&cr.ID, &cr.ProjectID, &cr.FlagKey, &cr.Environment, &cr.Title, &cr.Description,
+			&cr.AuthorUserID, &cr.AuthorEmail, &cr.AuthorName,
+			&cfgBytes, &cr.Status, &cr.ReviewerUserID, &cr.ReviewerEmail,
+			&cr.ReviewerName, &cr.ReviewComments, &cr.CreatedAt, &reviewedAt, &appliedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		if reviewedAt.Valid {
+			cr.ReviewedAt = &reviewedAt.Time
+		}
+		if appliedAt.Valid {
+			cr.AppliedAt = &appliedAt.Time
+		}
+		_ = json.Unmarshal(cfgBytes, &cr.ProposedConfig)
+		result = append(result, cr)
+	}
+
+	return result, rows.Err()
+}
+
+func (s *PostgresStore) ListAPIKeysByProject(ctx context.Context, projectID string) ([]domain.APIKey, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, project_id, key_prefix, name, role, created_by, created_at, last_used_at, revoked
+		FROM api_keys
+		WHERE (project_id = $1 OR project_id = 'proj_default') AND revoked = FALSE
+		ORDER BY created_at DESC
+	`, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var keys []domain.APIKey
+	for rows.Next() {
+		var k domain.APIKey
+		var lastUsedAt sql.NullTime
+		if err := rows.Scan(
+			&k.ID, &k.ProjectID, &k.KeyPrefix, &k.Name, &k.Role, &k.CreatedBy,
+			&k.CreatedAt, &lastUsedAt, &k.Revoked,
+		); err != nil {
+			return nil, err
+		}
+		if lastUsedAt.Valid {
+			k.LastUsedAt = &lastUsedAt.Time
+		}
+		keys = append(keys, k)
+	}
+	return keys, nil
 }
 

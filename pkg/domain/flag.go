@@ -85,15 +85,16 @@ type EnvironmentConfig struct {
 }
 
 type FeatureFlag struct {
-	ID           string                         `json:"id"`
-	Key          string                         `json:"key"`
-	Name         string                         `json:"name"`
-	Description  string                         `json:"description"`
-	Type         string                         `json:"type"` // boolean, multivariate, json
-	Tags         []string                       `json:"tags"`
+	ID           string                            `json:"id"`
+	ProjectID    string                            `json:"projectId,omitempty"`
+	Key          string                            `json:"key"`
+	Name         string                            `json:"name"`
+	Description  string                            `json:"description"`
+	Type         string                            `json:"type"` // boolean, multivariate, json
+	Tags         []string                          `json:"tags"`
 	Environments map[Environment]EnvironmentConfig `json:"environments"`
-	CreatedAt    time.Time                      `json:"createdAt"`
-	UpdatedAt    time.Time                      `json:"updatedAt"`
+	CreatedAt    time.Time                         `json:"createdAt"`
+	UpdatedAt    time.Time                         `json:"updatedAt"`
 }
 
 func (f FeatureFlag) EnvConfig(env string) EnvironmentConfig {
@@ -176,6 +177,7 @@ type BatchEvaluationResponse struct {
 
 type AuditLogEntry struct {
 	ID          string      `json:"id"`
+	ProjectID   string      `json:"projectId,omitempty"`
 	Timestamp   time.Time   `json:"timestamp"`
 	Actor       string      `json:"actor"`
 	Action      string      `json:"action"`

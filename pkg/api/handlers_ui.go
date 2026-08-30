@@ -57,17 +57,23 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	flags, err := s.store.ListFlags(r.Context())
+	projectID := s.resolveProjectID(r)
+
+	// Fetch projects and orgs for selector
+	orgs, _ := s.store.ListOrganizations(r.Context())
+	projects, _ := s.store.ListProjects(r.Context(), "")
+
+	flags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	logs, _ := s.store.ListAuditLogs(r.Context(), 20)
-	changeRequests, _ := s.store.ListChangeRequests(r.Context(), "")
+	logs, _ := s.store.ListAuditLogsByProject(r.Context(), projectID, 20)
+	changeRequests, _ := s.store.ListChangeRequestsByProject(r.Context(), projectID, "")
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	component := views.Dashboard(user, flags, logs, changeRequests, s.store.DriverName())
+	component := views.Dashboard(user, flags, logs, changeRequests, s.store.DriverName(), orgs, projects, projectID)
 	if err := component.Render(r.Context(), w); err != nil {
 		http.Error(w, "Templ Render Error: "+err.Error(), http.StatusInternalServerError)
 	}

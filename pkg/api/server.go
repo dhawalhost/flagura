@@ -139,6 +139,29 @@ func (s *Server) routes() {
 		}
 	}))
 
+	// Organizations & Projects API Routes
+	s.mux.HandleFunc("/api/v1/organizations", s.apiLimiter.LimitHandler(s.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			s.handleListOrganizations(w, r)
+		} else if r.Method == http.MethodPost {
+			s.RequireRole(domain.RoleAdmin, s.handleCreateOrganization)(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+
+	s.mux.HandleFunc("/api/v1/projects", s.apiLimiter.LimitHandler(s.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			s.handleListProjects(w, r)
+		} else if r.Method == http.MethodPost {
+			s.handleCreateProject(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+	s.mux.HandleFunc("/api/v1/projects/active", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleSwitchActiveProject)))
+	s.mux.HandleFunc("/api/v1/projects/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetProject)))
+
 	s.mux.HandleFunc("/api/v1/events", s.apiLimiter.LimitHandler(s.handleIngestEvents))
 	s.mux.HandleFunc("/api/v1/experiments/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetExperimentReport)))
 	s.mux.HandleFunc("/api/v1/change-requests", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleListOrCreateChangeRequests)))
@@ -186,7 +209,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, X-Webhook-Secret, X-Actor")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, X-Webhook-Secret, X-Actor, X-Project-ID, X-Organization-ID")
 
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)

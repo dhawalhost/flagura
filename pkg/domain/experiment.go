@@ -15,6 +15,7 @@ const (
 // ExperimentEvent represents a metric observation tagged with a feature flag variant.
 type ExperimentEvent struct {
 	ID          string      `json:"id"`
+	ProjectID   string      `json:"project_id,omitempty"`
 	FlagKey     string      `json:"flag_key"`
 	Variant     string      `json:"variant"`
 	MetricName  string      `json:"metric_name"`

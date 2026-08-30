@@ -199,6 +199,22 @@ templ Layout(title string) {
 							};
 							return titles[this.activeView] || 'Console';
 						},
+						async switchProject(projectID) {
+							try {
+								const res = await fetch('/api/v1/projects/active', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({ project_id: projectID })
+								});
+								if (res.ok) {
+									window.location.reload();
+								} else {
+									this.showToast('Failed to switch project', 'error');
+								}
+							} catch (e) {
+								this.showToast('Network error switching project', 'error');
+							}
+						},
 						openNewFlagEditor() {
 							this.previousView = this.activeView;
 							this.$dispatch('populate-editor', { isEditing: false });

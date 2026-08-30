@@ -56,6 +56,7 @@ type AuthResponse struct {
 
 type APIKey struct {
 	ID         string     `json:"id"`
+	ProjectID  string     `json:"projectId,omitempty"`
 	Key        string     `json:"key,omitempty"`      // Raw token, only returned on initial creation
 	KeyPrefix  string     `json:"key_prefix"`        // Display prefix (e.g. "flg_live_8f7b...****")
 	KeyHash    string     `json:"key_hash,omitempty"` // SHA-256 hash for secure storage

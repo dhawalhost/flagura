@@ -154,3 +154,73 @@ func BenchmarkMemoryStore_ListFlags_Atomic(b *testing.B) {
 		_, _ = memStore.ListFlags(ctx)
 	}
 }
+
+func TestMemoryStore_OrgAndProjectHierarchy(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	ctx := context.Background()
+
+	// 1. Verify default org and default project are seeded
+	orgs, err := memStore.ListOrganizations(ctx)
+	if err != nil || len(orgs) == 0 {
+		t.Fatalf("Expected seeded default organization, got err=%v, count=%d", err, len(orgs))
+	}
+	projects, err := memStore.ListProjects(ctx, store.DefaultOrgID)
+	if err != nil || len(projects) == 0 {
+		t.Fatalf("Expected seeded default project, got err=%v, count=%d", err, len(projects))
+	}
+
+	// 2. Create custom organization
+	customOrg, err := memStore.CreateOrganization(ctx, domain.Organization{
+		Name: "Acme Enterprise",
+		Slug: "acme-enterprise",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create organization: %v", err)
+	}
+
+	// 3. Create custom project under Acme Enterprise
+	customProj, err := memStore.CreateProject(ctx, domain.Project{
+		OrganizationID: customOrg.ID,
+		Name:           "Mobile Checkout v2",
+		Slug:           "mobile-checkout-v2",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create project: %v", err)
+	}
+
+	// 4. Add flag to custom project
+	flagKey := "enable-apple-pay"
+	_, err = memStore.SaveFlag(ctx, domain.FeatureFlag{
+		ProjectID:   customProj.ID,
+		Key:         flagKey,
+		Name:        "Enable Apple Pay",
+		Type:        "boolean",
+		Description: "One-touch Apple Pay in checkout",
+	}, "test-author")
+	if err != nil {
+		t.Fatalf("Failed to save flag in custom project: %v", err)
+	}
+
+	// 5. Verify flag is listed in custom project
+	projFlags, err := memStore.ListFlagsByProject(ctx, customProj.ID)
+	if err != nil || len(projFlags) != 1 || projFlags[0].Key != flagKey {
+		t.Fatalf("Expected 1 flag in custom project, got %d flags (%v)", len(projFlags), projFlags)
+	}
+
+	// 6. Verify flag is isolated and NOT in default project
+	defaultFlags, err := memStore.ListFlagsByProject(ctx, store.DefaultProjectID)
+	if err != nil {
+		t.Fatalf("Failed to list default project flags: %v", err)
+	}
+	for _, f := range defaultFlags {
+		if f.Key == flagKey {
+			t.Fatalf("ISOLATION BREACH: Flag %s from project %s leaked into default project!", flagKey, customProj.ID)
+		}
+	}
+
+	// 7. Verify GetFlagByProject returns the flag for custom project
+	foundFlag, err := memStore.GetFlagByProject(ctx, customProj.ID, flagKey)
+	if err != nil || foundFlag == nil {
+		t.Fatalf("Expected GetFlagByProject to find %s in %s, got: %v", flagKey, customProj.ID, err)
+	}
+}

@@ -22,27 +22,36 @@ type FlagSnapshot struct {
 
 func newFlagSnapshot(flags []domain.FeatureFlag) *FlagSnapshot {
 	snap := &FlagSnapshot{
-		flagsMap:  make(map[string]domain.FeatureFlag, len(flags)*2),
+		flagsMap:  make(map[string]domain.FeatureFlag, len(flags)*4),
 		flagsList: make([]domain.FeatureFlag, len(flags)),
 	}
 	for i, f := range flags {
 		fCopy := f.DeepCopy()
+		if fCopy.ProjectID == "" {
+			fCopy.ProjectID = DefaultProjectID
+		}
 		snap.flagsList[i] = fCopy
-		snap.flagsMap[f.Key] = fCopy
-		if f.ID != "" {
-			snap.flagsMap[f.ID] = fCopy
+		snap.flagsMap[fCopy.Key] = fCopy
+		if fCopy.ID != "" {
+			snap.flagsMap[fCopy.ID] = fCopy
+		}
+		snap.flagsMap[fCopy.ProjectID+":"+fCopy.Key] = fCopy
+		if fCopy.ID != "" {
+			snap.flagsMap[fCopy.ProjectID+":"+fCopy.ID] = fCopy
 		}
 	}
 	return snap
 }
 
 type MemoryStore struct {
-	flagsSnapshot  atomic.Pointer[FlagSnapshot]
-	writeMu        sync.Mutex   // serializes writes and atomic snapshot updates
-	mu             sync.RWMutex // protects mutable tables: users, sessions, auditLogs, events, changeRequests, apiKeys
-	auditLogs      []domain.AuditLogEntry
-	events         []domain.ExperimentEvent
-	users               map[string]domain.User    // indexed by email and id
+	flagsSnapshot       atomic.Pointer[FlagSnapshot]
+	writeMu             sync.Mutex   // serializes writes and atomic snapshot updates
+	mu                  sync.RWMutex // protects mutable tables
+	orgs                map[string]domain.Organization
+	projects            map[string]domain.Project
+	auditLogs           []domain.AuditLogEntry
+	events              []domain.ExperimentEvent
+	users               map[string]domain.User // indexed by email and id
 	sessions            map[string]domain.Session // indexed by token
 	changeRequests      map[string]domain.ChangeRequest
 	apiKeys             map[string]domain.APIKey // indexed by key ID
@@ -341,6 +350,8 @@ func getSeedAuditLogs() []domain.AuditLogEntry {
 
 func NewMemoryStore() *MemoryStore {
 	store := &MemoryStore{
+		orgs:                make(map[string]domain.Organization),
+		projects:            make(map[string]domain.Project),
 		auditLogs:           getSeedAuditLogs(),
 		users:               make(map[string]domain.User),
 		sessions:            make(map[string]domain.Session),
@@ -349,6 +360,32 @@ func NewMemoryStore() *MemoryStore {
 		apiKeysByHash:       make(map[string]string),
 		passwordResetTokens: make(map[string]domain.PasswordResetToken),
 	}
+
+	// Seed Default Organization and Project
+	now := time.Now().UTC()
+	defaultOrg := domain.Organization{
+		ID:          DefaultOrgID,
+		Name:        DefaultOrgName,
+		Slug:        DefaultOrgSlug,
+		Description: "Primary workspace organization",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	store.orgs[defaultOrg.ID] = defaultOrg
+	store.orgs[defaultOrg.Slug] = defaultOrg
+
+	defaultProj := domain.Project{
+		ID:             DefaultProjectID,
+		OrganizationID: DefaultOrgID,
+		Name:           DefaultProjectName,
+		Slug:           DefaultProjectSlug,
+		Description:    "Primary feature flag project",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	store.projects[defaultProj.ID] = defaultProj
+	store.projects[defaultProj.Slug] = defaultProj
+	store.projects[DefaultOrgID+":"+defaultProj.Slug] = defaultProj
 
 	initialSnap := newFlagSnapshot(getSeedFlags())
 	store.flagsSnapshot.Store(initialSnap)
@@ -1130,5 +1167,216 @@ func (s *MemoryStore) ResetPasswordWithToken(ctx context.Context, token string, 
 	}
 
 	return nil
+}
+
+func (s *MemoryStore) CreateOrganization(ctx context.Context, org domain.Organization) (*domain.Organization, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if org.ID == "" {
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		org.ID = fmt.Sprintf("org_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
+	}
+	if org.Slug == "" {
+		org.Slug = org.ID
+	}
+	if _, exists := s.orgs[org.ID]; exists {
+		return nil, fmt.Errorf("organization already exists with ID: %s", org.ID)
+	}
+	if _, exists := s.orgs[org.Slug]; exists {
+		return nil, fmt.Errorf("organization already exists with slug: %s", org.Slug)
+	}
+	now := time.Now().UTC()
+	org.CreatedAt = now
+	org.UpdatedAt = now
+
+	s.orgs[org.ID] = org
+	s.orgs[org.Slug] = org
+	return &org, nil
+}
+
+func (s *MemoryStore) GetOrganization(ctx context.Context, idOrSlug string) (*domain.Organization, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	org, exists := s.orgs[idOrSlug]
+	if !exists {
+		return nil, fmt.Errorf("organization not found: %s", idOrSlug)
+	}
+	return &org, nil
+}
+
+func (s *MemoryStore) ListOrganizations(ctx context.Context) ([]domain.Organization, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	seen := make(map[string]bool)
+	var res []domain.Organization
+	for _, org := range s.orgs {
+		if !seen[org.ID] {
+			seen[org.ID] = true
+			res = append(res, org)
+		}
+	}
+	return res, nil
+}
+
+func (s *MemoryStore) CreateProject(ctx context.Context, project domain.Project) (*domain.Project, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if project.OrganizationID == "" {
+		project.OrganizationID = DefaultOrgID
+	}
+	if project.ID == "" {
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		project.ID = fmt.Sprintf("proj_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
+	}
+	if project.Slug == "" {
+		project.Slug = project.ID
+	}
+	key := project.OrganizationID + ":" + project.Slug
+	if _, exists := s.projects[project.ID]; exists {
+		return nil, fmt.Errorf("project already exists with ID: %s", project.ID)
+	}
+	if _, exists := s.projects[key]; exists {
+		return nil, fmt.Errorf("project already exists with slug '%s' in org '%s'", project.Slug, project.OrganizationID)
+	}
+
+	now := time.Now().UTC()
+	project.CreatedAt = now
+	project.UpdatedAt = now
+
+	s.projects[project.ID] = project
+	s.projects[key] = project
+	s.projects[project.Slug] = project
+	return &project, nil
+}
+
+func (s *MemoryStore) GetProject(ctx context.Context, idOrSlug string) (*domain.Project, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	proj, exists := s.projects[idOrSlug]
+	if !exists {
+		return nil, fmt.Errorf("project not found: %s", idOrSlug)
+	}
+	return &proj, nil
+}
+
+func (s *MemoryStore) ListProjects(ctx context.Context, organizationID string) ([]domain.Project, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	seen := make(map[string]bool)
+	var res []domain.Project
+	for _, proj := range s.projects {
+		if !seen[proj.ID] {
+			if organizationID == "" || proj.OrganizationID == organizationID {
+				seen[proj.ID] = true
+				res = append(res, proj)
+			}
+		}
+	}
+	return res, nil
+}
+
+func (s *MemoryStore) ListFlagsByProject(ctx context.Context, projectID string) ([]domain.FeatureFlag, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+	snap := s.flagsSnapshot.Load()
+	if snap == nil {
+		return nil, nil
+	}
+	var res []domain.FeatureFlag
+	for _, f := range snap.flagsList {
+		if f.ProjectID == projectID || (projectID == DefaultProjectID && f.ProjectID == "") {
+			res = append(res, f.DeepCopy())
+		}
+	}
+	return res, nil
+}
+
+func (s *MemoryStore) GetFlagByProject(ctx context.Context, projectID, keyOrID string) (*domain.FeatureFlag, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+	snap := s.flagsSnapshot.Load()
+	if snap == nil {
+		return nil, fmt.Errorf("flag not found: %s", keyOrID)
+	}
+	if f, ok := snap.flagsMap[projectID+":"+keyOrID]; ok {
+		clone := f.DeepCopy()
+		return &clone, nil
+	}
+	if projectID == DefaultProjectID {
+		if f, ok := snap.flagsMap[keyOrID]; ok {
+			clone := f.DeepCopy()
+			return &clone, nil
+		}
+	}
+	return nil, fmt.Errorf("flag not found: %s", keyOrID)
+}
+
+func (s *MemoryStore) ListAuditLogsByProject(ctx context.Context, projectID string, limit int) ([]domain.AuditLogEntry, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	var res []domain.AuditLogEntry
+	for _, entry := range s.auditLogs {
+		if entry.ProjectID == projectID || (projectID == DefaultProjectID && entry.ProjectID == "") {
+			res = append(res, entry)
+			if limit > 0 && len(res) >= limit {
+				break
+			}
+		}
+	}
+	return res, nil
+}
+
+func (s *MemoryStore) ListChangeRequestsByProject(ctx context.Context, projectID string, status domain.ChangeRequestStatus) ([]domain.ChangeRequest, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	var res []domain.ChangeRequest
+	for _, cr := range s.changeRequests {
+		if cr.ProjectID == projectID || (projectID == DefaultProjectID && cr.ProjectID == "") {
+			if status == "" || cr.Status == status {
+				res = append(res, cr)
+			}
+		}
+	}
+	return res, nil
+}
+
+func (s *MemoryStore) ListAPIKeysByProject(ctx context.Context, projectID string) ([]domain.APIKey, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	var res []domain.APIKey
+	for _, k := range s.apiKeys {
+		if k.ProjectID == projectID || (projectID == DefaultProjectID && k.ProjectID == "") {
+			kCopy := k
+			kCopy.Key = ""
+			kCopy.KeyHash = ""
+			res = append(res, kCopy)
+		}
+	}
+	return res, nil
 }
 
