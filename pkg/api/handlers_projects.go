@@ -119,14 +119,7 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set active project cookie upon creation for seamless UX
-	http.SetCookie(w, &http.Cookie{
-		Name:     domain.CookieProjectName,
-		Value:    created.ID,
-		Path:     "/",
-		Expires:  time.Now().Add(30 * 24 * time.Hour),
-		HttpOnly: false,
-		SameSite: http.SameSiteLaxMode,
-	})
+	s.setProjectCookie(w, r, created.ID, time.Now().Add(30*24*time.Hour))
 
 	s.writeJSON(w, http.StatusCreated, created)
 }
@@ -177,14 +170,7 @@ func (s *Server) handleSwitchActiveProject(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     domain.CookieProjectName,
-		Value:    proj.ID,
-		Path:     "/",
-		Expires:  time.Now().Add(30 * 24 * time.Hour),
-		HttpOnly: false,
-		SameSite: http.SameSiteLaxMode,
-	})
+	s.setProjectCookie(w, r, proj.ID, time.Now().Add(30*24*time.Hour))
 
 	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"success":           true,

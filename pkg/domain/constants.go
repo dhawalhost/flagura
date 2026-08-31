@@ -26,7 +26,7 @@ const (
 	HeaderProjectID     = "X-Project-ID"
 	HeaderEnvironment   = "X-Environment"
 	HeaderActor         = "X-Actor"
-	HeaderAPIKey        = "X-API-Key"
+	HeaderAPIKey        = "X-API-Key" // #nosec G101 -- HTTP header name, not a hardcoded secret
 	HeaderAuthorization = "Authorization"
 	HeaderContentType   = "Content-Type"
 	HeaderTrace         = "X-Trace"
@@ -57,8 +57,8 @@ const (
 	ActionKillSwitchToggled     = "KILL_SWITCH_TOGGLED"
 	ActionRolloutUpdated        = "ROLLOUT_UPDATED"
 	ActionEnvironmentPromoted   = "ENVIRONMENT_PROMOTED"
-	ActionAPIKeyCreated         = "API_KEY_CREATED"
-	ActionAPIKeyRevoked         = "API_KEY_REVOKED"
+	ActionAPIKeyCreated         = "API_KEY_CREATED" // #nosec G101 -- audit action identifier string
+	ActionAPIKeyRevoked         = "API_KEY_REVOKED" // #nosec G101 -- audit action identifier string
 	ActionProjectCreated        = "PROJECT_CREATED"
 	ActionOrganizationCreated   = "ORGANIZATION_CREATED"
 	ActionChangeRequestCreated  = "CHANGE_REQUEST_CREATED"

@@ -27,6 +27,27 @@ func generateSessionToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
+func (s *Server) setProjectCookie(w http.ResponseWriter, r *http.Request, projectID string, expiresAt time.Time) {
+	isSecure := false
+	if r != nil && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https") {
+		isSecure = true
+	}
+	if os.Getenv("ENVIRONMENT") == string(domain.EnvProduction) || os.Getenv("SECURE_COOKIE") == "true" {
+		isSecure = true
+	}
+
+	// #nosec G124 -- active project selection cookie configured with SameSite and dynamic TLS
+	http.SetCookie(w, &http.Cookie{
+		Name:     domain.CookieProjectName,
+		Value:    projectID,
+		Path:     "/",
+		Expires:  expiresAt,
+		HttpOnly: false,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   isSecure,
+	})
+}
+
 func (s *Server) setSessionCookie(w http.ResponseWriter, r *http.Request, token string, expiresAt time.Time) {
 	isSecure := false
 	if r != nil && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https") {
@@ -273,14 +294,7 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 
 	// Set active project cookie to user's freshly provisioned unique project
 	if createdProj != nil && createdProj.ID != "" {
-		http.SetCookie(w, &http.Cookie{
-			Name:     domain.CookieProjectName,
-			Value:    createdProj.ID,
-			Path:     "/",
-			Expires:  expiresAt,
-			HttpOnly: false,
-			SameSite: http.SameSiteLaxMode,
-		})
+		s.setProjectCookie(w, r, createdProj.ID, expiresAt)
 	}
 
 	// Send welcome email in background if email service is active
