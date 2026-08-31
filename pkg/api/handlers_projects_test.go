@@ -163,3 +163,61 @@ func TestProjectsAPI_EndpointsAndIsolation(t *testing.T) {
 		t.Fatalf("POST /api/v1/projects/active failed: %d", rr.Code)
 	}
 }
+
+func TestMultiTenantUserSignUpIsolation(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	server, err := NewServer(memStore)
+	if err != nil {
+		t.Fatalf("Failed to create server: %v", err)
+	}
+
+	// 1. Sign up User A
+	userAPayload := []byte(`{"email":"alice@acme.com","password":"Password123!","name":"Alice Acme"}`)
+	reqA := httptest.NewRequest(http.MethodPost, "/api/v1/auth/signup", bytes.NewReader(userAPayload))
+	reqA.Header.Set("Content-Type", "application/json")
+	recA := httptest.NewRecorder()
+	server.ServeHTTP(recA, reqA)
+
+	if recA.Code != http.StatusCreated {
+		t.Fatalf("User A signup failed: %d: %s", recA.Code, recA.Body.String())
+	}
+
+	// Extract User A's project cookie
+	var userAProjectID string
+	for _, c := range recA.Result().Cookies() {
+		if c.Name == domain.CookieProjectName {
+			userAProjectID = c.Value
+		}
+	}
+	if userAProjectID == "" || userAProjectID == domain.DefaultProjectID {
+		t.Fatalf("Expected User A to receive unique default project ID, got: %q", userAProjectID)
+	}
+
+	// 2. Sign up User B
+	userBPayload := []byte(`{"email":"bob@stark.com","password":"Password123!","name":"Bob Stark"}`)
+	reqB := httptest.NewRequest(http.MethodPost, "/api/v1/auth/signup", bytes.NewReader(userBPayload))
+	reqB.Header.Set("Content-Type", "application/json")
+	recB := httptest.NewRecorder()
+	server.ServeHTTP(recB, reqB)
+
+	if recB.Code != http.StatusCreated {
+		t.Fatalf("User B signup failed: %d: %s", recB.Code, recB.Body.String())
+	}
+
+	// Extract User B's project cookie
+	var userBProjectID string
+	for _, c := range recB.Result().Cookies() {
+		if c.Name == domain.CookieProjectName {
+			userBProjectID = c.Value
+		}
+	}
+	if userBProjectID == "" || userBProjectID == domain.DefaultProjectID {
+		t.Fatalf("Expected User B to receive unique default project ID, got: %q", userBProjectID)
+	}
+
+	// 3. User A and User B MUST have distinct project IDs (zero tenant collision)
+	if userAProjectID == userBProjectID {
+		t.Fatalf("MULTI-TENANT COLLISION: User A and User B share the same project ID: %s", userAProjectID)
+	}
+}
+

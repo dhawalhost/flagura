@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dhawalhost/flagura/pkg/domain"
 	"golang.org/x/time/rate"
 )
 
@@ -94,19 +95,25 @@ func (i *IPRateLimiter) Close() {
 	}
 }
 
-// LimitHandler wraps an http.HandlerFunc with IP-based rate limiting.
+// LimitHandler wraps an http.HandlerFunc with identity-aware rate limiting.
 func (i *IPRateLimiter) LimitHandler(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ip := GetClientIP(r)
-		limiter := i.GetLimiter(ip)
+		identity := GetClientIdentity(r)
+		limiter := i.GetLimiter(identity)
 
 		if !limiter.Allow() {
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Retry-After", "1")
 			w.WriteHeader(http.StatusTooManyRequests)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
-				"error":               "Too Many Requests",
-				"message":             "Rate limit exceeded. Please retry after a brief pause.",
+				"error": map[string]interface{}{
+					"code":       domain.ErrCodeRateLimitExceeded,
+					"type":       "RATE_LIMIT_EXCEEDED",
+					"layer":      "TransportLayer",
+					"message":    "Rate limit exceeded. Please retry after a brief pause.",
+					"status":     http.StatusTooManyRequests,
+					"request_id": RequestIDFromContext(r.Context()),
+				},
 				"retry_after_seconds": 1,
 			})
 			return
@@ -114,6 +121,20 @@ func (i *IPRateLimiter) LimitHandler(next http.HandlerFunc) http.HandlerFunc {
 
 		next(w, r)
 	}
+}
+
+// GetClientIdentity extracts a unique rate limiting key by resolving:
+// 1. Authenticated API Key: "apikey:<key_id>"
+// 2. Authenticated User: "user:<user_id>"
+// 3. Remote Client IP: "ip:<client_ip>"
+func GetClientIdentity(r *http.Request) string {
+	if apiKey := APIKeyFromContext(r.Context()); apiKey != nil && apiKey.ID != "" {
+		return "apikey:" + apiKey.ID
+	}
+	if user := UserFromContext(r.Context()); user != nil && user.ID != "" {
+		return "user:" + user.ID
+	}
+	return "ip:" + GetClientIP(r)
 }
 
 // GetClientIP extracts the real client IP address from headers or remote connection.

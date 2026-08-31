@@ -24,6 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = FlaguraClient::builder()
         .endpoint("http://localhost:3000")
         .api_key("flg_live_secret_key")
+        .project_id("proj_default")
         .environment("production")
         .timeout(Duration::from_millis(250))
         .build();

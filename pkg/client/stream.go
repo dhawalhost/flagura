@@ -89,7 +89,10 @@ func (c *Client) listenSSEStream() error {
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
 	if c.config.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+		req.Header.Set(domain.HeaderAuthorization, "Bearer "+c.config.APIKey)
+	}
+	if c.config.ProjectID != "" {
+		req.Header.Set(domain.HeaderProjectID, c.config.ProjectID)
 	}
 
 	// Use stream transport with 0 timeout for persistent HTTP streaming

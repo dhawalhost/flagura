@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"io/fs"
 	"net/http"
 	"os"
@@ -47,7 +48,15 @@ func NewServer(st store.Store) (*Server, error) {
 		mailer:      email.NewMailerFromEnv(),
 	}
 	s.routes()
-	s.handler = SecurityHeadersMiddleware(MaxBytesMiddleware(1<<20, s.mux))
+	s.handler = s.PanicRecoveryMiddleware(
+		RequestIDMiddleware(
+			StructuredLoggerMiddleware(
+				SecurityHeadersMiddleware(
+					MaxBytesMiddleware(1<<20, s.mux),
+				),
+			),
+		),
+	)
 	return s, nil
 }
 
@@ -78,7 +87,7 @@ func (s *Server) routes() {
 	// Public Observability & Webhook Routes
 	s.mux.HandleFunc("/api/health", s.handleHealthz)
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
-	s.mux.HandleFunc("/livez", s.handleHealthz)
+	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadyz)
 	s.mux.HandleFunc("/metrics", s.handleMetrics)
 	s.mux.HandleFunc("/api/v1/flags/stream", s.handleFlagsStream)
@@ -217,4 +226,33 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.handler.ServeHTTP(w, r)
+}
+
+// writeError outputs a structured application error response adhering to Google/Stripe API standards.
+func (s *Server) writeError(w http.ResponseWriter, r *http.Request, err error) {
+	if err == nil {
+		return
+	}
+	appErr := domain.MapSentinelToAppError(err)
+	reqID := RequestIDFromContext(r.Context())
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(appErr.HTTPStatus)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"error": map[string]interface{}{
+			"code":       appErr.Code,
+			"type":       appErr.Type,
+			"layer":      appErr.Layer,
+			"message":    appErr.Message,
+			"status":     appErr.HTTPStatus,
+			"request_id": reqID,
+		},
+	})
+}
+
+// writeJSON serializes data to JSON with standard Content-Type header.
+func (s *Server) writeJSON(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(data)
 }

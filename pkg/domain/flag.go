@@ -4,14 +4,6 @@ import (
 	"time"
 )
 
-type Environment string
-
-const (
-	EnvProduction  Environment = "production"
-	EnvStaging     Environment = "staging"
-	EnvDevelopment Environment = "development"
-)
-
 type StrategyType string
 
 const (

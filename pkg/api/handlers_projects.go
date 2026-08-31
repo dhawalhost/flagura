@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
-	"github.com/dhawalhost/flagura/pkg/store"
 )
 
 func (s *Server) handleListOrganizations(w http.ResponseWriter, r *http.Request) {
@@ -18,12 +17,11 @@ func (s *Server) handleListOrganizations(w http.ResponseWriter, r *http.Request)
 
 	orgs, err := s.store.ListOrganizations(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"organizations": orgs,
 		"count":         len(orgs),
 	})
@@ -41,30 +39,24 @@ func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request
 		Description string `json:"description"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
 		return
 	}
 
 	if strings.TrimSpace(req.Name) == "" {
-		http.Error(w, "organization name is required", http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "organization name is required", http.StatusBadRequest, domain.ErrInvalidInput))
 		return
 	}
 
-	org := domain.Organization{
-		Name:        req.Name,
-		Slug:        req.Slug,
-		Description: req.Description,
-	}
+	org := domain.NewOrganization(req.Name, req.Slug, req.Description)
 
 	created, err := s.store.CreateOrganization(r.Context(), org)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeOrgConflict, err.Error(), http.StatusBadRequest, err))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(created)
+	s.writeJSON(w, http.StatusCreated, created)
 }
 
 func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
@@ -80,14 +72,13 @@ func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 
 	projects, err := s.store.ListProjects(r.Context(), orgID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
 		return
 	}
 
 	activeProjectID := s.resolveProjectID(r)
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"projects":          projects,
 		"count":             len(projects),
 		"active_project_id": activeProjectID,
@@ -107,34 +98,29 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		Description    string `json:"description"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
 		return
 	}
 
 	if strings.TrimSpace(req.Name) == "" {
-		http.Error(w, "project name is required", http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "project name is required", http.StatusBadRequest, domain.ErrInvalidInput))
 		return
 	}
 	if req.OrganizationID == "" {
-		req.OrganizationID = store.DefaultOrgID
+		req.OrganizationID = domain.DefaultOrgID
 	}
 
-	proj := domain.Project{
-		OrganizationID: req.OrganizationID,
-		Name:           req.Name,
-		Slug:           req.Slug,
-		Description:    req.Description,
-	}
+	proj := domain.NewProject(req.OrganizationID, req.Name, req.Slug, req.Description)
 
 	created, err := s.store.CreateProject(r.Context(), proj)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectConflict, err.Error(), http.StatusBadRequest, err))
 		return
 	}
 
-	// Also set the active project cookie upon creation for seamless UX
+	// Set active project cookie upon creation for seamless UX
 	http.SetCookie(w, &http.Cookie{
-		Name:     "flagura_project_id",
+		Name:     domain.CookieProjectName,
 		Value:    created.ID,
 		Path:     "/",
 		Expires:  time.Now().Add(30 * 24 * time.Hour),
@@ -142,9 +128,7 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(created)
+	s.writeJSON(w, http.StatusCreated, created)
 }
 
 func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
@@ -161,12 +145,11 @@ func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
 
 	proj, err := s.store.GetProject(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectNotFound, err.Error(), http.StatusNotFound, domain.ErrProjectNotFound))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(proj)
+	s.writeJSON(w, http.StatusOK, proj)
 }
 
 func (s *Server) handleSwitchActiveProject(w http.ResponseWriter, r *http.Request) {
@@ -179,23 +162,23 @@ func (s *Server) handleSwitchActiveProject(w http.ResponseWriter, r *http.Reques
 		ProjectID string `json:"project_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
 		return
 	}
 
 	if req.ProjectID == "" {
-		req.ProjectID = store.DefaultProjectID
+		req.ProjectID = domain.DefaultProjectID
 	}
 
 	// Verify project exists
 	proj, err := s.store.GetProject(r.Context(), req.ProjectID)
 	if err != nil {
-		http.Error(w, "project not found: "+req.ProjectID, http.StatusNotFound)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectNotFound, "project not found: "+req.ProjectID, http.StatusNotFound, domain.ErrProjectNotFound))
 		return
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     "flagura_project_id",
+		Name:     domain.CookieProjectName,
 		Value:    proj.ID,
 		Path:     "/",
 		Expires:  time.Now().Add(30 * 24 * time.Hour),
@@ -203,8 +186,7 @@ func (s *Server) handleSwitchActiveProject(w http.ResponseWriter, r *http.Reques
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"success":           true,
 		"active_project_id": proj.ID,
 		"active_project":    proj,

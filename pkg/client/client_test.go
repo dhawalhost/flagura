@@ -3,13 +3,14 @@ package client_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/client"
+	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
 func mockServer(t *testing.T) *httptest.Server {
@@ -235,3 +236,83 @@ func TestClientTrackExperimentEvent(t *testing.T) {
 		t.Fatalf("expected Track to succeed, got error: %v", err)
 	}
 }
+
+func TestClientWithProject(t *testing.T) {
+	var receivedProjectID string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedProjectID = r.Header.Get("X-Project-ID")
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/evaluate" {
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"results": map[string]client.EvaluationResult{
+					"custom-flag": {
+						FlagKey: "custom-flag",
+						Enabled: true,
+						Variant: "on",
+					},
+				},
+			})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"flags": []domain.FeatureFlag{},
+		})
+	}))
+	defer ts.Close()
+
+	c := client.New(ts.URL, client.WithAPIKey("test-key"), client.WithProject("proj_payments_v2"))
+	defer c.Close()
+
+	ctx := context.Background()
+	res, err := c.Evaluate(ctx, "custom-flag", client.Context{UserID: "u1"})
+	if err != nil {
+		t.Fatalf("unexpected evaluate error: %v", err)
+	}
+	if !res.Enabled {
+		t.Fatalf("expected enabled flag")
+	}
+	if receivedProjectID != "proj_payments_v2" {
+		t.Fatalf("expected X-Project-ID 'proj_payments_v2', got '%s'", receivedProjectID)
+	}
+}
+
+type testLogger struct {
+	debugLogs []string
+	infoLogs  []string
+}
+
+func (l *testLogger) Debugf(format string, args ...interface{}) {
+	l.debugLogs = append(l.debugLogs, fmt.Sprintf(format, args...))
+}
+func (l *testLogger) Infof(format string, args ...interface{}) {
+	l.infoLogs = append(l.infoLogs, fmt.Sprintf(format, args...))
+}
+func (l *testLogger) Warnf(format string, args ...interface{}) {}
+func (l *testLogger) Errorf(format string, args ...interface{}) {}
+
+func TestSDKFunctionalOptionsAndLogger(t *testing.T) {
+	ts := mockServer(t)
+	defer ts.Close()
+
+	logger := &testLogger{}
+	c := client.New(
+		ts.URL,
+		client.WithAPIKey("test-api-key"),
+		client.WithProject("proj_custom_test"),
+		client.WithEnvironment(domain.EnvStaging),
+		client.WithLogger(logger),
+	)
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	res, err := c.Evaluate(ctx, "ai-smart-search", client.Context{UserID: "usr_logger_test"})
+	if err != nil {
+		t.Fatalf("unexpected evaluate error: %v", err)
+	}
+	if !res.Enabled {
+		t.Errorf("expected flag to be enabled")
+	}
+}
+

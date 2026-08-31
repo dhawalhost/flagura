@@ -6,15 +6,19 @@ This runbook documents database management, migration procedures, performance tu
 
 ## 1. Database Architecture & Tables
 
-Flagura relies on five core tables in PostgreSQL:
+Flagura relies on relational tables with JSONB document columns in PostgreSQL:
 
 | Table | Primary Key | Purpose | Key Indexes |
 | :--- | :--- | :--- | :--- |
+| `organizations` | `id` (TEXT) | Tenant organizations workspace | `idx_organizations_slug` (UNIQUE) |
+| `projects` | `id` (TEXT) | Isolated project hierarchies | `idx_projects_org`, `idx_projects_slug` |
 | `users` | `id` (TEXT) | System administrators and developers | `idx_users_email` (UNIQUE) |
 | `sessions` | `token` (TEXT) | Active 7-day session tokens | `idx_sessions_user_id`, `idx_sessions_expires_at` |
-| `feature_flags`| `id` (TEXT) | Flag metadata, environment JSON configs | `idx_feature_flags_key` (UNIQUE) |
-| `audit_logs` | `id` (TEXT) | Immutable historical audit trails | `idx_audit_logs_timestamp` (DESC) |
-| `api_keys` | `id` (TEXT) | SDK and server authorization keys | `idx_api_keys_key` (UNIQUE) |
+| `feature_flags`| `id` (TEXT) | Flag metadata, environment JSON configs | `idx_feature_flags_key`, `idx_feature_flags_proj` |
+| `audit_logs` | `id` (TEXT) | Immutable historical audit trails | `idx_audit_logs_timestamp`, `idx_audit_logs_proj` |
+| `api_keys` | `id` (TEXT) | SDK and server authorization keys | `idx_api_keys_hash` (UNIQUE) |
+| `change_requests` | `id` (TEXT) | 4-Eyes governance change proposals | `idx_change_requests_status` |
+| `experiment_events` | `id` (TEXT) | A/B experimentation telemetry stream | `idx_exp_events_flag` |
 
 ---
 

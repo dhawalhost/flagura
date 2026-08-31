@@ -29,6 +29,7 @@ Flagura evaluates rules and percentage rollouts locally in-memory using **determ
 
 ## ⚡ Key Highlights
 
+- **🏢 Multi-Tenant Organization & Project Hierarchy:** Group flags, API keys, change requests, and experiments into isolated Organizations and Projects.
 - **⚡ Sub-Microsecond Local Evaluation:** In-memory deterministic rule engine resolving flags in ~90ns – 250ns with zero remote network I/O.
 - **🌐 Native OpenFeature Provider:** Drop-in vendor-neutral `open-feature/go-sdk` integration—switch or adopt Flagura with zero code lock-in.
 - **🛡️ 4-Eyes Change Governance & RBAC:** Protected API endpoints, non-self-assignable roles, and multi-approver pull requests for production flag mutations.
@@ -41,7 +42,7 @@ Flagura evaluates rules and percentage rollouts locally in-memory using **determ
 
 ## ⚖️ How Flagura Compares
 
-| Feature / Capability             |             ⚡ Flagura (`v1.4.0`)     |      LaunchDarkly       |            Unleash             |        Flagsmith         |       GrowthBook       |
+| Feature / Capability             |             ⚡ Flagura (`v1.7.0`)     |      LaunchDarkly       |            Unleash             |        Flagsmith         |       GrowthBook       |
 | :------------------------------- | :---------------------------------: | :---------------------: | :----------------------------: | :----------------------: | :--------------------: |
 | **Core Architecture**            |       **Go (Native Binary)**        |   Cloud SaaS / Daemon   |      Node.js / TypeScript      |     Python (Django)      |  TypeScript / Next.js  |
 | **P50 Local Evaluation Latency** |      **`~13 ns – 220 ns`**          | ~25 µs (In-Process SDK) |       ~25 µs (Proxy SDK)       |          ~50 µs          |         ~30 µs         |
@@ -235,8 +236,13 @@ curl -X POST http://localhost:3000/api/v1/evaluate \
 | `GET`    | `/healthz` / `/livez`               | Kubernetes liveness health probe                                      |
 | `GET`    | `/readyz`                           | Kubernetes readiness probe (checks storage availability)              |
 | `GET`    | `/metrics`                          | Prometheus metrics exposition (`flagura_evaluations_total`, etc.)     |
+| `GET`    | `/api/v1/organizations`             | List all organizations (Admin only)                                   |
+| `POST`   | `/api/v1/organizations`             | Create new organization (Admin only)                                  |
+| `GET`    | `/api/v1/projects`                  | List projects in active or queried organization                       |
+| `POST`   | `/api/v1/projects`                  | Create new project in organization                                    |
+| `POST`   | `/api/v1/projects/active`           | Switch active project session context                                 |
 | `GET`    | `/api/v1/flags/stream`              | Real-time HTTP/2 Server-Sent Events (SSE) flag synchronization stream |
-| `GET`    | `/api/v1/flags`                     | List all feature flags across environments                            |
+| `GET`    | `/api/v1/flags`                     | List feature flags in active project scope                            |
 | `GET`    | `/api/v1/flags/:key`                | Retrieve configuration and rules for a specific flag                  |
 | `POST`   | `/api/v1/flags`                     | Create or update a feature flag configuration                         |
 | `PATCH`  | `/api/v1/flags/:key/toggle`         | Instant 1-click toggle for master kill-switch                         |
@@ -248,7 +254,9 @@ curl -X POST http://localhost:3000/api/v1/evaluate \
 | `DELETE` | `/api/v1/flags/:key`                | Permanently remove a feature flag (Requires Admin role)               |
 | `POST`   | `/api/v1/evaluate`                  | Evaluate flags (`?trace=true` returns visual execution trace)         |
 | `POST`   | `/api/v1/benchmark`                 | Execute live in-process latency stress test                           |
-| `GET`    | `/api/v1/audit-logs`                | Fetch immutable audit trail history                                   |
+| `GET`    | `/api/v1/audit-logs`                | Fetch immutable audit trail history for active project                |
+
+> **Multi-Tenancy Note:** All evaluation, flag, and audit endpoints accept the `X-Project-ID` request header or `?project_id=...` parameter to scope operations to a specific project (defaults to `proj_default`).
 
 ---
 
@@ -277,8 +285,9 @@ import (
 )
 
 func main() {
-	// 1. Initialize Flagura client with Real-Time Streaming and Offline Snapshot
+	// 1. Initialize Flagura client with Real-Time Streaming, Offline Snapshot, and Project Scoping
 	flaguraClient := client.New("https://flagura.dhawalhost.com",
+		client.WithProject("proj_default"),                  // Project scope (optional)
 		client.WithLocalEvaluation(30*time.Second),
 		client.WithStreaming(true),                          // <5ms instant updates via SSE
 		client.WithSnapshotFile("/tmp/flagura-cache.json"),  // offline resilience

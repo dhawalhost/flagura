@@ -8,6 +8,31 @@ This document details Flagura's relational schema design, JSONB configuration mo
 
 ```mermaid
 erDiagram
+    ORGANIZATIONS ||--o{ PROJECTS : "contains"
+    ORGANIZATIONS {
+        VARCHAR(64) id PK
+        VARCHAR(255) name
+        VARCHAR(128) slug UK
+        TEXT description
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    PROJECTS ||--o{ FLAGS : "scopes"
+    PROJECTS ||--o{ AUDIT_LOGS : "scopes"
+    PROJECTS ||--o{ API_KEYS : "scopes"
+    PROJECTS ||--o{ CHANGE_REQUESTS : "scopes"
+    PROJECTS ||--o{ EXPERIMENT_EVENTS : "scopes"
+    PROJECTS {
+        VARCHAR(64) id PK
+        VARCHAR(64) organization_id FK
+        VARCHAR(255) name
+        VARCHAR(128) slug
+        TEXT description
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
     USERS ||--o{ SESSIONS : "owns"
     USERS ||--o{ AUDIT_LOGS : "triggers"
     USERS {
@@ -29,7 +54,8 @@ erDiagram
 
     FLAGS {
         VARCHAR(64) id PK
-        VARCHAR(128) key UK
+        VARCHAR(64) project_id FK
+        VARCHAR(128) key
         VARCHAR(255) name
         TEXT description
         VARCHAR(32) type
@@ -40,12 +66,38 @@ erDiagram
 
     AUDIT_LOGS {
         VARCHAR(64) id PK
+        VARCHAR(64) project_id FK
         VARCHAR(64) actor_id
         VARCHAR(255) actor_name
         VARCHAR(64) action
         VARCHAR(128) target_entity
         TEXT details
         TIMESTAMP created_at
+    }
+
+    API_KEYS {
+        VARCHAR(64) id PK
+        VARCHAR(64) project_id FK
+        VARCHAR(64) key_hash UK
+        VARCHAR(32) key_prefix
+        VARCHAR(255) name
+        VARCHAR(32) role
+        BOOLEAN revoked
+        TIMESTAMP created_at
+    }
+
+    CHANGE_REQUESTS {
+        VARCHAR(64) id PK
+        VARCHAR(64) project_id FK
+        VARCHAR(128) flag_key
+        VARCHAR(32) environment
+        VARCHAR(32) action
+        VARCHAR(32) status
+        JSONB target_state
+        VARCHAR(255) requested_by
+        VARCHAR(255) reviewed_by
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
     }
 ```
 

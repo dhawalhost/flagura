@@ -46,8 +46,9 @@ func NewPostgresStore(databaseURL string) (*PostgresStore, error) {
 	}
 
 	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(10)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(15 * time.Minute)
+	db.SetConnMaxIdleTime(5 * time.Minute)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -200,6 +201,7 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	CREATE TABLE IF NOT EXISTS api_keys (
 		id TEXT PRIMARY KEY,
 		project_id TEXT NOT NULL DEFAULT 'proj_default',
+		environment TEXT NOT NULL DEFAULT 'production',
 		key_prefix TEXT NOT NULL,
 		key_hash TEXT UNIQUE NOT NULL,
 		name TEXT NOT NULL,
@@ -222,12 +224,13 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	CREATE INDEX IF NOT EXISTS idx_reset_tokens_email ON password_reset_tokens(email);
 	CREATE INDEX IF NOT EXISTS idx_reset_tokens_expires ON password_reset_tokens(expires_at);
 
-	-- Add project_id columns to existing tables if needed
+	-- Add project_id and environment columns to existing tables if needed
 	ALTER TABLE feature_flags ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
 	ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
 	ALTER TABLE change_requests ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
 	ALTER TABLE experiment_events ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
 	ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
+	ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS environment TEXT NOT NULL DEFAULT 'production';
 	
 	`
 	if _, err := s.db.ExecContext(ctx, schema); err != nil {
@@ -972,14 +975,20 @@ func (s *PostgresStore) CreateAPIKey(ctx context.Context, key domain.APIKey) (*d
 		_, _ = rand.Read(b)
 		key.ID = fmt.Sprintf("key_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
 	}
+	if key.ProjectID == "" {
+		key.ProjectID = DefaultProjectID
+	}
+	if key.Environment == "" {
+		key.Environment = "production"
+	}
 	now := time.Now().UTC()
 	key.CreatedAt = now
 	key.Revoked = false
 
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO api_keys (id, key_prefix, key_hash, name, role, created_by, created_at, revoked)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, key.ID, key.KeyPrefix, key.KeyHash, key.Name, key.Role, key.CreatedBy, key.CreatedAt, key.Revoked)
+		INSERT INTO api_keys (id, project_id, environment, key_prefix, key_hash, name, role, created_by, created_at, revoked)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`, key.ID, key.ProjectID, key.Environment, key.KeyPrefix, key.KeyHash, key.Name, key.Role, key.CreatedBy, key.CreatedAt, key.Revoked)
 	if err != nil {
 		return nil, err
 	}
@@ -988,7 +997,7 @@ func (s *PostgresStore) CreateAPIKey(ctx context.Context, key domain.APIKey) (*d
 
 func (s *PostgresStore) ListAPIKeys(ctx context.Context) ([]domain.APIKey, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, key_prefix, name, role, created_by, created_at, last_used_at, revoked
+		SELECT id, project_id, environment, key_prefix, name, role, created_by, created_at, last_used_at, revoked
 		FROM api_keys
 		ORDER BY created_at DESC
 	`)
@@ -1001,7 +1010,7 @@ func (s *PostgresStore) ListAPIKeys(ctx context.Context) ([]domain.APIKey, error
 	for rows.Next() {
 		var k domain.APIKey
 		var lastUsedAt sql.NullTime
-		if err := rows.Scan(&k.ID, &k.KeyPrefix, &k.Name, &k.Role, &k.CreatedBy, &k.CreatedAt, &lastUsedAt, &k.Revoked); err != nil {
+		if err := rows.Scan(&k.ID, &k.ProjectID, &k.Environment, &k.KeyPrefix, &k.Name, &k.Role, &k.CreatedBy, &k.CreatedAt, &lastUsedAt, &k.Revoked); err != nil {
 			return nil, err
 		}
 		if lastUsedAt.Valid {
@@ -1017,10 +1026,10 @@ func (s *PostgresStore) GetAPIKeyByHash(ctx context.Context, hash string) (*doma
 	var k domain.APIKey
 	var lastUsedAt sql.NullTime
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, key_prefix, key_hash, name, role, created_by, created_at, last_used_at, revoked
+		SELECT id, project_id, environment, key_prefix, key_hash, name, role, created_by, created_at, last_used_at, revoked
 		FROM api_keys
 		WHERE key_hash = $1 AND revoked = FALSE
-	`, hash).Scan(&k.ID, &k.KeyPrefix, &k.KeyHash, &k.Name, &k.Role, &k.CreatedBy, &k.CreatedAt, &lastUsedAt, &k.Revoked)
+	`, hash).Scan(&k.ID, &k.ProjectID, &k.Environment, &k.KeyPrefix, &k.KeyHash, &k.Name, &k.Role, &k.CreatedBy, &k.CreatedAt, &lastUsedAt, &k.Revoked)
 	if err != nil {
 		return nil, err
 	}
@@ -1375,7 +1384,7 @@ func (s *PostgresStore) ListAPIKeysByProject(ctx context.Context, projectID stri
 		projectID = DefaultProjectID
 	}
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, project_id, key_prefix, name, role, created_by, created_at, last_used_at, revoked
+		SELECT id, project_id, environment, key_prefix, name, role, created_by, created_at, last_used_at, revoked
 		FROM api_keys
 		WHERE (project_id = $1 OR project_id = 'proj_default') AND revoked = FALSE
 		ORDER BY created_at DESC
@@ -1390,7 +1399,7 @@ func (s *PostgresStore) ListAPIKeysByProject(ctx context.Context, projectID stri
 		var k domain.APIKey
 		var lastUsedAt sql.NullTime
 		if err := rows.Scan(
-			&k.ID, &k.ProjectID, &k.KeyPrefix, &k.Name, &k.Role, &k.CreatedBy,
+			&k.ID, &k.ProjectID, &k.Environment, &k.KeyPrefix, &k.Name, &k.Role, &k.CreatedBy,
 			&k.CreatedAt, &lastUsedAt, &k.Revoked,
 		); err != nil {
 			return nil, err

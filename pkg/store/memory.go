@@ -1014,6 +1014,12 @@ func (s *MemoryStore) CreateAPIKey(ctx context.Context, key domain.APIKey) (*dom
 		_, _ = rand.Read(b)
 		key.ID = fmt.Sprintf("key_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
 	}
+	if key.ProjectID == "" {
+		key.ProjectID = DefaultProjectID
+	}
+	if key.Environment == "" {
+		key.Environment = "production"
+	}
 	now := time.Now().UTC()
 	key.CreatedAt = now
 	key.Revoked = false

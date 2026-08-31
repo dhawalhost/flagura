@@ -67,7 +67,7 @@ func (cr *ChangeRequest) Review(reviewerID, reviewerEmail, reviewerName string, 
 		return errors.New("cannot review non-pending change request")
 	}
 	if cr.AuthorUserID == reviewerID {
-		return errors.New("4-eyes principle violation: author cannot review or approve their own change request")
+		return ErrFourEyesSelfApproval
 	}
 
 	now := time.Now().UTC()

@@ -8,13 +8,12 @@ import (
 )
 
 const (
-	DefaultOrgID     = "org_default"
-	DefaultOrgName   = "Default Organization"
-	DefaultOrgSlug   = "default-org"
-
-	DefaultProjectID   = "proj_default"
-	DefaultProjectName = "Default Project"
-	DefaultProjectSlug = "default-project"
+	DefaultOrgID       = domain.DefaultOrgID
+	DefaultOrgName     = domain.DefaultOrgName
+	DefaultOrgSlug     = domain.DefaultOrgSlug
+	DefaultProjectID   = domain.DefaultProjectID
+	DefaultProjectName = domain.DefaultProjectName
+	DefaultProjectSlug = domain.DefaultProjectSlug
 )
 
 type Store interface {

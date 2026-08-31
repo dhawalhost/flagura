@@ -13,7 +13,6 @@ import (
 
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/engine"
-	"github.com/dhawalhost/flagura/pkg/store"
 	"github.com/dhawalhost/flagura/pkg/telemetry"
 )
 
@@ -23,17 +22,28 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
+func (s *Server) handleLivez(w http.ResponseWriter, r *http.Request) {
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":    "alive",
+		"service":   "flagura",
+		"timestamp": time.Now().UTC(),
+	})
+}
+
 func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
-	_, err := s.store.ListFlags(r.Context())
-	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_, _ = w.Write([]byte(`{"status":"unavailable","error":"storage not ready"}`))
+	if err := s.store.Ping(r.Context()); err != nil {
+		s.writeJSON(w, http.StatusServiceUnavailable, map[string]interface{}{
+			"status":    "unavailable",
+			"error":     err.Error(),
+			"timestamp": time.Now().UTC(),
+		})
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"status":"ready"}`))
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":    "ready",
+		"driver":    s.store.DriverName(),
+		"timestamp": time.Now().UTC(),
+	})
 }
 
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +65,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) resolveProjectID(r *http.Request) string {
-	if p := r.Header.Get("X-Project-ID"); p != "" {
+	if p := r.Header.Get(domain.HeaderProjectID); p != "" {
 		return p
 	}
 	if p := r.URL.Query().Get("project_id"); p != "" {
@@ -64,21 +74,23 @@ func (s *Server) resolveProjectID(r *http.Request) string {
 	if p := r.URL.Query().Get("projectId"); p != "" {
 		return p
 	}
-	if c, err := r.Cookie("flagura_project_id"); err == nil && c.Value != "" {
+	if apiKey := s.getAPIKeyFromRequest(r); apiKey != nil && apiKey.ProjectID != "" {
+		return apiKey.ProjectID
+	}
+	if c, err := r.Cookie(domain.CookieProjectName); err == nil && c.Value != "" {
 		return c.Value
 	}
-	return store.DefaultProjectID
+	return domain.DefaultProjectID
 }
 
 func (s *Server) handleGetFlags(w http.ResponseWriter, r *http.Request) {
 	projectID := s.resolveProjectID(r)
 	flags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"project_id": projectID,
 		"flags":      flags,
 		"count":      len(flags),
@@ -90,7 +102,7 @@ func (s *Server) getActorFromRequest(r *http.Request, fallback string) string {
 	if u := UserFromContext(r.Context()); u != nil && u.Email != "" {
 		return u.Email
 	}
-	if a := r.Header.Get("X-Actor"); a != "" {
+	if a := r.Header.Get(domain.HeaderActor); a != "" {
 		return a
 	}
 	if a := r.URL.Query().Get("actor"); a != "" {
@@ -105,11 +117,11 @@ func (s *Server) getActorFromRequest(r *http.Request, fallback string) string {
 func (s *Server) handleCreateFlag(w http.ResponseWriter, r *http.Request) {
 	var flag domain.FeatureFlag
 	if err := json.NewDecoder(r.Body).Decode(&flag); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
 		return
 	}
 	if flag.Key == "" {
-		http.Error(w, "flag key is required", http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "flag key is required", http.StatusBadRequest, domain.ErrInvalidInput))
 		return
 	}
 	if flag.ProjectID == "" {
@@ -120,15 +132,13 @@ func (s *Server) handleCreateFlag(w http.ResponseWriter, r *http.Request) {
 
 	log, err := s.store.SaveFlag(r.Context(), flag, actor)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
 		return
 	}
 
 	s.broadcastCurrentFlags(r.Context())
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	s.writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"flag":  flag,
 		"audit": log,
 	})
@@ -140,9 +150,10 @@ func (s *Server) handleUpdateFlag(w http.ResponseWriter, r *http.Request) {
 
 	var flag domain.FeatureFlag
 	if err := json.NewDecoder(r.Body).Decode(&flag); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
 		return
 	}
+
 	if flag.Key == "" {
 		flag.Key = id
 	}
@@ -154,14 +165,13 @@ func (s *Server) handleUpdateFlag(w http.ResponseWriter, r *http.Request) {
 
 	log, err := s.store.SaveFlag(r.Context(), flag, actor)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
 		return
 	}
 
 	s.broadcastCurrentFlags(r.Context())
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"flag":  flag,
 		"audit": log,
 	})
@@ -175,14 +185,13 @@ func (s *Server) handleDeleteFlag(w http.ResponseWriter, r *http.Request) {
 
 	log, err := s.store.DeleteFlag(r.Context(), id, actor)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeFlagNotFound, err.Error(), http.StatusNotFound, domain.ErrFlagNotFound))
 		return
 	}
 
 	s.broadcastCurrentFlags(r.Context())
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"deleted": id,
 		"audit":   log,
@@ -190,37 +199,45 @@ func (s *Server) handleDeleteFlag(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleToggleFlag(w http.ResponseWriter, r *http.Request) {
-	// Path: /api/v1/flags/{id}/toggle
-	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/flags/"), "/")
-	if len(parts) < 2 {
-		http.Error(w, "invalid path", http.StatusBadRequest)
-		return
-	}
-	id := parts[0]
+	id := strings.TrimPrefix(r.URL.Path, "/api/v1/flags/")
+	id = strings.TrimSuffix(id, "/toggle")
 
 	var req struct {
 		Environment domain.Environment `json:"environment"`
 		Enabled     *bool              `json:"enabled"`
 		Actor       string             `json:"actor"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if r.Body != nil && r.ContentLength > 0 {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
 
 	if req.Environment == "" {
 		req.Environment = domain.EnvProduction
+	}
+
+	if apiKey := s.getAPIKeyFromRequest(r); apiKey != nil {
+		if !apiKey.AllowsEnvironment(req.Environment) {
+			s.writeError(w, r, domain.NewAppError(
+				domain.ErrCodeEnvironmentRestricted,
+				fmt.Sprintf("API key is scoped to environment '%s' and cannot modify '%s'", apiKey.Environment, req.Environment),
+				http.StatusForbidden,
+				domain.ErrEnvironmentRestricted,
+			))
+			return
+		}
 	}
 
 	actor := s.getActorFromRequest(r, req.Actor)
 
 	flag, log, err := s.store.ToggleFlag(r.Context(), id, req.Environment, req.Enabled, actor)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeFlagNotFound, err.Error(), http.StatusNotFound, domain.ErrFlagNotFound))
 		return
 	}
 
 	s.broadcastCurrentFlags(r.Context())
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"flag_key":    flag.Key,
 		"environment": req.Environment,
 		"enabled":     flag.Environments[req.Environment].Enabled,
@@ -230,13 +247,8 @@ func (s *Server) handleToggleFlag(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdateRollout(w http.ResponseWriter, r *http.Request) {
-	// Path: /api/v1/flags/{id}/rollout
-	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/flags/"), "/")
-	if len(parts) < 2 {
-		http.Error(w, "invalid path", http.StatusBadRequest)
-		return
-	}
-	id := parts[0]
+	id := strings.TrimPrefix(r.URL.Path, "/api/v1/flags/")
+	id = strings.TrimSuffix(id, "/rollout")
 
 	var req struct {
 		Environment domain.Environment `json:"environment"`
@@ -244,7 +256,7 @@ func (s *Server) handleUpdateRollout(w http.ResponseWriter, r *http.Request) {
 		Actor       string             `json:"actor"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
 		return
 	}
 
@@ -252,18 +264,29 @@ func (s *Server) handleUpdateRollout(w http.ResponseWriter, r *http.Request) {
 		req.Environment = domain.EnvProduction
 	}
 
+	if apiKey := s.getAPIKeyFromRequest(r); apiKey != nil {
+		if !apiKey.AllowsEnvironment(req.Environment) {
+			s.writeError(w, r, domain.NewAppError(
+				domain.ErrCodeEnvironmentRestricted,
+				fmt.Sprintf("API key is scoped to environment '%s' and cannot modify '%s'", apiKey.Environment, req.Environment),
+				http.StatusForbidden,
+				domain.ErrEnvironmentRestricted,
+			))
+			return
+		}
+	}
+
 	actor := s.getActorFromRequest(r, req.Actor)
 
 	flag, log, err := s.store.UpdateRollout(r.Context(), id, req.Environment, req.Percentage, actor)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeFlagNotFound, err.Error(), http.StatusNotFound, domain.ErrFlagNotFound))
 		return
 	}
 
 	s.broadcastCurrentFlags(r.Context())
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"flag_key":    flag.Key,
 		"environment": req.Environment,
 		"percentage":  req.Percentage,
@@ -281,8 +304,28 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 		Trace   bool                     `json:"trace"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
 		return
+	}
+
+	// Environment validation for API Key authentication
+	if apiKey := s.getAPIKeyFromRequest(r); apiKey != nil {
+		if req.Context.Environment == "" && apiKey.Environment != "" && apiKey.Environment != string(domain.EnvAll) && apiKey.Environment != "*" {
+			req.Context.Environment = domain.Environment(apiKey.Environment)
+		}
+		if req.Context.Environment != "" && !apiKey.AllowsEnvironment(req.Context.Environment) {
+			s.writeError(w, r, domain.NewAppError(
+				domain.ErrCodeEnvironmentRestricted,
+				fmt.Sprintf("API key is scoped to environment '%s' and cannot access '%s'", apiKey.Environment, req.Context.Environment),
+				http.StatusForbidden,
+				domain.ErrEnvironmentRestricted,
+			))
+			return
+		}
+	}
+
+	if req.Context.Environment == "" {
+		req.Context.Environment = domain.EnvProduction
 	}
 
 	includeTrace := req.Trace || r.URL.Query().Get("trace") == "true"
