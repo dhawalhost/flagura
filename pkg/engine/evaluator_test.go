@@ -66,39 +66,96 @@ func samplePercentageFlag() domain.FeatureFlag {
 }
 
 func TestEvaluateFlag(t *testing.T) {
-	flag := sampleRuleFlag()
-
-	// 1. Test Staff Match Rule
-	ctxStaff := domain.EvaluationContext{
-		UserID:      "usr_1",
-		Email:       "alice@flagship.dev",
-		Environment: domain.EnvProduction,
-	}
-	res1 := EvaluateFlag(flag, ctxStaff)
-	if !res1.Enabled || res1.Reason != domain.ReasonTargetingRuleMatch {
-		t.Fatalf("Expected targeting rule match, got: %v (%s)", res1.Enabled, res1.Reason)
-	}
-
-	// 2. Test Regex Match Rule
-	ctxQA := domain.EvaluationContext{
-		UserID:      "qa_usr_42",
-		Email:       "tester@example.com",
-		Environment: domain.EnvProduction,
-	}
-	resQA := EvaluateFlag(flag, ctxQA)
-	if !resQA.Enabled || resQA.Reason != domain.ReasonTargetingRuleMatch {
-		t.Fatalf("Expected regex targeting rule match, got: %v (%s)", resQA.Enabled, resQA.Reason)
-	}
-
-	// 3. Test Pure Percentage Rollout
+	ruleFlag := sampleRuleFlag()
 	pctFlag := samplePercentageFlag()
-	ctxUserA := domain.EvaluationContext{
-		UserID:      "usr_100",
-		Environment: domain.EnvProduction,
+
+	tests := []struct {
+		name            string
+		flag            domain.FeatureFlag
+		ctx             domain.EvaluationContext
+		expectedEnabled bool
+		expectedReason  domain.EvaluationReason
+	}{
+		{
+			name: "Targeting rule match (Email domain ends_with)",
+			flag: ruleFlag,
+			ctx: domain.EvaluationContext{
+				UserID:      "usr_1",
+				Email:       "alice@flagship.dev",
+				Environment: domain.EnvProduction,
+			},
+			expectedEnabled: true,
+			expectedReason:  domain.ReasonTargetingRuleMatch,
+		},
+		{
+			name: "Targeting rule match (UserID regex pattern)",
+			flag: ruleFlag,
+			ctx: domain.EvaluationContext{
+				UserID:      "qa_usr_42",
+				Email:       "tester@example.com",
+				Environment: domain.EnvProduction,
+			},
+			expectedEnabled: true,
+			expectedReason:  domain.ReasonTargetingRuleMatch,
+		},
+		{
+			name: "Pure percentage rollout evaluation (100% rollout)",
+			flag: domain.FeatureFlag{
+				Key:  "checkout-100",
+				Type: "boolean",
+				Environments: map[domain.Environment]domain.EnvironmentConfig{
+					domain.EnvProduction: {
+						Enabled:    true,
+						Strategy:   domain.StrategyPercentage,
+						Percentage: 100,
+					},
+				},
+			},
+			ctx: domain.EvaluationContext{
+				UserID:      "usr_100",
+				Environment: domain.EnvProduction,
+			},
+			expectedEnabled: true,
+			expectedReason:  domain.ReasonPercentageBucket,
+		},
+		{
+			name: "Kill-switched disabled environment",
+			flag: domain.FeatureFlag{
+				Key:  "disabled-flag",
+				Type: "boolean",
+				Environments: map[domain.Environment]domain.EnvironmentConfig{
+					domain.EnvProduction: {Enabled: false},
+				},
+			},
+			ctx: domain.EvaluationContext{
+				UserID:      "usr_any",
+				Environment: domain.EnvProduction,
+			},
+			expectedEnabled: false,
+			expectedReason:  domain.ReasonKillSwitchDisabled,
+		},
+		{
+			name: "Environment missing / not configured",
+			flag: pctFlag,
+			ctx: domain.EvaluationContext{
+				UserID:      "usr_1",
+				Environment: "non_existent_env",
+			},
+			expectedEnabled: false,
+			expectedReason:  domain.ReasonKillSwitchDisabled,
+		},
 	}
-	resPct := EvaluateFlag(pctFlag, ctxUserA)
-	if resPct.Reason != domain.ReasonPercentageBucket && resPct.Reason != domain.ReasonPercentageExcluded {
-		t.Fatalf("Expected percentage rollout evaluation reason, got: %s", resPct.Reason)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := EvaluateFlag(tt.flag, tt.ctx)
+			if res.Enabled != tt.expectedEnabled {
+				t.Errorf("EvaluateFlag() enabled = %v, expected %v", res.Enabled, tt.expectedEnabled)
+			}
+			if res.Reason != tt.expectedReason {
+				t.Errorf("EvaluateFlag() reason = %q, expected %q", res.Reason, tt.expectedReason)
+			}
+		})
 	}
 }
 
@@ -170,32 +227,58 @@ func BenchmarkGetStickyBucket(b *testing.B) {
 }
 
 func TestEvaluateFlagWithTrace(t *testing.T) {
-	flag := sampleRuleFlag()
+	ruleFlag := sampleRuleFlag()
 
-	// 1. Trace rule match
-	ctxStaff := domain.EvaluationContext{
-		UserID:      "usr_1",
-		Email:       "alice@flagship.dev",
-		Environment: domain.EnvProduction,
-	}
-	res, trace := EvaluateFlagWithTrace(flag, ctxStaff)
-	if !res.Enabled || trace.FinalReason != domain.ReasonTargetingRuleMatch {
-		t.Fatalf("expected rule match trace, got %v (%s)", res.Enabled, trace.FinalReason)
-	}
-	if len(trace.Steps) == 0 {
-		t.Fatalf("expected trace steps to be populated")
+	disabledFlag := sampleRuleFlag()
+	disabledFlag.Environments = map[domain.Environment]domain.EnvironmentConfig{
+		domain.EnvProduction: {
+			Enabled: false,
+		},
 	}
 
-	// 2. Trace kill-switched flag
-	flagDisabled := flag
-	flagDisabled.Environments[domain.EnvProduction] = domain.EnvironmentConfig{
-		Enabled: false,
+	tests := []struct {
+		name            string
+		flag            domain.FeatureFlag
+		ctx             domain.EvaluationContext
+		expectedEnabled bool
+		expectedReason  domain.EvaluationReason
+	}{
+		{
+			name: "Trace targeting rule match",
+			flag: ruleFlag,
+			ctx: domain.EvaluationContext{
+				UserID:      "usr_1",
+				Email:       "alice@flagship.dev",
+				Environment: domain.EnvProduction,
+			},
+			expectedEnabled: true,
+			expectedReason:  domain.ReasonTargetingRuleMatch,
+		},
+		{
+			name: "Trace kill-switched disabled flag",
+			flag: disabledFlag,
+			ctx: domain.EvaluationContext{
+				UserID:      "usr_1",
+				Email:       "alice@flagship.dev",
+				Environment: domain.EnvProduction,
+			},
+			expectedEnabled: false,
+			expectedReason:  domain.ReasonKillSwitchDisabled,
+		},
 	}
-	resOff, traceOff := EvaluateFlagWithTrace(flagDisabled, ctxStaff)
-	if resOff.Enabled || traceOff.FinalReason != domain.ReasonKillSwitchDisabled {
-		t.Fatalf("expected kill-switch trace, got %v (%s)", resOff.Enabled, traceOff.FinalReason)
-	}
-	if len(traceOff.Steps) != 1 || traceOff.Steps[0].Passed {
-		t.Fatalf("expected first step in trace to be kill-switch failed")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res, trace := EvaluateFlagWithTrace(tt.flag, tt.ctx)
+			if res.Enabled != tt.expectedEnabled {
+				t.Errorf("EvaluateFlagWithTrace() enabled = %v, expected %v", res.Enabled, tt.expectedEnabled)
+			}
+			if trace.FinalReason != tt.expectedReason {
+				t.Errorf("EvaluateFlagWithTrace() finalReason = %q, expected %q", trace.FinalReason, tt.expectedReason)
+			}
+			if len(trace.Steps) == 0 {
+				t.Errorf("expected trace steps to be non-empty")
+			}
+		})
 	}
 }

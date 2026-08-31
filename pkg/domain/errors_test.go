@@ -84,19 +84,82 @@ func TestLayeredErrorCodesAndSentinelMapping(t *testing.T) {
 	}
 }
 
-func TestIDGenerationAndConstructors(t *testing.T) {
-	u := NewUser("alice@example.com", "Alice Smith", "hash123", RoleDeveloper)
-	if u.ID == "" || u.Email != "alice@example.com" || u.Role != RoleDeveloper {
-		t.Fatalf("unexpected user entity: %+v", u)
+func TestNewID(t *testing.T) {
+	prefixes := []string{"usr", "org", "proj", "flg", "key", "req"}
+	for _, prefix := range prefixes {
+		t.Run("Prefix_"+prefix, func(t *testing.T) {
+			id := NewID(prefix)
+			expectedPrefix := prefix + "_"
+			if len(id) <= len(expectedPrefix) || id[:len(expectedPrefix)] != expectedPrefix {
+				t.Errorf("NewID(%q) = %q, expected prefix %q", prefix, id, expectedPrefix)
+			}
+		})
 	}
+}
 
-	org := NewOrganization("Acme Corp", "acme-corp", "Acme organization")
-	if org.ID == "" || org.Slug != "acme-corp" {
-		t.Fatalf("unexpected organization entity: %+v", org)
-	}
+func TestConstructors(t *testing.T) {
+	t.Run("NewUser", func(t *testing.T) {
+		tests := []struct {
+			name         string
+			email        string
+			fullName     string
+			passwordHash string
+			role         UserRole
+		}{
+			{"Developer User", "alice@example.com", "Alice Smith", "hash123", RoleDeveloper},
+			{"Admin User", "admin@example.com", "Admin Boss", "adminhash", RoleAdmin},
+		}
 
-	proj := NewProject(org.ID, "Mobile App", "mobile-app", "iOS and Android flags")
-	if proj.ID == "" || proj.OrganizationID != org.ID || proj.Slug != "mobile-app" {
-		t.Fatalf("unexpected project entity: %+v", proj)
-	}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				u := NewUser(tt.email, tt.fullName, tt.passwordHash, tt.role)
+				if u.ID == "" || u.Email != tt.email || u.Name != tt.fullName || u.Role != tt.role {
+					t.Fatalf("unexpected user entity: %+v", u)
+				}
+			})
+		}
+	})
+
+	t.Run("NewOrganization", func(t *testing.T) {
+		tests := []struct {
+			name        string
+			orgName     string
+			slug        string
+			description string
+		}{
+			{"Standard Org", "Acme Corp", "acme-corp", "Acme organization"},
+			{"Tech Org", "Flagura Inc", "flagura-inc", "Feature flag platform"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				org := NewOrganization(tt.orgName, tt.slug, tt.description)
+				if org.ID == "" || org.Name != tt.orgName || org.Slug != tt.slug || org.Description != tt.description {
+					t.Fatalf("unexpected organization entity: %+v", org)
+				}
+			})
+		}
+	})
+
+	t.Run("NewProject", func(t *testing.T) {
+		tests := []struct {
+			name        string
+			orgID       string
+			projName    string
+			slug        string
+			description string
+		}{
+			{"Mobile Project", "org_123", "Mobile App", "mobile-app", "iOS and Android flags"},
+			{"Payments Project", "org_456", "Payments API", "payments-api", "Stripe integration flags"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				proj := NewProject(tt.orgID, tt.projName, tt.slug, tt.description)
+				if proj.ID == "" || proj.OrganizationID != tt.orgID || proj.Name != tt.projName || proj.Slug != tt.slug {
+					t.Fatalf("unexpected project entity: %+v", proj)
+				}
+			})
+		}
+	})
 }

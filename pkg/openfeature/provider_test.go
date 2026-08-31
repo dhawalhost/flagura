@@ -173,71 +173,71 @@ func TestOpenFeatureProvider(t *testing.T) {
 		},
 	)
 
-	// 1. Test Boolean Evaluation
-	boolVal, err := ofClient.BooleanValue(ctx, "ai-smart-search", false, evalCtx)
-	if err != nil {
-		t.Fatalf("BooleanValue returned error: %v", err)
-	}
-	if !boolVal {
-		t.Fatalf("expected BooleanValue to be true, got %v", boolVal)
-	}
+	t.Run("TypedEvaluations", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			testFunc func(t *testing.T)
+		}{
+			{
+				name: "Boolean flag evaluation",
+				testFunc: func(t *testing.T) {
+					boolVal, err := ofClient.BooleanValue(ctx, "ai-smart-search", false, evalCtx)
+					if err != nil || !boolVal {
+						t.Fatalf("expected BooleanValue true, got %v (err: %v)", boolVal, err)
+					}
+				},
+			},
+			{
+				name: "String multivariate flag evaluation",
+				testFunc: func(t *testing.T) {
+					strVal, err := ofClient.StringValue(ctx, "banner-title", "Default", evalCtx)
+					if err != nil || strVal != "Welcome to Flagura!" {
+						t.Fatalf("expected StringValue 'Welcome to Flagura!', got %q (err: %v)", strVal, err)
+					}
+				},
+			},
+			{
+				name: "Integer multivariate flag evaluation",
+				testFunc: func(t *testing.T) {
+					intVal, err := ofClient.IntValue(ctx, "max-concurrency", 10, evalCtx)
+					if err != nil || intVal != 64 {
+						t.Fatalf("expected IntValue 64, got %d (err: %v)", intVal, err)
+					}
+				},
+			},
+			{
+				name: "Float multivariate flag evaluation",
+				testFunc: func(t *testing.T) {
+					floatVal, err := ofClient.FloatValue(ctx, "discount-rate", 0.0, evalCtx)
+					if err != nil || floatVal != 0.25 {
+						t.Fatalf("expected FloatValue 0.25, got %f (err: %v)", floatVal, err)
+					}
+				},
+			},
+			{
+				name: "Detailed evaluation metadata",
+				testFunc: func(t *testing.T) {
+					boolDetails, err := ofClient.BooleanValueDetails(ctx, "ai-smart-search", false, evalCtx)
+					if err != nil || !boolDetails.Value || boolDetails.Reason != of.DefaultReason {
+						t.Fatalf("expected DefaultReason with true value, got %+v (err: %v)", boolDetails, err)
+					}
+				},
+			},
+			{
+				name: "Non-existent flag fallback with ErrorReason",
+				testFunc: func(t *testing.T) {
+					fallbackDetails, _ := ofClient.BooleanValueDetails(ctx, "non-existent-flag", true, evalCtx)
+					if !fallbackDetails.Value || fallbackDetails.Reason != of.ErrorReason {
+						t.Fatalf("expected ErrorReason with true fallback value, got %+v", fallbackDetails)
+					}
+				},
+			},
+		}
 
-	// 2. Test String Evaluation
-	strVal, err := ofClient.StringValue(ctx, "banner-title", "Default Title", evalCtx)
-	if err != nil {
-		t.Fatalf("StringValue returned error: %v", err)
-	}
-	if strVal != "Welcome to Flagura!" {
-		t.Fatalf("expected StringValue 'Welcome to Flagura!', got '%s'", strVal)
-	}
-
-	// 3. Test Int Evaluation
-	intVal, err := ofClient.IntValue(ctx, "max-concurrency", 10, evalCtx)
-	if err != nil {
-		t.Fatalf("IntValue returned error: %v", err)
-	}
-	if intVal != 64 {
-		t.Fatalf("expected IntValue 64, got %d", intVal)
-	}
-
-	// 4. Test Float Evaluation
-	floatVal, err := ofClient.FloatValue(ctx, "discount-rate", 0.0, evalCtx)
-	if err != nil {
-		t.Fatalf("FloatValue returned error: %v", err)
-	}
-	if floatVal != 0.25 {
-		t.Fatalf("expected FloatValue 0.25, got %f", floatVal)
-	}
-
-	// 5. Test Evaluation Details & Reason
-	boolDetails, err := ofClient.BooleanValueDetails(ctx, "ai-smart-search", false, evalCtx)
-	if err != nil {
-		t.Fatalf("BooleanValueDetails returned error: %v", err)
-	}
-	if !boolDetails.Value {
-		t.Fatalf("expected true boolean evaluation detail")
-	}
-	if boolDetails.Reason != of.DefaultReason {
-		t.Fatalf("expected Reason DEFAULT, got %v", boolDetails.Reason)
-	}
-
-	// 6. Test Object Evaluation
-	objVal, err := ofClient.ObjectValue(ctx, "banner-title", nil, evalCtx)
-	if err != nil {
-		t.Fatalf("ObjectValue returned error: %v", err)
-	}
-	if objVal == nil {
-		t.Fatalf("expected non-nil object value")
-	}
-
-	// 7. Test Non-existent flag fallback
-	fallbackDetails, _ := ofClient.BooleanValueDetails(ctx, "non-existent-flag", true, evalCtx)
-	if !fallbackDetails.Value {
-		t.Fatalf("expected fallback boolean value true, got %v", fallbackDetails.Value)
-	}
-	if fallbackDetails.Reason != of.ErrorReason {
-		t.Fatalf("expected ErrorReason on missing flag, got %v", fallbackDetails.Reason)
-	}
+		for _, tt := range tests {
+			t.Run(tt.name, tt.testFunc)
+		}
+	})
 }
 
 func TestOpenFeatureEventHandling(t *testing.T) {

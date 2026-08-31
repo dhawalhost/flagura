@@ -1,4 +1,4 @@
-package client_test
+package client
 
 import (
 	"bytes"
@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/dhawalhost/flagura/pkg/api"
-	"github.com/dhawalhost/flagura/pkg/client"
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/store"
 )
@@ -26,9 +25,9 @@ func TestRealTimeStreamingSync(t *testing.T) {
 	defer ts.Close()
 
 	// Initialize client with long 60s polling interval so we know updates come via SSE stream
-	c := client.New(ts.URL,
-		client.WithLocalEvaluation(60*time.Second),
-		client.WithStreaming(true),
+	c := New(ts.URL,
+		WithLocalEvaluation(60*time.Second),
+		WithStreaming(true),
 	)
 	defer c.Close()
 
@@ -64,7 +63,7 @@ func TestRealTimeStreamingSync(t *testing.T) {
 		ExpiresAt: time.Now().Add(1 * time.Hour),
 	})
 
-	evalCtx := client.Context{UserID: "usr_stream_test"}
+	evalCtx := Context{UserID: "usr_stream_test"}
 
 	// 1. Initial evaluation
 	val1 := c.IsEnabled(ctx, "rate-limiter-v2", evalCtx)

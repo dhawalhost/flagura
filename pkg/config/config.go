@@ -14,9 +14,9 @@ import (
 // Config represents the complete runtime configuration for Flagura.
 type Config struct {
 	// Server Networking & Endpoints
-	ServerPort string             `json:"server_port"`
-	Host       string             `json:"host"`
-	BaseURL    string             `json:"base_url"`
+	ServerPort  string             `json:"server_port"`
+	Host        string             `json:"host"`
+	BaseURL     string             `json:"base_url"`
 	Environment domain.Environment `json:"environment"`
 
 	// Storage & Persistence
@@ -50,7 +50,7 @@ func Load() (*Config, error) {
 		BaseURL:            getEnv("FLAGURA_BASE_URL", "http://localhost:3000"),
 		Environment:        domain.Environment(strings.ToLower(getEnv("FLAGURA_ENV", string(domain.EnvProduction)))),
 		DatabaseURL:        os.Getenv("DATABASE_URL"),
-		LogFormat:          strings.ToLower(getEnv("FLAGURA_LOG_FORMAT", "text")),
+		LogFormat:          strings.ToLower(getEnv("FLAGURA_LOG_FORMAT", "json")),
 		ReadHeaderTimeout:  5 * time.Second,
 		ReadTimeout:        15 * time.Second,
 		WriteTimeout:       15 * time.Second,
