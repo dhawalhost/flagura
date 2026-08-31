@@ -372,6 +372,8 @@ templ AuthPage(showLanding ...bool) {
 					error: '',
 					successMessage: '',
 					resetToken: '',
+					inviteToken: '',
+					inviteOrgName: '',
 					loginForm: {
 						email: '',
 						password: ''
@@ -406,7 +408,22 @@ templ AuthPage(showLanding ...bool) {
 						const urlParams = new URLSearchParams(window.location.search);
 						const modeParam = urlParams.get('mode');
 						const tokenParam = urlParams.get('token');
-						if (modeParam === 'reset' && tokenParam) {
+						const inviteParam = urlParams.get('invite');
+						if (inviteParam) {
+							this.inviteToken = inviteParam;
+							this.mode = 'signup';
+							fetch('/api/v1/invitations/' + inviteParam)
+								.then(r => r.json())
+								.then(data => {
+									if (data.invitation) {
+										this.inviteOrgName = data.invitation.org_name;
+										if (data.invitation.email) this.signUpForm.email = data.invitation.email;
+										if (data.invitation.role) this.signUpForm.role = data.invitation.role;
+										this.successMessage = `You've been invited to join ${this.inviteOrgName}! Complete your account below.`;
+									}
+								})
+								.catch(() => {});
+						} else if (modeParam === 'reset' && tokenParam) {
 							this.mode = 'reset';
 							this.resetToken = tokenParam;
 						} else if (modeParam === 'forgot') {
@@ -514,7 +531,8 @@ templ AuthPage(showLanding ...bool) {
 									name: this.signUpForm.name,
 									email: this.signUpForm.email,
 									password: this.signUpForm.password,
-									role: this.signUpForm.role
+									role: this.signUpForm.role,
+									inviteToken: this.inviteToken || undefined
 								})
 							});
 							const data = await res.json();

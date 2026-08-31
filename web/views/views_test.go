@@ -91,6 +91,13 @@ func TestTemplComponentsRender(t *testing.T) {
 		{name: "SDKModal", component: SDKModal()},
 		{name: "BenchmarkModal", component: BenchmarkModal()},
 		{name: "AuditModal", component: AuditModal(auditLogs)},
+		{name: "ExperimentModal", component: ExperimentModal()},
+		{name: "FlagEditorModal", component: FlagEditorModal()},
+		{name: "HeaderBar", component: HeaderBar(u, flags, "production")},
+		{name: "Sidebar", component: Sidebar(u, flags, auditLogs, orgs, projects, "proj_1")},
+		{name: "CustomCursor", component: CustomCursor()},
+		{name: "ThreeCanvas", component: ThreeCanvas()},
+		{name: "Layout", component: Layout("Flagura Control Plane")},
 	}
 
 	for _, tt := range tests {

@@ -175,3 +175,49 @@ func TestCanaryHealthRollbackTrigger(t *testing.T) {
 		})
 	}
 }
+
+func TestCanaryScheduler_EdgeCases(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	scheduler := NewCanaryScheduler(memStore, &mockBroadcaster{})
+	defer scheduler.Close()
+	ctx := context.Background()
+
+	// 1. Submit empty stages error
+	_, err := scheduler.SubmitSchedule(ctx, domain.CanarySchedule{
+		FlagKey: "empty-stages",
+		Stages:  nil,
+	})
+	if err == nil {
+		t.Errorf("expected error submitting schedule without stages")
+	}
+
+	// 2. Get non-existent schedule
+	if s, ok := scheduler.GetSchedule("non-existent"); ok || s != nil {
+		t.Errorf("expected nil for non-existent schedule")
+	}
+
+	// 3. Cancel non-existent schedule
+	if ok := scheduler.CancelSchedule("non-existent"); ok {
+		t.Errorf("expected false when cancelling non-existent schedule")
+	}
+
+	// 4. Trigger rollback on non-existent schedule
+	if err := scheduler.TriggerHealthRollback(ctx, "non-existent", "test"); err == nil {
+		t.Errorf("expected error rolling back non-existent schedule")
+	}
+
+	// 5. Submit valid schedule and cancel it
+	_, _ = scheduler.SubmitSchedule(ctx, domain.CanarySchedule{
+		FlagKey: "test-cancel",
+		Stages: []domain.CanaryStage{
+			{Index: 0, TargetPercentage: 10, DurationSec: 100},
+		},
+	})
+	if ok := scheduler.CancelSchedule("test-cancel"); !ok {
+		t.Errorf("expected true when cancelling existing schedule")
+	}
+
+	// 6. Test StartBackgroundLoop
+	scheduler.StartBackgroundLoop(5 * time.Millisecond)
+	time.Sleep(15 * time.Millisecond)
+}

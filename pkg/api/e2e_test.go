@@ -1,4 +1,4 @@
-package api_test
+package api
 
 import (
 	"bytes"
@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dhawalhost/flagura/pkg/api"
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/engine"
 	"github.com/dhawalhost/flagura/pkg/store"
@@ -18,7 +17,7 @@ import (
 
 func TestE2E_FullPlatformLifecycle(t *testing.T) {
 	memStore := store.NewMemoryStore()
-	srv, err := api.NewServer(memStore)
+	srv, err := NewServer(memStore)
 	if err != nil {
 		t.Fatalf("Failed to instantiate api.Server: %v", err)
 	}

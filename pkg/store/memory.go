@@ -5,11 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
@@ -49,6 +48,8 @@ type MemoryStore struct {
 	mu                  sync.RWMutex // protects mutable tables
 	orgs                map[string]domain.Organization
 	projects            map[string]domain.Project
+	orgMembers          map[string]domain.OrgMember
+	orgInvitations      map[string]domain.OrgInvitation
 	auditLogs           []domain.AuditLogEntry
 	events              []domain.ExperimentEvent
 	users               map[string]domain.User // indexed by email and id
@@ -59,300 +60,14 @@ type MemoryStore struct {
 	passwordResetTokens map[string]domain.PasswordResetToken
 }
 
-func getSeedFlags() []domain.FeatureFlag {
-	now := time.Now().UTC()
-	return []domain.FeatureFlag{
-		{
-			ID:          "flag_01_ai_search",
-			Key:         "ai-smart-search",
-			Name:        "AI Smart Search & Query Rewrite",
-			Description: "Autonomous semantic embedding and LLM query expansion engine before DB search query execution.",
-			Type:        "boolean",
-			Tags:        []string{"core-ai", "search", "performance"},
-			Environments: map[domain.Environment]domain.EnvironmentConfig{
-				domain.EnvProduction: {
-					Enabled:        true,
-					Strategy:       domain.StrategyRules,
-					Percentage:     35,
-					DefaultVariant: "treatment",
-					OffVariant:     "control",
-					Rules: []domain.TargetingRule{
-						{
-							ID:        "rule_staff_domain",
-							Name:      "Staff & Internal Testing Domain",
-							Attribute: domain.AttrEmail,
-							Operator:  domain.OpEndsWith,
-							Values:    []string{"@flagura.dev", "@company.com", "@google.com"},
-							Action:    domain.ActionForceEnabled,
-						},
-						{
-							ID:        "rule_enterprise_tier",
-							Name:      "Enterprise VIP Customers",
-							Attribute: domain.AttrTier,
-							Operator:  domain.OpEquals,
-							Values:    []string{"enterprise"},
-							Action:    domain.ActionForceEnabled,
-						},
-					},
-					Variants: []domain.FlagVariant{
-						{Key: "control", Name: "Legacy Keyword Search", Value: false, Weight: 65},
-						{Key: "treatment", Name: "AI Hybrid Search", Value: true, Weight: 35},
-					},
-				},
-				domain.EnvStaging: {
-					Enabled:        true,
-					Strategy:       domain.StrategyPercentage,
-					Percentage:     100,
-					DefaultVariant: "treatment",
-					OffVariant:     "control",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-				domain.EnvDevelopment: {
-					Enabled:        true,
-					Strategy:       domain.StrategyBoolean,
-					Percentage:     100,
-					DefaultVariant: "on",
-					OffVariant:     "off",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-			},
-			CreatedAt: now.Add(-9 * 24 * time.Hour),
-			UpdatedAt: now.Add(-1 * 24 * time.Hour),
-		},
-		{
-			ID:          "flag_02_checkout",
-			Key:         "new-checkout-flow",
-			Name:        "Stripe Instant 1-Click Checkout Flow",
-			Description: "Zero-friction checkout drawer with Apple Pay & Google Pay express buttons.",
-			Type:        "multivariate",
-			Tags:        []string{"billing", "growth", "experiments"},
-			Environments: map[domain.Environment]domain.EnvironmentConfig{
-				domain.EnvProduction: {
-					Enabled:        true,
-					Strategy:       domain.StrategyMultivariate,
-					Percentage:     50,
-					DefaultVariant: "standard_v1",
-					OffVariant:     "standard_v1",
-					Rules: []domain.TargetingRule{
-						{
-							ID:        "rule_geo_us_eu",
-							Name:      "Tier-1 Countries (US, DE, GB)",
-							Attribute: domain.AttrCountry,
-							Operator:  domain.OpInList,
-							Values:    []string{"US", "DE", "GB"},
-							Action:    domain.ActionForceEnabled,
-						},
-					},
-					Variants: []domain.FlagVariant{
-						{Key: "standard_v1", Name: "Multi-step Standard Form", Value: "legacy_form", Weight: 50},
-						{Key: "express_1click", Name: "Express 1-Click Apple/Google Pay", Value: "express_drawer", Weight: 50},
-					},
-				},
-				domain.EnvStaging: {
-					Enabled:        true,
-					Strategy:       domain.StrategyPercentage,
-					Percentage:     100,
-					DefaultVariant: "express_1click",
-					OffVariant:     "standard_v1",
-					Rules:          []domain.TargetingRule{},
-					Variants: []domain.FlagVariant{
-						{Key: "standard_v1", Name: "Multi-step Standard Form", Value: "legacy_form", Weight: 50},
-						{Key: "express_1click", Name: "Express 1-Click Apple/Google Pay", Value: "express_drawer", Weight: 50},
-					},
-				},
-				domain.EnvDevelopment: {
-					Enabled:        true,
-					Strategy:       domain.StrategyPercentage,
-					Percentage:     100,
-					DefaultVariant: "express_1click",
-					OffVariant:     "standard_v1",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-			},
-			CreatedAt: now.Add(-7 * 24 * time.Hour),
-			UpdatedAt: now.Add(-2 * 24 * time.Hour),
-		},
-		{
-			ID:          "flag_03_dark_mode",
-			Key:         "beta-dark-theme",
-			Name:        "OLED Midnight Obsidian Dark Theme",
-			Description: "High-contrast dark mode with custom emerald neon accents and glassmorphic panels.",
-			Type:        "boolean",
-			Tags:        []string{"ui", "theme", "frontend"},
-			Environments: map[domain.Environment]domain.EnvironmentConfig{
-				domain.EnvProduction: {
-					Enabled:        true,
-					Strategy:       domain.StrategyPercentage,
-					Percentage:     100,
-					DefaultVariant: "on",
-					OffVariant:     "off",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-				domain.EnvStaging: {
-					Enabled:        true,
-					Strategy:       domain.StrategyBoolean,
-					Percentage:     100,
-					DefaultVariant: "on",
-					OffVariant:     "off",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-				domain.EnvDevelopment: {
-					Enabled:        true,
-					Strategy:       domain.StrategyBoolean,
-					Percentage:     100,
-					DefaultVariant: "on",
-					OffVariant:     "off",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-			},
-			CreatedAt: now.Add(-14 * 24 * time.Hour),
-			UpdatedAt: now.Add(-3 * 24 * time.Hour),
-		},
-		{
-			ID:          "flag_04_crypto_settlement",
-			Key:         "crypto-web3-settlement",
-			Name:        "Solana & USDC Treasury Settlement",
-			Description: "Automated sub-second merchant invoice settlement on Solana Mainnet-Beta.",
-			Type:        "boolean",
-			Tags:        []string{"web3", "crypto", "treasury"},
-			Environments: map[domain.Environment]domain.EnvironmentConfig{
-				domain.EnvProduction: {
-					Enabled:        false,
-					Strategy:       domain.StrategyBoolean,
-					Percentage:     0,
-					DefaultVariant: "on",
-					OffVariant:     "off",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-				domain.EnvStaging: {
-					Enabled:        true,
-					Strategy:       domain.StrategyBoolean,
-					Percentage:     100,
-					DefaultVariant: "on",
-					OffVariant:     "off",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-				domain.EnvDevelopment: {
-					Enabled:        true,
-					Strategy:       domain.StrategyBoolean,
-					Percentage:     100,
-					DefaultVariant: "on",
-					OffVariant:     "off",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-			},
-			CreatedAt: now.Add(-20 * 24 * time.Hour),
-			UpdatedAt: now.Add(-4 * 24 * time.Hour),
-		},
-		{
-			ID:          "flag_05_multiplayer_canvas",
-			Key:         "multiplayer-live-collab",
-			Name:        "Real-Time Multiplayer Canvas CRDT Engine",
-			Description: "Collaborative canvas state syncing with conflict-free replicated data types over WebSockets.",
-			Type:        "multivariate",
-			Tags:        []string{"collab", "websocket", "experimental"},
-			Environments: map[domain.Environment]domain.EnvironmentConfig{
-				domain.EnvProduction: {
-					Enabled:        true,
-					Strategy:       domain.StrategyRules,
-					Percentage:     20,
-					DefaultVariant: "treatment",
-					OffVariant:     "control",
-					Rules: []domain.TargetingRule{
-						{
-							ID:        "rule_na_region",
-							Name:      "North America & UK Region Access",
-							Attribute: domain.AttrCountry,
-							Operator:  domain.OpInList,
-							Values:    []string{"US", "CA", "GB"},
-							Action:    domain.ActionForceEnabled,
-						},
-						{
-							ID:        "rule_beta_testers",
-							Name:      "Registered Beta Program Members",
-							Attribute: domain.AttrRole,
-							Operator:  domain.OpEquals,
-							Values:    []string{"beta_tester"},
-							Action:    domain.ActionForceEnabled,
-						},
-					},
-					Variants: []domain.FlagVariant{
-						{Key: "control", Name: "Standard Single Player", Value: false, Weight: 80},
-						{Key: "treatment", Name: "Realtime Multiplayer CRDT", Value: true, Weight: 20},
-					},
-				},
-				domain.EnvStaging: {
-					Enabled:        true,
-					Strategy:       domain.StrategyBoolean,
-					Percentage:     100,
-					DefaultVariant: "treatment",
-					OffVariant:     "control",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-				domain.EnvDevelopment: {
-					Enabled:        true,
-					Strategy:       domain.StrategyBoolean,
-					Percentage:     100,
-					DefaultVariant: "treatment",
-					OffVariant:     "control",
-					Rules:          []domain.TargetingRule{},
-					Variants:       []domain.FlagVariant{},
-				},
-			},
-			CreatedAt: now.Add(-6 * 24 * time.Hour),
-			UpdatedAt: now.Add(-1 * 24 * time.Hour),
-		},
-	}
-}
-
-func getSeedAuditLogs() []domain.AuditLogEntry {
-	now := time.Now().UTC()
-	return []domain.AuditLogEntry{
-		{
-			ID:          "log_01",
-			Timestamp:   now.Add(-1 * time.Hour),
-			Actor:       "dhawal@flagura.dev",
-			Action:      "ROLLOUT_CHANGED",
-			FlagKey:     "ai-smart-search",
-			Environment: domain.EnvProduction,
-			Details:     "Increased percentage rollout from 20% to 35% after latency verification (< 4.8µs).",
-		},
-		{
-			ID:          "log_02",
-			Timestamp:   now.Add(-2 * time.Hour),
-			Actor:       "dhawal@flagura.dev",
-			Action:      "RULE_MODIFIED",
-			FlagKey:     "new-checkout-flow",
-			Environment: domain.EnvProduction,
-			Details:     "Added QA whitelist rule for instant 1-click checkout variant.",
-		},
-		{
-			ID:          "log_03",
-			Timestamp:   now.Add(-24 * time.Hour),
-			Actor:       "security-admin@flagura.dev",
-			Action:      "KILL_SWITCH_TOGGLED",
-			FlagKey:     "crypto-web3-settlement",
-			Environment: domain.EnvProduction,
-			Details:     "Engaged kill switch for production environment pending smart contract audit sign-off.",
-		},
-	}
-}
-
 func NewMemoryStore() *MemoryStore {
 	store := &MemoryStore{
 		orgs:                make(map[string]domain.Organization),
 		projects:            make(map[string]domain.Project),
-		auditLogs:           getSeedAuditLogs(),
+		orgMembers:          make(map[string]domain.OrgMember),
+		orgInvitations:      make(map[string]domain.OrgInvitation),
+		auditLogs:           []domain.AuditLogEntry{},
+		events:              make([]domain.ExperimentEvent, 0),
 		users:               make(map[string]domain.User),
 		sessions:            make(map[string]domain.Session),
 		changeRequests:      make(map[string]domain.ChangeRequest),
@@ -361,49 +76,8 @@ func NewMemoryStore() *MemoryStore {
 		passwordResetTokens: make(map[string]domain.PasswordResetToken),
 	}
 
-	// Seed Default Organization and Project
-	now := time.Now().UTC()
-	defaultOrg := domain.Organization{
-		ID:          DefaultOrgID,
-		Name:        DefaultOrgName,
-		Slug:        DefaultOrgSlug,
-		Description: "Primary workspace organization",
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}
-	store.orgs[defaultOrg.ID] = defaultOrg
-	store.orgs[defaultOrg.Slug] = defaultOrg
-
-	defaultProj := domain.Project{
-		ID:             DefaultProjectID,
-		OrganizationID: DefaultOrgID,
-		Name:           DefaultProjectName,
-		Slug:           DefaultProjectSlug,
-		Description:    "Primary feature flag project",
-		CreatedAt:      now,
-		UpdatedAt:      now,
-	}
-	store.projects[defaultProj.ID] = defaultProj
-	store.projects[defaultProj.Slug] = defaultProj
-	store.projects[DefaultOrgID+":"+defaultProj.Slug] = defaultProj
-
-	initialSnap := newFlagSnapshot(getSeedFlags())
+	initialSnap := newFlagSnapshot([]domain.FeatureFlag{})
 	store.flagsSnapshot.Store(initialSnap)
-
-	// Seed a default administrator with hashed password for immediate local access
-	hash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
-	admin := domain.User{
-		ID:           "usr_admin_default",
-		Email:        "dhawal@flagura.dev",
-		PasswordHash: string(hash),
-		Name:         "Dhawal Dyavanpalli",
-		Role:         domain.RoleAdmin,
-		AvatarURL:    "",
-		CreatedAt:    time.Now().UTC(),
-		UpdatedAt:    time.Now().UTC(),
-	}
-	store.users[admin.Email] = admin
-	store.users[admin.ID] = admin
 
 	return store
 }
@@ -563,8 +237,16 @@ func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 	flagCopy := flag.DeepCopy()
 	var log domain.AuditLogEntry
 
+	if flagCopy.ProjectID == "" {
+		flagCopy.ProjectID = DefaultProjectID
+	}
+
 	for i, f := range newList {
-		if f.ID == flagCopy.ID || f.Key == flagCopy.Key {
+		fProj := f.ProjectID
+		if fProj == "" {
+			fProj = DefaultProjectID
+		}
+		if (f.ID == flagCopy.ID || f.Key == flagCopy.Key) && (fProj == flagCopy.ProjectID) {
 			flagCopy.ID = f.ID
 			flagCopy.CreatedAt = f.CreatedAt
 			flagCopy.UpdatedAt = now
@@ -573,6 +255,7 @@ func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 
 			log = domain.AuditLogEntry{
 				ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
+				ProjectID:   flagCopy.ProjectID,
 				Timestamp:   now,
 				Actor:       actor,
 				Action:      "FLAG_UPDATED",
@@ -823,7 +506,7 @@ func (s *MemoryStore) Reset(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	newSnap := newFlagSnapshot(getSeedFlags())
+	newSnap := newFlagSnapshot(nil)
 	s.flagsSnapshot.Store(newSnap)
 	s.events = nil
 
@@ -835,7 +518,7 @@ func (s *MemoryStore) Reset(ctx context.Context) error {
 		Action:      "DATABASE_RESET",
 		FlagKey:     "all",
 		Environment: "all",
-		Details:     "Reset feature flags to default seed template.",
+		Details:     "Clean reset of store data.",
 	}
 	s.auditLogs = append([]domain.AuditLogEntry{resetLog}, s.auditLogs...)
 	return nil
@@ -1381,6 +1064,174 @@ func (s *MemoryStore) ListAPIKeysByProject(ctx context.Context, projectID string
 			kCopy.Key = ""
 			kCopy.KeyHash = ""
 			res = append(res, kCopy)
+		}
+	}
+	return res, nil
+}
+
+func (s *MemoryStore) CreateOrgMember(ctx context.Context, member domain.OrgMember) (*domain.OrgMember, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if member.ID == "" {
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		member.ID = fmt.Sprintf("mem_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
+	}
+	if member.CreatedAt.IsZero() {
+		member.CreatedAt = time.Now().UTC()
+	}
+	if member.Role == "" {
+		member.Role = "developer"
+	}
+
+	s.orgMembers[member.ID] = member
+	s.orgMembers[member.OrganizationID+":"+member.UserID] = member
+	return &member, nil
+}
+
+func (s *MemoryStore) ListOrgMembers(ctx context.Context, organizationID string) ([]domain.OrgMember, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	seen := make(map[string]bool)
+	var res []domain.OrgMember
+	for _, m := range s.orgMembers {
+		if m.OrganizationID == organizationID && !seen[m.ID] {
+			seen[m.ID] = true
+			res = append(res, m)
+		}
+	}
+	return res, nil
+}
+
+func (s *MemoryStore) ListUserOrganizations(ctx context.Context, userID string) ([]domain.Organization, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	userOrgIDs := make(map[string]bool)
+	for _, m := range s.orgMembers {
+		if m.UserID == userID {
+			userOrgIDs[m.OrganizationID] = true
+		}
+	}
+
+	user, userExists := s.users[userID]
+	if userExists && user.Role == domain.RoleAdmin {
+		var allOrgs []domain.Organization
+		seen := make(map[string]bool)
+		for _, o := range s.orgs {
+			if !seen[o.ID] {
+				seen[o.ID] = true
+				allOrgs = append(allOrgs, o)
+			}
+		}
+		if len(allOrgs) > 0 {
+			return allOrgs, nil
+		}
+	}
+
+	seen := make(map[string]bool)
+	var res []domain.Organization
+	for _, o := range s.orgs {
+		if (userOrgIDs[o.ID] || (userExists && strings.Contains(o.Slug, domain.Slugify(user.Name)))) && !seen[o.ID] {
+			seen[o.ID] = true
+			res = append(res, o)
+		}
+	}
+	return res, nil
+}
+
+func (s *MemoryStore) CreateOrgInvitation(ctx context.Context, inv domain.OrgInvitation) (*domain.OrgInvitation, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if inv.ID == "" {
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		inv.ID = fmt.Sprintf("inv_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
+	}
+	if inv.Token == "" {
+		b := make([]byte, 16)
+		_, _ = rand.Read(b)
+		inv.Token = "inv_" + hex.EncodeToString(b)
+	}
+	now := time.Now().UTC()
+	if inv.CreatedAt.IsZero() {
+		inv.CreatedAt = now
+	}
+	if inv.ExpiresAt.IsZero() {
+		inv.ExpiresAt = now.Add(7 * 24 * time.Hour)
+	}
+	if inv.Role == "" {
+		inv.Role = "developer"
+	}
+
+	s.orgInvitations[inv.Token] = inv
+	s.orgInvitations[inv.ID] = inv
+	return &inv, nil
+}
+
+func (s *MemoryStore) GetOrgInvitation(ctx context.Context, token string) (*domain.OrgInvitation, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	inv, exists := s.orgInvitations[token]
+	if !exists {
+		return nil, fmt.Errorf("invitation not found")
+	}
+	if inv.IsExpired() {
+		return nil, fmt.Errorf("invitation has expired")
+	}
+	invCopy := inv
+	return &invCopy, nil
+}
+
+func (s *MemoryStore) AcceptOrgInvitation(ctx context.Context, token, userID string) (*domain.OrgMember, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	inv, exists := s.orgInvitations[token]
+	if !exists {
+		return nil, fmt.Errorf("invitation not found")
+	}
+	if inv.IsExpired() {
+		return nil, fmt.Errorf("invitation has expired")
+	}
+	if inv.IsAccepted() {
+		return nil, fmt.Errorf("invitation already accepted")
+	}
+
+	now := time.Now().UTC()
+	inv.AcceptedAt = &now
+	s.orgInvitations[token] = inv
+	s.orgInvitations[inv.ID] = inv
+
+	b := make([]byte, 4)
+	_, _ = rand.Read(b)
+	member := domain.OrgMember{
+		ID:             fmt.Sprintf("mem_%d_%s", now.UnixNano(), hex.EncodeToString(b)),
+		OrganizationID: inv.OrganizationID,
+		UserID:         userID,
+		Role:           inv.Role,
+		CreatedAt:      now,
+	}
+
+	s.orgMembers[member.ID] = member
+	s.orgMembers[member.OrganizationID+":"+member.UserID] = member
+	return &member, nil
+}
+
+func (s *MemoryStore) ListOrgInvitations(ctx context.Context, organizationID string) ([]domain.OrgInvitation, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	seen := make(map[string]bool)
+	var res []domain.OrgInvitation
+	for _, inv := range s.orgInvitations {
+		if inv.OrganizationID == organizationID && !seen[inv.ID] {
+			seen[inv.ID] = true
+			res = append(res, inv)
 		}
 	}
 	return res, nil

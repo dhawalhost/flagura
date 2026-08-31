@@ -169,6 +169,50 @@ func TestAnalyzeExperiment(t *testing.T) {
 	}
 }
 
+func TestStats_EdgeCases(t *testing.T) {
+	// 1. Zero exposures in ComputeVariantBinaryStats
+	zeroStats := ComputeVariantBinaryStats("zero", 0, 0)
+	if zeroStats.Exposures != 0 || zeroStats.ConversionRate != 0 {
+		t.Errorf("expected zero stats for 0 exposures")
+	}
+
+	// 2. Statistically significant losing treatment
+	ctrlWinning := ComputeVariantBinaryStats("control", 1000, 250)
+	treatLosing := ComputeVariantBinaryStats("treatment", 1000, 100)
+	compLosing := CompareBinaryVariants(ctrlWinning, treatLosing)
+	if compLosing.Status != domain.ExpStatusLosing || !compLosing.IsSignificant95 {
+		t.Errorf("expected losing status for underperforming variant, got %s", compLosing.Status)
+	}
+
+	// 3. No variance (sePool == 0)
+	ctrlZero := ComputeVariantBinaryStats("control", 100, 0)
+	treatZero := ComputeVariantBinaryStats("treatment", 100, 0)
+	compZero := CompareBinaryVariants(ctrlZero, treatZero)
+	if compZero.Status != domain.ExpStatusInconclusive {
+		t.Errorf("expected inconclusive for 0 conversions, got %s", compZero.Status)
+	}
+
+	// 4. Inconclusive variant
+	ctrlInc := ComputeVariantBinaryStats("control", 100, 10)
+	treatInc := ComputeVariantBinaryStats("treatment", 100, 11)
+	compInc := CompareBinaryVariants(ctrlInc, treatInc)
+	if compInc.Status != domain.ExpStatusInconclusive {
+		t.Errorf("expected inconclusive for similar small sample, got %s", compInc.Status)
+	}
+
+	// 5. AnalyzeExperiment with default controlVariant and filtered events
+	events := []domain.ExperimentEvent{
+		{FlagKey: "other-flag", MetricName: "signup", Variant: "control", Value: 1.0},
+		{FlagKey: "test-flag", MetricName: "other-metric", Variant: "control", Value: 1.0},
+		{FlagKey: "test-flag", MetricName: "signup", Environment: domain.EnvStaging, Variant: "control", Value: 1.0},
+		{FlagKey: "test-flag", MetricName: "signup", Environment: domain.EnvProduction, Variant: "control", Value: 1.0},
+	}
+	rep := AnalyzeExperiment("test-flag", "signup", domain.EventTypeConversion, domain.EnvProduction, "", map[string]int64{"control": 10}, events)
+	if rep.TotalEvents != 1 {
+		t.Errorf("expected 1 matching event, got %d", rep.TotalEvents)
+	}
+}
+
 func BenchmarkAnalyzeExperiment(b *testing.B) {
 	exposures := map[string]int64{"control": 10000, "treatment": 10000}
 	var events []domain.ExperimentEvent

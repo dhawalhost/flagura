@@ -187,7 +187,7 @@ templ BentoOverview(flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry
 										x-text="enabled ? 'ACTIVE (ON)' : 'DISABLED (OFF)'"
 									></button>
 									<button
-										@click.stop={ fmt.Sprintf("openEditFlagEditor('%s', '%s', '%s', '%s', '%s');", f.ID, f.Key, f.Name, f.Description, f.Type) }
+										@click.stop={ fmt.Sprintf("openEditFlagEditor('%s');", f.Key) }
 										class="text-xs text-slate-600 hover:text-blue-600 font-semibold flex items-center gap-1 transition-colors cursor-pointer"
 									>
 										<span>Edit</span>
@@ -231,6 +231,24 @@ templ BentoOverview(flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry
 									</div>
 								</div>
 							</template>
+						</div>
+					}
+					if len(flags) == 0 {
+						<div class="p-8 text-center space-y-3 rounded-2xl bg-slate-50/70 border border-dashed border-slate-200">
+							<div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center mx-auto">
+								<i data-lucide="flag" class="w-5 h-5"></i>
+							</div>
+							<div class="space-y-0.5">
+								<div class="text-sm font-bold text-slate-800">No flags in this project yet</div>
+								<p class="text-xs text-slate-500">Create your first flag to start serving features.</p>
+							</div>
+							<button
+								@click="openNewFlagEditor()"
+								class="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md shadow-blue-600/20 cursor-pointer"
+							>
+								<i data-lucide="plus" class="w-3.5 h-3.5"></i>
+								<span>Create Flag</span>
+							</button>
 						</div>
 					}
 				</div>

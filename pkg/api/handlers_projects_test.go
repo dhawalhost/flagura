@@ -59,8 +59,8 @@ func TestProjectsAPI_EndpointsAndIsolation(t *testing.T) {
 		Count         int                   `json:"count"`
 	}
 	_ = json.Unmarshal(rr.Body.Bytes(), &orgsResp)
-	if orgsResp.Count == 0 {
-		t.Fatalf("Expected default organization to be listed, got 0")
+	if orgsResp.Count != 0 {
+		t.Fatalf("Expected 0 organizations initially, got %d", orgsResp.Count)
 	}
 
 	// 3. POST /api/v1/organizations (Create new org)

@@ -253,7 +253,7 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 
 								<!-- Edit Flag -->
 								<button
-									@click={ fmt.Sprintf("openEditFlagEditor('%s', '%s', '%s', '%s', '%s');", f.ID, f.Key, f.Name, f.Description, f.Type) }
+									@click={ fmt.Sprintf("openEditFlagEditor('%s');", f.Key) }
 									class="p-2.5 h-9 w-9 flex items-center justify-center text-slate-700 hover:bg-slate-100 rounded-xl border border-slate-200 bg-white transition cursor-pointer"
 									title="Edit targeting rules & config"
 								>
@@ -274,5 +274,24 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 				</div>
 			}
 		</div>
+
+		if len(flags) == 0 {
+			<div class="console-card p-12 text-center space-y-4">
+				<div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center mx-auto">
+					<i data-lucide="flag" class="w-6 h-6"></i>
+				</div>
+				<div class="space-y-1">
+					<h3 class="text-base font-bold text-slate-900 font-display">No Feature Flags Yet</h3>
+					<p class="text-xs text-slate-500 max-w-sm mx-auto">Create your first flag to start toggling features and controlling gradual rollouts.</p>
+				</div>
+				<button
+					@click="openNewFlagEditor()"
+					class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md shadow-blue-600/25 cursor-pointer"
+				>
+					<i data-lucide="plus" class="h-3.5 w-3.5 stroke-[2.5]"></i>
+					<span>Create Feature Flag</span>
+				</button>
+			</div>
+		}
 	</div>
 }

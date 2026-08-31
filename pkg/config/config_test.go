@@ -56,6 +56,20 @@ func TestLoad(t *testing.T) {
 			expectedRPS:  100.0,
 			expectedEnv:  domain.EnvDevelopment,
 		},
+		{
+			name: "Error log level, custom burst, and text format",
+			envSetup: map[string]string{
+				"PORT":                    "5000",
+				"FLAGURA_LOG_LEVEL":       "ERROR",
+				"FLAGURA_RATE_LIMIT_BURST": "500",
+				"FLAGURA_LOG_FORMAT":      "text",
+				"HOST":                    "127.0.0.1",
+			},
+			expectedPort: "5000",
+			expectedLog:  slog.LevelError,
+			expectedRPS:  100.0,
+			expectedEnv:  domain.EnvProduction,
+		},
 	}
 
 	for _, tt := range tests {
@@ -67,6 +81,11 @@ func TestLoad(t *testing.T) {
 					os.Setenv(k, v)
 				}
 			}
+			defer func() {
+				for k := range tt.envSetup {
+					os.Unsetenv(k)
+				}
+			}()
 
 			cfg, err := Load()
 			if err != nil {
@@ -119,6 +138,15 @@ func TestConfig_Validate(t *testing.T) {
 				ServerPort:     "3000",
 				RateLimitRPS:   0,
 				RateLimitBurst: 200,
+			},
+			expectError: true,
+		},
+		{
+			name: "Zero or negative rate limit Burst",
+			cfg: Config{
+				ServerPort:     "3000",
+				RateLimitRPS:   100,
+				RateLimitBurst: 0,
 			},
 			expectError: true,
 		},

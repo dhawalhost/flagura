@@ -152,19 +152,25 @@ func (s *Server) handleSwitchActiveProject(w http.ResponseWriter, r *http.Reques
 	}
 
 	var req struct {
-		ProjectID string `json:"project_id"`
+		ProjectID      string `json:"project_id"`
+		ProjectIDCamel string `json:"projectId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
 		return
 	}
 
-	if req.ProjectID == "" {
-		req.ProjectID = domain.DefaultProjectID
+	pid := req.ProjectID
+	if pid == "" {
+		pid = req.ProjectIDCamel
+	}
+
+	if pid == "" {
+		pid = domain.DefaultProjectID
 	}
 
 	// Verify project exists
-	proj, err := s.store.GetProject(r.Context(), req.ProjectID)
+	proj, err := s.store.GetProject(r.Context(), pid)
 	if err != nil {
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectNotFound, "project not found: "+req.ProjectID, http.StatusNotFound, domain.ErrProjectNotFound))
 		return

@@ -332,3 +332,62 @@ func TestSDKFunctionalOptionsAndLogger(t *testing.T) {
 	}
 }
 
+func TestSDKAllOptionsAndBatchLocalEvaluation(t *testing.T) {
+	ts := mockServer(t)
+	defer ts.Close()
+
+	customHTTP := &http.Client{Timeout: 5 * time.Second}
+	var updateNotified bool
+
+	c := New(
+		ts.URL,
+		WithHTTPClient(customHTTP),
+		WithDisabledCircuitBreaker(),
+		WithDisabledTelemetry(),
+		WithTelemetryFlushInterval(10*time.Millisecond),
+		WithLocalEvaluation(50*time.Millisecond),
+	)
+	defer c.Close()
+
+	c.RegisterUpdateListener(func(flags map[string]domain.FeatureFlag, changedKeys []string) {
+		updateNotified = true
+	})
+
+	if c.CircuitBreakerState() != StateClosed {
+		t.Errorf("expected circuit breaker state CLOSED, got %s", c.CircuitBreakerState())
+	}
+
+	// Wait for local cache sync
+	time.Sleep(100 * time.Millisecond)
+
+	// Test EvaluateBatch using local evaluator
+	ctx := context.Background()
+	results, err := c.EvaluateBatch(ctx, []string{"ai-smart-search", "beta-dark-theme", "missing-flag"}, Context{UserID: "usr_batch_01"})
+	if err != nil {
+		t.Fatalf("unexpected EvaluateBatch error: %v", err)
+	}
+	if len(results) != 3 {
+		t.Errorf("expected 3 results, got %d", len(results))
+	}
+	if !results["ai-smart-search"].Enabled {
+		t.Errorf("expected ai-smart-search enabled")
+	}
+	if results["missing-flag"].Enabled {
+		t.Errorf("expected missing-flag disabled")
+	}
+
+	// Test Track
+	if err := c.Track(ctx, "ai-smart-search", "treatment", "signup_event", 1.0, "usr_01"); err != nil {
+		t.Errorf("expected nil error on Track, got %v", err)
+	}
+
+	// Test nopLogger methods
+	nopLog := &nopLogger{}
+	nopLog.Debugf("debug %s", "msg")
+	nopLog.Infof("info %s", "msg")
+	nopLog.Warnf("warn %s", "msg")
+	nopLog.Errorf("error %s", "msg")
+
+	_ = updateNotified
+}
+

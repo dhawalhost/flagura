@@ -255,6 +255,8 @@ func TestForgotPasswordAndResetFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
 	}
+	u := domain.NewUser("dhawal@flagura.dev", "Dhawal", "hashed_pwd", domain.RoleDeveloper)
+	_, _ = memStore.CreateUser(context.Background(), u)
 
 	forgotPayload := domain.ForgotPasswordRequest{
 		Email: "dhawal@flagura.dev",

@@ -655,3 +655,134 @@ func (s *Server) handlePromoteEnvironment(w http.ResponseWriter, r *http.Request
 		"audit":    auditLog,
 	})
 }
+
+func (s *Server) handleInvitations(w http.ResponseWriter, r *http.Request) {
+	user, err := s.getUserFromRequest(r)
+	if err != nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeUnauthorized, "Unauthorized", http.StatusUnauthorized, err))
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		orgID := r.URL.Query().Get("organization_id")
+		if orgID == "" {
+			orgs, _ := s.store.ListUserOrganizations(r.Context(), user.ID)
+			if len(orgs) > 0 {
+				orgID = orgs[0].ID
+			}
+		}
+		invitations, err := s.store.ListOrgInvitations(r.Context(), orgID)
+		if err != nil {
+			s.writeError(w, r, domain.NewAppError(domain.ErrCodeInternal, err.Error(), http.StatusInternalServerError, err))
+			return
+		}
+		s.writeJSON(w, http.StatusOK, map[string]interface{}{
+			"invitations": invitations,
+		})
+
+	case http.MethodPost:
+		var req struct {
+			OrganizationID string `json:"organization_id"`
+			Email          string `json:"email"`
+			Role           string `json:"role"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
+			return
+		}
+
+		if req.OrganizationID == "" {
+			orgs, _ := s.store.ListUserOrganizations(r.Context(), user.ID)
+			if len(orgs) > 0 {
+				req.OrganizationID = orgs[0].ID
+			}
+		}
+		if req.Role == "" {
+			req.Role = "developer"
+		}
+
+		org, err := s.store.GetOrganization(r.Context(), req.OrganizationID)
+		if err != nil {
+			s.writeError(w, r, domain.NewAppError(domain.ErrCodeNotFound, "Organization not found", http.StatusNotFound, err))
+			return
+		}
+
+		inv := domain.OrgInvitation{
+			OrganizationID: org.ID,
+			OrgName:        org.Name,
+			Email:          strings.TrimSpace(strings.ToLower(req.Email)),
+			Role:           req.Role,
+			InvitedBy:      user.Email,
+		}
+
+		createdInv, err := s.store.CreateOrgInvitation(r.Context(), inv)
+		if err != nil {
+			s.writeError(w, r, domain.NewAppError(domain.ErrCodeInternal, err.Error(), http.StatusInternalServerError, err))
+			return
+		}
+
+		s.writeJSON(w, http.StatusCreated, map[string]interface{}{
+			"invitation": createdInv,
+			"invite_url": fmt.Sprintf("/auth?invite=%s", createdInv.Token),
+		})
+
+	default:
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleGetInvitationByToken(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 4 {
+		http.Error(w, "invalid invitation token path", http.StatusBadRequest)
+		return
+	}
+	token := parts[len(parts)-1]
+	inv, err := s.store.GetOrgInvitation(r.Context(), token)
+	if err != nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeNotFound, err.Error(), http.StatusNotFound, err))
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"invitation": inv,
+	})
+}
+
+func (s *Server) handleAcceptInvitation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, err := s.getUserFromRequest(r)
+	if err != nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeUnauthorized, "Unauthorized", http.StatusUnauthorized, err))
+		return
+	}
+
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
+		return
+	}
+
+	member, err := s.store.AcceptOrgInvitation(r.Context(), req.Token, user.ID)
+	if err != nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeNotFound, err.Error(), http.StatusNotFound, err))
+		return
+	}
+
+	// Switch active project to accepted org's project
+	if projs, err := s.store.ListProjects(r.Context(), member.OrganizationID); err == nil && len(projs) > 0 {
+		s.setProjectCookie(w, r, projs[0].ID, time.Now().Add(7*24*time.Hour))
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"member":  member,
+		"message": "Invitation accepted successfully",
+	})
+}

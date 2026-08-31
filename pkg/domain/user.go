@@ -28,10 +28,11 @@ func (s *Session) IsExpired() bool {
 }
 
 type SignUpRequest struct {
-	Name     string   `json:"name"`
-	Email    string   `json:"email"`
-	Password string   `json:"password"`
-	Role     UserRole `json:"role"`
+	Name        string   `json:"name"`
+	Email       string   `json:"email"`
+	Password    string   `json:"password"`
+	Role        UserRole `json:"role"`
+	InviteToken string   `json:"inviteToken,omitempty"`
 }
 
 type LoginRequest struct {

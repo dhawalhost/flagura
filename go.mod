@@ -12,4 +12,7 @@ require (
 	golang.org/x/time v0.15.0
 )
 
-require go.uber.org/mock v0.6.0 // indirect
+require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2 // indirect
+	go.uber.org/mock v0.6.0 // indirect
+)

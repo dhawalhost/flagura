@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/web/views"
 )
 
@@ -59,9 +60,38 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 	projectID := s.resolveProjectID(r)
 
-	// Fetch projects and orgs for selector
-	orgs, _ := s.store.ListOrganizations(r.Context())
-	projects, _ := s.store.ListProjects(r.Context(), "")
+	// Fetch user's organizations and associated projects
+	orgs, _ := s.store.ListUserOrganizations(r.Context(), user.ID)
+	if len(orgs) == 0 {
+		allOrgs, _ := s.store.ListOrganizations(r.Context())
+		if len(allOrgs) > 0 {
+			orgs = allOrgs
+		}
+	}
+
+	var projects []domain.Project
+	if len(orgs) > 0 {
+		for _, org := range orgs {
+			if projs, err := s.store.ListProjects(r.Context(), org.ID); err == nil {
+				projects = append(projects, projs...)
+			}
+		}
+	} else {
+		projects, _ = s.store.ListProjects(r.Context(), "")
+	}
+
+	if len(projects) > 0 {
+		found := false
+		for _, p := range projects {
+			if p.ID == projectID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			projectID = projects[0].ID
+		}
+	}
 
 	flags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil {

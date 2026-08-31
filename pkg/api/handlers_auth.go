@@ -258,19 +258,42 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Provision dedicated multi-tenant Organization for the new user
-	orgName := fmt.Sprintf("%s's Workspace", createdUser.Name)
-	orgSlug := fmt.Sprintf("%s-%s", domain.Slugify(createdUser.Name), createdUser.ID[len(createdUser.ID)-4:])
-	userOrg := domain.NewOrganization(orgName, orgSlug, "Dedicated workspace for "+createdUser.Name)
-	createdOrg, _ := s.store.CreateOrganization(r.Context(), userOrg)
-
-	// Provision default Project within the newly created Organization
-	orgID := domain.DefaultOrgID
-	if createdOrg != nil && createdOrg.ID != "" {
-		orgID = createdOrg.ID
+	var activeProjID string
+	if req.InviteToken != "" {
+		if inv, err := s.store.GetOrgInvitation(r.Context(), req.InviteToken); err == nil && inv != nil {
+			_, _ = s.store.AcceptOrgInvitation(r.Context(), req.InviteToken, createdUser.ID)
+			if projs, err := s.store.ListProjects(r.Context(), inv.OrganizationID); err == nil && len(projs) > 0 {
+				activeProjID = projs[0].ID
+			}
+		}
 	}
-	userProj := domain.NewProject(orgID, domain.DefaultProjectName, domain.DefaultProjectSlug, "Default production feature flag scope")
-	createdProj, _ := s.store.CreateProject(r.Context(), userProj)
+
+	if activeProjID == "" {
+		// Provision dedicated multi-tenant Organization for the new user
+		orgName := fmt.Sprintf("%s's Workspace", createdUser.Name)
+		orgSlug := fmt.Sprintf("%s-%s", domain.Slugify(createdUser.Name), createdUser.ID[len(createdUser.ID)-4:])
+		userOrg := domain.NewOrganization(orgName, orgSlug, "Dedicated workspace for "+createdUser.Name)
+		createdOrg, _ := s.store.CreateOrganization(r.Context(), userOrg)
+
+		orgID := "org_" + createdUser.ID
+		if createdOrg != nil && createdOrg.ID != "" {
+			orgID = createdOrg.ID
+		}
+		// Register user as workspace owner
+		_, _ = s.store.CreateOrgMember(r.Context(), domain.OrgMember{
+			OrganizationID: orgID,
+			UserID:         createdUser.ID,
+			Role:           "owner",
+		})
+
+		// Provision default Project within the newly created Organization
+		userProjSlug := fmt.Sprintf("prod-%s", createdUser.ID[len(createdUser.ID)-4:])
+		userProj := domain.NewProject(orgID, "Production Flags", userProjSlug, "Production feature flags scope for "+createdUser.Name)
+		createdProj, _ := s.store.CreateProject(r.Context(), userProj)
+		if createdProj != nil && createdProj.ID != "" {
+			activeProjID = createdProj.ID
+		}
+	}
 
 	// Create session token (expires in 7 days)
 	token, err := generateSessionToken()
@@ -293,8 +316,8 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 	s.setSessionCookie(w, r, token, expiresAt)
 
 	// Set active project cookie to user's freshly provisioned unique project
-	if createdProj != nil && createdProj.ID != "" {
-		s.setProjectCookie(w, r, createdProj.ID, expiresAt)
+	if activeProjID != "" {
+		s.setProjectCookie(w, r, activeProjID, expiresAt)
 	}
 
 	// Send welcome email in background if email service is active
@@ -364,6 +387,16 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.setSessionCookie(w, r, token, expiresAt)
+
+	// Set active project cookie if user has a scoped organization/project
+	if orgs, err := s.store.ListUserOrganizations(r.Context(), user.ID); err == nil && len(orgs) > 0 {
+		for _, org := range orgs {
+			if projs, err := s.store.ListProjects(r.Context(), org.ID); err == nil && len(projs) > 0 {
+				s.setProjectCookie(w, r, projs[0].ID, expiresAt)
+				break
+			}
+		}
+	}
 
 	s.writeJSON(w, http.StatusOK, domain.AuthResponse{
 		User:    user,

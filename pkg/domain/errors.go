@@ -151,6 +151,8 @@ func (c ErrorCode) String() string {
 		return "INVALID_ROLLOUT"
 	case ErrCodeEvaluationMissingCtx:
 		return "EVALUATION_MISSING_CONTEXT"
+	case ErrCodeNotFound:
+		return "NOT_FOUND"
 	case ErrCodeChangeRequestNotFound:
 		return "CHANGE_REQUEST_NOT_FOUND"
 	case ErrCodeFourEyesSelfApproval:

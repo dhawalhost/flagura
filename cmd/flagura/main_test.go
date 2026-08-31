@@ -19,6 +19,10 @@ func TestCLIApiInteraction(t *testing.T) {
 		Name: "CLI Feature Flag",
 		Type: "boolean",
 		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvStaging: {
+				Enabled:    true,
+				Percentage: 100,
+			},
 			domain.EnvProduction: {
 				Enabled:    true,
 				Strategy:   domain.StrategyPercentage,
@@ -82,11 +86,61 @@ func TestCLIApiInteraction(t *testing.T) {
 		},
 	})
 	apiKey = sessionToken
-
 	// Test API Key CLI creation and listing
 	jsonOut = true
 	runAPIKey("create", []string{"create"}, "Test CLI Key", "developer")
 	runAPIKey("list", []string{"list"}, "", "")
 	jsonOut = false
+
+	// Test CLI runner functions
+	runList()
+	jsonOut = true
+	runList()
+	jsonOut = false
+
+	runGet("cli-feature")
+	jsonOut = true
+	runGet("cli-feature")
+	jsonOut = false
+
+	runToggle("cli-feature")
+	jsonOut = true
+	runToggle("cli-feature")
+	jsonOut = false
+
+	runRollout("cli-feature", 75.0)
+	jsonOut = true
+	runRollout("cli-feature", 75.0)
+	jsonOut = false
+
+	runEvaluate("cli-feature", "usr_10", "usr_10@test.com", true)
+	jsonOut = true
+	runEvaluate("cli-feature", "usr_10", "usr_10@test.com", false)
+	jsonOut = false
+
+	runPromote("cli-feature", "staging", "production")
+	jsonOut = true
+	runPromote("cli-feature", "staging", "production")
+	jsonOut = false
+
+	runCanary("cli-feature", "10%:1m,50%:5m,100%:0s", false)
+	jsonOut = true
+	runCanary("cli-feature", "10%:1m,50%:5m,100%:0s", false)
+	jsonOut = false
+
+	runCanary("cli-feature", "", true)
+
+	runChangeRequest("list", []string{"list"}, "", "")
+	jsonOut = true
+	runChangeRequest("list", []string{"list"}, "", "")
+	jsonOut = false
+
+	runExperiment("cli-feature", "conversion", "control")
+	jsonOut = true
+	runExperiment("cli-feature", "conversion", "control")
+	jsonOut = false
+
+	runHealth()
+	printHelp()
 }
 

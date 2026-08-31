@@ -21,6 +21,15 @@ type Store interface {
 	CreateOrganization(ctx context.Context, org domain.Organization) (*domain.Organization, error)
 	GetOrganization(ctx context.Context, idOrSlug string) (*domain.Organization, error)
 	ListOrganizations(ctx context.Context) ([]domain.Organization, error)
+	ListUserOrganizations(ctx context.Context, userID string) ([]domain.Organization, error)
+
+	CreateOrgMember(ctx context.Context, member domain.OrgMember) (*domain.OrgMember, error)
+	ListOrgMembers(ctx context.Context, organizationID string) ([]domain.OrgMember, error)
+
+	CreateOrgInvitation(ctx context.Context, inv domain.OrgInvitation) (*domain.OrgInvitation, error)
+	GetOrgInvitation(ctx context.Context, token string) (*domain.OrgInvitation, error)
+	AcceptOrgInvitation(ctx context.Context, token, userID string) (*domain.OrgMember, error)
+	ListOrgInvitations(ctx context.Context, organizationID string) ([]domain.OrgInvitation, error)
 
 	CreateProject(ctx context.Context, project domain.Project) (*domain.Project, error)
 	GetProject(ctx context.Context, idOrSlug string) (*domain.Project, error)

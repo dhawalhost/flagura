@@ -1,4 +1,4 @@
-package openfeature_test
+package openfeature
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/dhawalhost/flagura/pkg/client"
 	"github.com/dhawalhost/flagura/pkg/domain"
-	flaguraOF "github.com/dhawalhost/flagura/pkg/openfeature"
 	of "github.com/open-feature/go-sdk/openfeature"
 )
 
@@ -151,11 +150,16 @@ func TestOpenFeatureProvider(t *testing.T) {
 	defer ts.Close()
 
 	flaguraClient := client.New(ts.URL)
-	provider := flaguraOF.NewProvider(flaguraClient)
+	provider := NewProvider(flaguraClient)
 
 	if provider.Metadata().Name != "flagura-go-provider" {
 		t.Fatalf("expected metadata name 'flagura-go-provider', got '%s'", provider.Metadata().Name)
 	}
+	if len(provider.Hooks()) != 0 {
+		t.Fatalf("expected empty hooks")
+	}
+
+	provider.Shutdown()
 
 	err := of.SetProviderAndWait(provider)
 	if err != nil {
@@ -168,8 +172,12 @@ func TestOpenFeatureProvider(t *testing.T) {
 	evalCtx := of.NewEvaluationContext(
 		"user_12345",
 		map[string]interface{}{
-			"email": "dev@company.com",
-			"tier":  "enterprise",
+			"email":       "dev@company.com",
+			"tier":        "enterprise",
+			"country":     "US",
+			"role":        "admin",
+			"environment": "production",
+			"custom_attr": "value",
 		},
 	)
 
@@ -215,6 +223,15 @@ func TestOpenFeatureProvider(t *testing.T) {
 				},
 			},
 			{
+				name: "Object evaluation",
+				testFunc: func(t *testing.T) {
+					objVal, err := ofClient.ObjectValue(ctx, "banner-title", "Default", evalCtx)
+					if err != nil || objVal != "Welcome to Flagura!" {
+						t.Fatalf("expected ObjectValue 'Welcome to Flagura!', got %v (err: %v)", objVal, err)
+					}
+				},
+			},
+			{
 				name: "Detailed evaluation metadata",
 				testFunc: func(t *testing.T) {
 					boolDetails, err := ofClient.BooleanValueDetails(ctx, "ai-smart-search", false, evalCtx)
@@ -247,7 +264,7 @@ func TestOpenFeatureEventHandling(t *testing.T) {
 	flaguraClient := client.New(ts.URL, client.WithLocalEvaluation(50*time.Millisecond))
 	defer flaguraClient.Close()
 
-	provider := flaguraOF.NewProvider(flaguraClient)
+	provider := NewProvider(flaguraClient)
 	_ = of.SetProviderAndWait(provider)
 
 	ofClient := of.NewClient("event-test-app")
@@ -262,14 +279,185 @@ func TestOpenFeatureEventHandling(t *testing.T) {
 
 	ofClient.AddHandler(of.ProviderConfigChange, &fn)
 
-	// Wait for background sync to emit configuration change event
 	select {
 	case <-receivedEvent:
-		// Succeeded in receiving ProviderConfigChange event
 	case <-time.After(300 * time.Millisecond):
-		// Timeout is acceptable in fast unit testing, but provider channel must be active
 		if provider.EventChannel() == nil {
 			t.Fatalf("expected active event channel on provider")
 		}
+	}
+}
+
+func TestTypeConverters_Exhaustive(t *testing.T) {
+	// toFloat64
+	f1, _ := toFloat64(float64(3.14))
+	f2, _ := toFloat64(float32(3.14))
+	f3, _ := toFloat64(int(42))
+	f4, _ := toFloat64(int64(42))
+	f5, _ := toFloat64(int32(42))
+	f6, _ := toFloat64("3.14")
+	_, errF := toFloat64([]string{"bad"})
+
+	if f1 <= 0 || f2 <= 0 || f3 != 42 || f4 != 42 || f5 != 42 || f6 <= 0 || errF == nil {
+		t.Errorf("unexpected toFloat64 conversion results")
+	}
+
+	// toInt64
+	i1, _ := toInt64(int64(100))
+	i2, _ := toInt64(int(100))
+	i3, _ := toInt64(int32(100))
+	i4, _ := toInt64(float64(100))
+	i5, _ := toInt64("100")
+	_, errI := toInt64([]string{"bad"})
+
+	if i1 != 100 || i2 != 100 || i3 != 100 || i4 != 100 || i5 != 100 || errI == nil {
+		t.Errorf("unexpected toInt64 conversion results")
+	}
+}
+
+func TestMapReason_AllVariants(t *testing.T) {
+	reasons := []string{
+		"DISABLED",
+		"TARGETING_MATCH",
+		"PERCENTAGE_ROLLOUT_MATCH",
+		"MULTIVARIATE_VARIANT_MATCH",
+		"DEFAULT_VARIANT",
+		"UNKNOWN_REASON",
+	}
+
+	for _, r := range reasons {
+		res := mapReason(r)
+		if res == "" {
+			t.Errorf("expected non-empty reason for %s", r)
+		}
+	}
+}
+
+func TestDirectProviderEvaluations_AllBranches(t *testing.T) {
+	// Server with disabled flag and malformed values
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var req struct {
+			Flags []string `json:"flags"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+
+		results := make(map[string]client.EvaluationResult)
+		for _, f := range req.Flags {
+			switch f {
+			case "disabled-flag":
+				results[f] = client.EvaluationResult{
+					FlagKey: f,
+					Enabled: false,
+					Variant: "off",
+					Reason:  "disabled",
+				}
+			case "bad-type-flag":
+				results[f] = client.EvaluationResult{
+					FlagKey: f,
+					Enabled: true,
+					Variant: "bad",
+					Value:   "not-a-number",
+					Reason:  "default_enabled",
+				}
+			case "string-bool-flag":
+				results[f] = client.EvaluationResult{
+					FlagKey: f,
+					Enabled: true,
+					Variant: "on",
+					Value:   "true",
+					Reason:  "default_enabled",
+				}
+			case "nil-value-flag":
+				results[f] = client.EvaluationResult{
+					FlagKey: f,
+					Enabled: true,
+					Variant: "default",
+					Value:   nil,
+					Reason:  "default_enabled",
+				}
+			default:
+				results[f] = client.EvaluationResult{
+					FlagKey: f,
+					Enabled: false,
+					Reason:  "flag_not_found",
+				}
+			}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"results": results})
+	}))
+	defer server.Close()
+
+	flaguraClient := client.New(server.URL)
+	provider := NewProvider(flaguraClient)
+	ctx := context.Background()
+
+	// 1. Boolean evaluations
+	bDis := provider.BooleanEvaluation(ctx, "disabled-flag", false, nil)
+	if bDis.Reason != of.DisabledReason {
+		t.Errorf("expected DisabledReason for disabled flag, got %s", bDis.Reason)
+	}
+	bStr := provider.BooleanEvaluation(ctx, "string-bool-flag", false, nil)
+	if !bStr.Value {
+		t.Errorf("expected string bool parsed to true")
+	}
+
+	// 2. String evaluations
+	sDis := provider.StringEvaluation(ctx, "disabled-flag", "fallback", nil)
+	if sDis.Reason != of.DisabledReason {
+		t.Errorf("expected DisabledReason for disabled flag, got %s", sDis.Reason)
+	}
+
+	// 3. Float evaluations
+	fDis := provider.FloatEvaluation(ctx, "disabled-flag", 0.0, nil)
+	if fDis.Reason != of.DisabledReason {
+		t.Errorf("expected DisabledReason for disabled flag, got %s", fDis.Reason)
+	}
+	fBad := provider.FloatEvaluation(ctx, "bad-type-flag", 9.9, nil)
+	if fBad.Reason != of.ErrorReason {
+		t.Errorf("expected ErrorReason on type mismatch")
+	}
+
+	// 4. Int evaluations
+	iDis := provider.IntEvaluation(ctx, "disabled-flag", 0, nil)
+	if iDis.Reason != of.DisabledReason {
+		t.Errorf("expected DisabledReason for disabled flag, got %s", iDis.Reason)
+	}
+	iBad := provider.IntEvaluation(ctx, "bad-type-flag", 99, nil)
+	if iBad.Reason != of.ErrorReason {
+		t.Errorf("expected ErrorReason on type mismatch")
+	}
+
+	// 5. Object evaluations
+	oDis := provider.ObjectEvaluation(ctx, "disabled-flag", nil, nil)
+	if oDis.Reason != of.DisabledReason {
+		t.Errorf("expected DisabledReason for disabled flag, got %s", oDis.Reason)
+	}
+	oNil := provider.ObjectEvaluation(ctx, "nil-value-flag", "default_val", nil)
+	if oNil.Value != "default_val" {
+		t.Errorf("expected fallback on nil value, got %v", oNil.Value)
+	}
+
+	// 6. Network error branch (closed server)
+	server.Close()
+	bErr := provider.BooleanEvaluation(ctx, "any-flag", true, nil)
+	if bErr.Reason != of.ErrorReason {
+		t.Errorf("expected ErrorReason on closed server, got %s", bErr.Reason)
+	}
+	sErr := provider.StringEvaluation(ctx, "any-flag", "def", nil)
+	if sErr.Reason != of.ErrorReason {
+		t.Errorf("expected ErrorReason on closed server, got %s", sErr.Reason)
+	}
+	fErr := provider.FloatEvaluation(ctx, "any-flag", 1.0, nil)
+	if fErr.Reason != of.ErrorReason {
+		t.Errorf("expected ErrorReason on closed server, got %s", fErr.Reason)
+	}
+	iErr := provider.IntEvaluation(ctx, "any-flag", 1, nil)
+	if iErr.Reason != of.ErrorReason {
+		t.Errorf("expected ErrorReason on closed server, got %s", iErr.Reason)
+	}
+	oErr := provider.ObjectEvaluation(ctx, "any-flag", nil, nil)
+	if oErr.Reason != of.ErrorReason {
+		t.Errorf("expected ErrorReason on closed server, got %s", oErr.Reason)
 	}
 }

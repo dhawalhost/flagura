@@ -153,7 +153,7 @@ func (s *Server) routes() {
 		if r.Method == http.MethodGet {
 			s.handleListOrganizations(w, r)
 		} else if r.Method == http.MethodPost {
-			s.RequireRole(domain.RoleAdmin, s.handleCreateOrganization)(w, r)
+			s.handleCreateOrganization(w, r)
 		} else {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		}
@@ -170,6 +170,10 @@ func (s *Server) routes() {
 	})))
 	s.mux.HandleFunc("/api/v1/projects/active", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleSwitchActiveProject)))
 	s.mux.HandleFunc("/api/v1/projects/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetProject)))
+
+	s.mux.HandleFunc("/api/v1/invitations", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleInvitations)))
+	s.mux.HandleFunc("/api/v1/invitations/accept", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleAcceptInvitation)))
+	s.mux.HandleFunc("/api/v1/invitations/", s.apiLimiter.LimitHandler(s.handleGetInvitationByToken))
 
 	s.mux.HandleFunc("/api/v1/events", s.apiLimiter.LimitHandler(s.handleIngestEvents))
 	s.mux.HandleFunc("/api/v1/experiments/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetExperimentReport)))

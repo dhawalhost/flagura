@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/dhawalhost/flagura/pkg/domain"
 
 	"github.com/lib/pq"
@@ -103,14 +101,6 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_projects_org ON projects(organization_id);
 	CREATE INDEX IF NOT EXISTS idx_projects_slug ON projects(slug);
-
-	INSERT INTO organizations (id, name, slug, description)
-	VALUES ('org_default', 'Default Organization', 'default-org', 'Primary workspace organization')
-	ON CONFLICT (id) DO NOTHING;
-
-	INSERT INTO projects (id, organization_id, name, slug, description)
-	VALUES ('proj_default', 'org_default', 'Default Project', 'default-project', 'Primary feature flag project')
-	ON CONFLICT (id) DO NOTHING;
 
 	CREATE TABLE IF NOT EXISTS users (
 		id TEXT PRIMARY KEY,
@@ -224,6 +214,32 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	CREATE INDEX IF NOT EXISTS idx_reset_tokens_email ON password_reset_tokens(email);
 	CREATE INDEX IF NOT EXISTS idx_reset_tokens_expires ON password_reset_tokens(expires_at);
 
+	CREATE TABLE IF NOT EXISTS org_members (
+		id TEXT PRIMARY KEY,
+		organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		role TEXT NOT NULL DEFAULT 'developer',
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		UNIQUE(organization_id, user_id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_org_members_user ON org_members(user_id);
+	CREATE INDEX IF NOT EXISTS idx_org_members_org ON org_members(organization_id);
+
+	CREATE TABLE IF NOT EXISTS org_invitations (
+		id TEXT PRIMARY KEY,
+		organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+		org_name TEXT NOT NULL,
+		email TEXT NOT NULL,
+		token TEXT UNIQUE NOT NULL,
+		role TEXT NOT NULL DEFAULT 'developer',
+		invited_by TEXT NOT NULL,
+		expires_at TIMESTAMPTZ NOT NULL,
+		accepted_at TIMESTAMPTZ,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_org_invitations_token ON org_invitations(token);
+	CREATE INDEX IF NOT EXISTS idx_org_invitations_org ON org_invitations(organization_id);
+
 	-- Add project_id and environment columns to existing tables if needed
 	ALTER TABLE feature_flags ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
 	ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
@@ -235,35 +251,6 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	`
 	if _, err := s.db.ExecContext(ctx, schema); err != nil {
 		return err
-	}
-
-	// Seed default administrator if users table is empty
-	var userCount int
-	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users").Scan(&userCount); err == nil && userCount == 0 {
-		hash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
-		now := time.Now().UTC()
-		_, _ = s.db.ExecContext(ctx, `
-			INSERT INTO users (id, email, password_hash, name, role, avatar_url, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		`, "usr_admin_default", "dhawal@flagura.dev", string(hash), "Dhawal Dyavanpalli", "admin", "", now, now)
-	}
-
-	// Seed if empty
-	var count int
-	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM feature_flags").Scan(&count)
-	if err == nil && count == 0 {
-		mem := NewMemoryStore()
-		flags, _ := mem.ListFlags(ctx)
-		for _, f := range flags {
-			_, _ = s.SaveFlag(ctx, f, "system-seeder")
-		}
-		logs, _ := mem.ListAuditLogs(ctx, 10)
-		for _, l := range logs {
-			_, _ = s.db.ExecContext(ctx,
-				"INSERT INTO audit_logs (id, flag_key, action, environment, actor, details, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",
-				l.ID, l.FlagKey, l.Action, l.Environment, l.Actor, l.Details, l.Timestamp,
-			)
-		}
 	}
 
 	return nil
@@ -1411,4 +1398,198 @@ func (s *PostgresStore) ListAPIKeysByProject(ctx context.Context, projectID stri
 	}
 	return keys, nil
 }
+
+func (s *PostgresStore) CreateOrgMember(ctx context.Context, member domain.OrgMember) (*domain.OrgMember, error) {
+	if member.ID == "" {
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		member.ID = fmt.Sprintf("mem_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
+	}
+	if member.Role == "" {
+		member.Role = "developer"
+	}
+	now := time.Now().UTC()
+	if member.CreatedAt.IsZero() {
+		member.CreatedAt = now
+	}
+
+	query := `
+		INSERT INTO org_members (id, organization_id, user_id, role, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (organization_id, user_id) DO UPDATE SET role = EXCLUDED.role
+	`
+	_, err := s.db.ExecContext(ctx, query, member.ID, member.OrganizationID, member.UserID, member.Role, member.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &member, nil
+}
+
+func (s *PostgresStore) ListOrgMembers(ctx context.Context, organizationID string) ([]domain.OrgMember, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, organization_id, user_id, role, created_at
+		FROM org_members
+		WHERE organization_id = $1
+		ORDER BY created_at ASC
+	`, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var members []domain.OrgMember
+	for rows.Next() {
+		var m domain.OrgMember
+		if err := rows.Scan(&m.ID, &m.OrganizationID, &m.UserID, &m.Role, &m.CreatedAt); err != nil {
+			return nil, err
+		}
+		members = append(members, m)
+	}
+	return members, nil
+}
+
+func (s *PostgresStore) ListUserOrganizations(ctx context.Context, userID string) ([]domain.Organization, error) {
+	// First check if user is admin
+	var userRole string
+	_ = s.db.QueryRowContext(ctx, "SELECT role FROM users WHERE id = $1", userID).Scan(&userRole)
+	if userRole == string(domain.RoleAdmin) {
+		return s.ListOrganizations(ctx)
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT o.id, o.name, o.slug, o.description, o.created_at, o.updated_at
+		FROM organizations o
+		INNER JOIN org_members m ON o.id = m.organization_id
+		WHERE m.user_id = $1
+		ORDER BY o.created_at ASC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orgs []domain.Organization
+	for rows.Next() {
+		var o domain.Organization
+		if err := rows.Scan(&o.ID, &o.Name, &o.Slug, &o.Description, &o.CreatedAt, &o.UpdatedAt); err != nil {
+			return nil, err
+		}
+		orgs = append(orgs, o)
+	}
+	return orgs, nil
+}
+
+func (s *PostgresStore) CreateOrgInvitation(ctx context.Context, inv domain.OrgInvitation) (*domain.OrgInvitation, error) {
+	if inv.ID == "" {
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		inv.ID = fmt.Sprintf("inv_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
+	}
+	if inv.Token == "" {
+		b := make([]byte, 16)
+		_, _ = rand.Read(b)
+		inv.Token = "inv_" + hex.EncodeToString(b)
+	}
+	now := time.Now().UTC()
+	if inv.CreatedAt.IsZero() {
+		inv.CreatedAt = now
+	}
+	if inv.ExpiresAt.IsZero() {
+		inv.ExpiresAt = now.Add(7 * 24 * time.Hour)
+	}
+	if inv.Role == "" {
+		inv.Role = "developer"
+	}
+
+	query := `
+		INSERT INTO org_invitations (id, organization_id, org_name, email, token, role, invited_by, expires_at, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`
+	_, err := s.db.ExecContext(ctx, query, inv.ID, inv.OrganizationID, inv.OrgName, inv.Email, inv.Token, inv.Role, inv.InvitedBy, inv.ExpiresAt, inv.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &inv, nil
+}
+
+func (s *PostgresStore) GetOrgInvitation(ctx context.Context, token string) (*domain.OrgInvitation, error) {
+	var inv domain.OrgInvitation
+	var acceptedAt sql.NullTime
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, organization_id, org_name, email, token, role, invited_by, expires_at, accepted_at, created_at
+		FROM org_invitations
+		WHERE token = $1
+	`, token).Scan(&inv.ID, &inv.OrganizationID, &inv.OrgName, &inv.Email, &inv.Token, &inv.Role, &inv.InvitedBy, &inv.ExpiresAt, &acceptedAt, &inv.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("invitation not found")
+	}
+	if acceptedAt.Valid {
+		inv.AcceptedAt = &acceptedAt.Time
+	}
+	if inv.IsExpired() {
+		return nil, fmt.Errorf("invitation has expired")
+	}
+	return &inv, nil
+}
+
+func (s *PostgresStore) AcceptOrgInvitation(ctx context.Context, token, userID string) (*domain.OrgMember, error) {
+	inv, err := s.GetOrgInvitation(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	if inv.IsAccepted() {
+		return nil, fmt.Errorf("invitation already accepted")
+	}
+
+	now := time.Now().UTC()
+	_, err = s.db.ExecContext(ctx, `
+		UPDATE org_invitations SET accepted_at = $1 WHERE token = $2
+	`, now, token)
+	if err != nil {
+		return nil, err
+	}
+
+	b := make([]byte, 4)
+	_, _ = rand.Read(b)
+	member := domain.OrgMember{
+		ID:             fmt.Sprintf("mem_%d_%s", now.UnixNano(), hex.EncodeToString(b)),
+		OrganizationID: inv.OrganizationID,
+		UserID:         userID,
+		Role:           inv.Role,
+		CreatedAt:      now,
+	}
+
+	return s.CreateOrgMember(ctx, member)
+}
+
+func (s *PostgresStore) ListOrgInvitations(ctx context.Context, organizationID string) ([]domain.OrgInvitation, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, organization_id, org_name, email, token, role, invited_by, expires_at, accepted_at, created_at
+		FROM org_invitations
+		WHERE organization_id = $1
+		ORDER BY created_at DESC
+	`, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var invitations []domain.OrgInvitation
+	for rows.Next() {
+		var inv domain.OrgInvitation
+		var acceptedAt sql.NullTime
+		if err := rows.Scan(
+			&inv.ID, &inv.OrganizationID, &inv.OrgName, &inv.Email, &inv.Token,
+			&inv.Role, &inv.InvitedBy, &inv.ExpiresAt, &acceptedAt, &inv.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if acceptedAt.Valid {
+			inv.AcceptedAt = &acceptedAt.Time
+		}
+		invitations = append(invitations, inv)
+	}
+	return invitations, nil
+}
+
 
