@@ -30,6 +30,7 @@ import { FlaguraClient } from 'flagura-sdk';
 const client = new FlaguraClient({
   endpoint: 'https://flagura.dhawalhost.com',
   apiKey: process.env.FLAGURA_API_KEY,
+  projectId: 'proj_default', // optional: project scoping
   defaultEnvironment: 'production',
   enableStreaming: true, // <5ms live flag updates
 });

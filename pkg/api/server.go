@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"io/fs"
 	"net/http"
 	"os"
@@ -47,7 +48,15 @@ func NewServer(st store.Store) (*Server, error) {
 		mailer:      email.NewMailerFromEnv(),
 	}
 	s.routes()
-	s.handler = SecurityHeadersMiddleware(MaxBytesMiddleware(1<<20, s.mux))
+	s.handler = s.PanicRecoveryMiddleware(
+		RequestIDMiddleware(
+			StructuredLoggerMiddleware(
+				SecurityHeadersMiddleware(
+					MaxBytesMiddleware(1<<20, s.mux),
+				),
+			),
+		),
+	)
 	return s, nil
 }
 
@@ -78,7 +87,7 @@ func (s *Server) routes() {
 	// Public Observability & Webhook Routes
 	s.mux.HandleFunc("/api/health", s.handleHealthz)
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
-	s.mux.HandleFunc("/livez", s.handleHealthz)
+	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadyz)
 	s.mux.HandleFunc("/metrics", s.handleMetrics)
 	s.mux.HandleFunc("/api/v1/flags/stream", s.handleFlagsStream)
@@ -139,6 +148,33 @@ func (s *Server) routes() {
 		}
 	}))
 
+	// Organizations & Projects API Routes
+	s.mux.HandleFunc("/api/v1/organizations", s.apiLimiter.LimitHandler(s.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			s.handleListOrganizations(w, r)
+		} else if r.Method == http.MethodPost {
+			s.handleCreateOrganization(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+
+	s.mux.HandleFunc("/api/v1/projects", s.apiLimiter.LimitHandler(s.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			s.handleListProjects(w, r)
+		} else if r.Method == http.MethodPost {
+			s.handleCreateProject(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+	s.mux.HandleFunc("/api/v1/projects/active", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleSwitchActiveProject)))
+	s.mux.HandleFunc("/api/v1/projects/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetProject)))
+
+	s.mux.HandleFunc("/api/v1/invitations", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleInvitations)))
+	s.mux.HandleFunc("/api/v1/invitations/accept", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleAcceptInvitation)))
+	s.mux.HandleFunc("/api/v1/invitations/", s.apiLimiter.LimitHandler(s.handleGetInvitationByToken))
+
 	s.mux.HandleFunc("/api/v1/events", s.apiLimiter.LimitHandler(s.handleIngestEvents))
 	s.mux.HandleFunc("/api/v1/experiments/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetExperimentReport)))
 	s.mux.HandleFunc("/api/v1/change-requests", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleListOrCreateChangeRequests)))
@@ -186,7 +222,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, X-Webhook-Secret, X-Actor")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, X-Webhook-Secret, X-Actor, X-Project-ID, X-Organization-ID")
 
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
@@ -194,4 +230,33 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.handler.ServeHTTP(w, r)
+}
+
+// writeError outputs a structured application error response adhering to Google/Stripe API standards.
+func (s *Server) writeError(w http.ResponseWriter, r *http.Request, err error) {
+	if err == nil {
+		return
+	}
+	appErr := domain.MapSentinelToAppError(err)
+	reqID := RequestIDFromContext(r.Context())
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(appErr.HTTPStatus)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"error": map[string]interface{}{
+			"code":       appErr.Code,
+			"type":       appErr.Type,
+			"layer":      appErr.Layer,
+			"message":    appErr.Message,
+			"status":     appErr.HTTPStatus,
+			"request_id": reqID,
+		},
+	})
+}
+
+// writeJSON serializes data to JSON with standard Content-Type header.
+func (s *Server) writeJSON(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(data)
 }

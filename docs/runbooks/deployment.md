@@ -6,25 +6,32 @@ This runbook covers procedures for building, deploying, verifying, and rolling b
 
 ## 1. Environment Variables Reference
 
-| Variable | Description | Example / Default | Required |
-| :--- | :--- | :--- | :---: |
-| `PORT` | HTTP Server Port | `3000` | Optional (default: 3000) |
-| `ENVIRONMENT` | Deployment Environment (`production`, `staging`, `development`) | `production` | **Required in Prod** |
-| `DATABASE_URL` | Supabase / PostgreSQL connection string with SSL | `postgres://postgres.[REF]:[PW]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require` | Recommended |
-| `FLAGURA_APP_URL` | Canonical application URL (for password reset links and redirects) | `https://flagura.yourdomain.com` | Recommended |
-| `ENABLE_LANDING_PAGE` | Public product landing page toggle (`false` goes directly to `/auth`) | `false` | Optional (default: `false`) |
-| `SMTP_HOST` | Outbound SMTP server (SendGrid, AWS SES, Resend, etc.) | `smtp.sendgrid.net` | Optional (Email disabled if unset) |
-| `SMTP_PORT` | Outbound SMTP port (`587` STARTTLS, `465` SMTPS) | `587` | Optional (default: 587) |
-| `SMTP_USERNAME` | SMTP authentication username / API key | `apikey` | Optional |
-| `SMTP_PASSWORD` | SMTP authentication password / API secret | `SG.xxxxxxxx` | Optional |
-| `SMTP_FROM` | Outbound sender email address | `no-reply@yourcompany.com` | Optional (default: `no-reply@localhost`) |
-| `FLAGURA_BRAND_NAME` | Custom brand title rendered in emails and headers | `Flagura` | Optional |
-| `FLAGURA_SUPPORT_EMAIL` | Internal helpdesk address shown in footers | `devops@yourcompany.com` | Optional |
-| `FLAGURA_GOVERNANCE_EMAILS`| Reviewer emails for 4-eyes approvals (auto-resolves DB admins if unset) | `approver1@company.com,approver2@company.com` | Optional |
-| `ENABLE_CONSOLE_MAILER`| Opt-in developer terminal email logging for local testing | `false` | Optional |
-| `SECURE_COOKIE`| Explicitly enforce `Secure: true` on cookies | `true` | Optional |
+| Variable                      | Description                                                             | Example / Default                                                                                 |                 Required                 |
+| :---------------------------- | :---------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------ | :--------------------------------------: |
+| `PORT`                        | HTTP Server Port                                                        | `3000`                                                                                            |         Optional (default: 3000)         |
+| `FLAGURA_ENV` / `ENVIRONMENT` | Deployment Environment (`production`, `staging`, `development`)         | `production`                                                                                      |           **Required in Prod**           |
+| `DATABASE_URL`                | Supabase / PostgreSQL connection string with SSL                        | `postgres://postgres.[REF]:[PW]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require` |               Recommended                |
+| `FLAGURA_APP_URL`             | Canonical application URL (for password reset links and redirects)      | `https://flagura.yourdomain.com`                                                                  |               Recommended                |
+| `FLAGURA_LOG_FORMAT`          | Structured Log Format (`json` for production, `text` for dev)           | `json`                                                                                            |        Optional (default: `json`)        |
+| `FLAGURA_LOG_LEVEL`           | Structured Log Minimum Level (`DEBUG`, `INFO`, `WARN`, `ERROR`)         | `INFO`                                                                                            |        Optional (default: `INFO`)        |
+| `FLAGURA_RATE_LIMIT_RPS`      | Token bucket requests/sec per client identity                           | `100.0`                                                                                           |       Optional (default: `100.0`)        |
+| `FLAGURA_RATE_LIMIT_BURST`    | Token bucket burst capacity                                             | `200`                                                                                             |        Optional (default: `200`)         |
+| `FLAGURA_ALLOWED_ORIGIN`      | Allowed CORS Origin (`*` or domain URL)                                 | `https://app.yourdomain.com`                                                                      |         Optional (default: `*`)          |
+| `SESSION_SECRET`              | Secret HMAC key for session token signing                               | `your-secret-hex-key`                                                                             |               Recommended                |
+| `ENABLE_LANDING_PAGE`         | Public product landing page toggle (`false` goes directly to `/auth`)   | `false`                                                                                           |       Optional (default: `false`)        |
+| `SMTP_HOST`                   | Outbound SMTP server (SendGrid, AWS SES, Resend, etc.)                  | `smtp.sendgrid.net`                                                                               |    Optional (Email disabled if unset)    |
+| `SMTP_PORT`                   | Outbound SMTP port (`587` STARTTLS, `465` SMTPS)                        | `587`                                                                                             |         Optional (default: 587)          |
+| `SMTP_USERNAME`               | SMTP authentication username / API key                                  | `apikey`                                                                                          |                 Optional                 |
+| `SMTP_PASSWORD`               | SMTP authentication password / API secret                               | `SG.xxxxxxxx`                                                                                     |                 Optional                 |
+| `SMTP_FROM`                   | Outbound sender email address                                           | `no-reply@yourcompany.com`                                                                        | Optional (default: `no-reply@localhost`) |
+| `FLAGURA_BRAND_NAME`          | Custom brand title rendered in emails and headers                       | `Flagura`                                                                                         |                 Optional                 |
+| `FLAGURA_SUPPORT_EMAIL`       | Internal helpdesk address shown in footers                              | `devops@yourcompany.com`                                                                          |                 Optional                 |
+| `FLAGURA_GOVERNANCE_EMAILS`   | Reviewer emails for 4-eyes approvals (auto-resolves DB admins if unset) | `approver1@company.com,approver2@company.com`                                                     |                 Optional                 |
+| `ENABLE_CONSOLE_MAILER`       | Opt-in developer terminal email logging for local testing               | `false`                                                                                           |                 Optional                 |
+| `SECURE_COOKIE`               | Explicitly enforce `Secure: true` on cookies                            | `true`                                                                                            |                 Optional                 |
 
 > [!IMPORTANT]
+>
 > - When using Supabase PostgreSQL on serverless platforms (Vercel, AWS Lambda), always use the **Transaction Connection Pooler** on port **`6543`** to prevent PostgreSQL client connection exhaustion.
 > - If `SMTP_HOST` is left unset, transactional email delivery is **disabled by default** to avoid unexpected network errors or misconfigured relay attempts. Password reset requests will return an informative notice directing users to workspace admins.
 
@@ -40,9 +47,11 @@ Flagura includes a native serverless entrypoint in [`api/index.go`](../../api/in
 > For a full walkthrough on creating Supabase and Vercel accounts, setting up repository secrets, and configuring custom domains, refer to the **[Supabase & Vercel Integration Guide](../integrations/supabase-vercel-setup.md)**.
 
 #### Automated GitHub Actions Workflow
+
 Deployments are automatically triggered on push to `main` branch via [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml).
 
 #### Manual CLI Deployment:
+
 ```bash
 # 1. Install Templ compiler & generate templates
 go install github.com/a-h/templ/cmd/templ@latest
@@ -59,6 +68,7 @@ npx vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
 ### Target B: Docker Container Deployment
 
 #### 1. Build Multi-Stage Production Image:
+
 ```bash
 # Generate templates first
 templ generate
@@ -83,6 +93,7 @@ EOF
 ```
 
 #### 2. Run Container:
+
 ```bash
 docker run -d \
   --name flagura-prod \
@@ -98,12 +109,14 @@ docker run -d \
 ### Target C: Linux Systemd Standalone Service
 
 #### 1. Compile Binary:
+
 ```bash
 templ generate
 CGO_ENABLED=0 go build -ldflags="-w -s" -o /usr/local/bin/flagura main.go
 ```
 
 #### 2. Configure Systemd Service (`/etc/systemd/system/flagura.service`):
+
 ```ini
 [Unit]
 Description=Flagura Feature Flag Engine
@@ -127,6 +140,7 @@ WantedBy=multi-user.target
 ```
 
 #### 3. Enable and Start:
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable flagura
@@ -143,21 +157,21 @@ Run these verification commands against your deployed URL:
 ```bash
 TARGET_URL="https://flagura.yourdomain.com"
 
-# 1. Verify Health Check
+# 1. Verify Cloud-Native Liveness Probe
+curl -s "${TARGET_URL}/livez" | jq .
+# Expected: { "status": "alive", "service": "flagura" }
+
+# 2. Verify Database Readiness Probe (Validates connection pool & DB connectivity)
+curl -s "${TARGET_URL}/readyz" | jq .
+# Expected: { "status": "ready", "driver": "Supabase PostgreSQL" }
+
+# 3. Verify Health Check Summary
 curl -s "${TARGET_URL}/api/health" | jq .
 
-# Expected Output:
-# {
-#   "status": "ok",
-#   "service": "flagura-engine",
-#   "engine": "Flagura-FastPath-Deterministic",
-#   "driver": "Supabase PostgreSQL"
-# }
-
-# 2. Verify Security Headers
+# 4. Verify Security Headers
 curl -s -I "${TARGET_URL}/api/health" | grep -iE "x-content-type-options|x-frame-options|strict-transport-security|content-security-policy"
 
-# 3. Verify Anonymous SDK Evaluation
+# 5. Verify Anonymous SDK Evaluation
 curl -s -X POST "${TARGET_URL}/api/v1/evaluate" \
   -H "Content-Type: application/json" \
   -d '{"flags": ["ai-smart-search"], "context": {"user_id": "smoke-test-user-1", "environment": "production"}}' | jq .
@@ -168,11 +182,13 @@ curl -s -X POST "${TARGET_URL}/api/v1/evaluate" \
 ## 4. Rollback Procedures
 
 ### Vercel Instant Rollback
+
 1. Open Vercel Dashboard -> Project -> **Deployments**.
 2. Select previous stable deployment.
 3. Click **Instant Rollback** to promote it to Production in < 5 seconds.
 
 ### Docker / Systemd Rollback
+
 ```bash
 # For Docker:
 docker stop flagura-prod && docker rm flagura-prod

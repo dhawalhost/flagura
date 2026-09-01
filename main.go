@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,54 +11,69 @@ import (
 	"time"
 
 	"github.com/dhawalhost/flagura/pkg/api"
+	"github.com/dhawalhost/flagura/pkg/config"
 	"github.com/dhawalhost/flagura/pkg/store"
 )
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "3000"
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[FATAL] Failed to load configuration: %v\n", err)
+		os.Exit(1)
 	}
 
+	// Initialize structured logger
+	var logHandler slog.Handler
+	if cfg.LogFormat == "json" {
+		logHandler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel})
+	} else {
+		logHandler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel})
+	}
+	logger := slog.New(logHandler)
+	slog.SetDefault(logger)
+
 	var st store.Store
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL != "" {
-		pgStore, err := store.NewPostgresStore(dbURL)
+	if cfg.DatabaseURL != "" {
+		pgStore, err := store.NewPostgresStore(cfg.DatabaseURL)
 		if err != nil {
-			log.Printf("[WARN] Failed to connect to PostgreSQL: %v. Falling back to in-memory store.\n", err)
+			slog.Warn("Failed to connect to PostgreSQL. Falling back to In-Memory Edge Store", slog.Any("error", err))
 			st = store.NewMemoryStore()
 		} else {
-			// #nosec G706 -- DriverName returns a trusted constant enumerated string
-			log.Printf("[INFO] Connected to %s successfully.\n", pgStore.DriverName())
+			slog.Info("Connected to database successfully", slog.String("driver", pgStore.DriverName()))
 			st = pgStore
 		}
 	} else {
-		log.Println("[INFO] DATABASE_URL not set. Running with In-Memory Edge Store.")
+		slog.Info("DATABASE_URL not set. Running with In-Memory Edge Store")
 		st = store.NewMemoryStore()
 	}
 
 	server, err := api.NewServer(st)
 	if err != nil {
-		log.Fatalf("[FATAL] Failed to initialize Flagura server: %v", err)
+		slog.Error("Failed to initialize Flagura server", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	httpServer := &http.Server{
-		Addr:              ":" + port,
+		Addr:              ":" + cfg.ServerPort,
 		Handler:           server,
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      10 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		ReadHeaderTimeout: cfg.ReadHeaderTimeout,
+		ReadTimeout:       cfg.ReadTimeout,
+		WriteTimeout:      cfg.WriteTimeout,
+		IdleTimeout:       cfg.IdleTimeout,
+		MaxHeaderBytes:    cfg.MaxHeaderBytes,
 	}
 
 	go func() {
-		fmt.Printf("\n🚀 Flagura Engine running on http://localhost:%s\n", port)
+		fmt.Printf("\n🚀 Flagura Engine running on http://localhost:%s\n", cfg.ServerPort)
+		fmt.Printf("   ├── Environment: %s\n", cfg.Environment)
 		fmt.Printf("   ├── Storage Driver: %s\n", st.DriverName())
 		fmt.Printf("   ├── Fast-Path Evaluator: FNV-1a 64-bit Deterministic\n")
+		fmt.Printf("   ├── Structured Logging: %s (level: %s)\n", cfg.LogFormat, cfg.LogLevel)
 		fmt.Printf("   └── UI Endpoints: / (Landing), /dashboard (Console), /auth (Login)\n\n")
 
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("[FATAL] Server error: %v", err)
+			slog.Error("Server encountered fatal error", slog.Any("error", err))
+			os.Exit(1)
 		}
 	}()
 
@@ -66,12 +81,13 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("[INFO] Shutting down server gracefully...")
+	slog.Info("Shutting down server gracefully...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := httpServer.Shutdown(ctx); err != nil {
-		log.Fatalf("[FATAL] Server forced to shutdown: %v", err)
+		slog.Error("Server forced to shutdown", slog.Any("error", err))
+		os.Exit(1)
 	}
-	log.Println("[INFO] Server exited successfully.")
+	slog.Info("Server exited successfully")
 }

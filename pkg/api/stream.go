@@ -142,7 +142,8 @@ func (s *Server) handleFlagsStream(w http.ResponseWriter, r *http.Request) {
 
 	// Send initial flags snapshot immediately on connection
 	ctx := r.Context()
-	flags, err := s.store.ListFlags(ctx)
+	projectID := s.resolveProjectID(r)
+	flags, err := s.store.ListFlagsByProject(ctx, projectID)
 	if err == nil {
 		initPayload, _ := json.Marshal(map[string]interface{}{
 			"event":     "flags_init",

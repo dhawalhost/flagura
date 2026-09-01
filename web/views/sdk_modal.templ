@@ -1,7 +1,7 @@
 package views
 
 templ SDKModal() {
-	<div class="space-y-8" x-show="activeView === 'sdk'" x-data="sdkViewComponent()" x-init="fetchAPIKeys()">
+	<div class="space-y-8" x-show="activeView === 'sdk'" x-cloak x-data="sdkViewComponent()" x-init="fetchAPIKeys()">
 		<!-- Top Header Card -->
 		<div class="console-card p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 			<div class="flex items-center gap-3.5">
@@ -146,6 +146,7 @@ templ SDKModal() {
 							<tr>
 								<th class="py-3 px-4">Name / Purpose</th>
 								<th class="py-3 px-4">Key Prefix</th>
+								<th class="py-3 px-4">Environment</th>
 								<th class="py-3 px-4">Role</th>
 								<th class="py-3 px-4">Created By</th>
 								<th class="py-3 px-4">Created</th>
@@ -157,6 +158,18 @@ templ SDKModal() {
 								<tr class="hover:bg-slate-50/60 transition-colors">
 									<td class="py-3 px-4 font-bold text-slate-900 font-sans" x-text="k.name"></td>
 									<td class="py-3 px-4 text-slate-600 font-mono" x-text="k.key_prefix"></td>
+									<td class="py-3 px-4">
+										<span 
+											class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border"
+											:class="{
+												'bg-emerald-50 text-emerald-700 border-emerald-200': (k.environment || 'production') === 'production',
+												'bg-amber-50 text-amber-700 border-amber-200': k.environment === 'staging',
+												'bg-indigo-50 text-indigo-700 border-indigo-200': k.environment === 'development',
+												'bg-blue-50 text-blue-700 border-blue-200': k.environment === 'all' || k.environment === '*'
+											}"
+											x-text="k.environment || 'production'"
+										></span>
+									</td>
 									<td class="py-3 px-4">
 										<span 
 											class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase"
@@ -177,7 +190,7 @@ templ SDKModal() {
 								</tr>
 							</template>
 							<tr x-show="apiKeys.length === 0">
-								<td colspan="6" class="py-8 text-center text-slate-500 font-sans">
+								<td colspan="7" class="py-8 text-center text-slate-500 font-sans">
 									<div class="flex flex-col items-center gap-2">
 										<i data-lucide="key" class="w-6 h-6 text-slate-400"></i>
 										<span>No active API keys found. Generate a key to authenticate your SDKs and workers.</span>
@@ -224,6 +237,20 @@ templ SDKModal() {
 							placeholder="e.g. Production Go Worker SDK" 
 							class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500"
 						/>
+					</div>
+
+					<div>
+						<label class="block text-xs font-semibold text-slate-700 mb-1">Environment Scope</label>
+						<select 
+							x-model="keyForm.environment" 
+							class="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500 bg-white font-mono"
+						>
+							<option value="production">Production (Default)</option>
+							<option value="staging">Staging</option>
+							<option value="development">Development</option>
+							<option value="all" x-show="currentUser && currentUser.role === 'admin'">All Environments (Cross-Environment Admin)</option>
+						</select>
+						<p class="text-[11px] text-slate-500 mt-1">Requests with this key will be restricted exclusively to this environment.</p>
 					</div>
 
 					<div>

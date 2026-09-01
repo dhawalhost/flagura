@@ -10,3 +10,4 @@ bin/
 .vercel/
 coverage.txt
 *.zip
+coverage.out

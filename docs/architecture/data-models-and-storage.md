@@ -8,6 +8,31 @@ This document details Flagura's relational schema design, JSONB configuration mo
 
 ```mermaid
 erDiagram
+    ORGANIZATIONS ||--o{ PROJECTS : "contains"
+    ORGANIZATIONS {
+        VARCHAR(64) id PK
+        VARCHAR(255) name
+        VARCHAR(128) slug UK
+        TEXT description
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    PROJECTS ||--o{ FLAGS : "scopes"
+    PROJECTS ||--o{ AUDIT_LOGS : "scopes"
+    PROJECTS ||--o{ API_KEYS : "scopes"
+    PROJECTS ||--o{ CHANGE_REQUESTS : "scopes"
+    PROJECTS ||--o{ EXPERIMENT_EVENTS : "scopes"
+    PROJECTS {
+        VARCHAR(64) id PK
+        VARCHAR(64) organization_id FK
+        VARCHAR(255) name
+        VARCHAR(128) slug
+        TEXT description
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
     USERS ||--o{ SESSIONS : "owns"
     USERS ||--o{ AUDIT_LOGS : "triggers"
     USERS {
@@ -29,7 +54,8 @@ erDiagram
 
     FLAGS {
         VARCHAR(64) id PK
-        VARCHAR(128) key UK
+        VARCHAR(64) project_id FK
+        VARCHAR(128) key
         VARCHAR(255) name
         TEXT description
         VARCHAR(32) type
@@ -40,12 +66,39 @@ erDiagram
 
     AUDIT_LOGS {
         VARCHAR(64) id PK
+        VARCHAR(64) project_id FK
         VARCHAR(64) actor_id
         VARCHAR(255) actor_name
         VARCHAR(64) action
         VARCHAR(128) target_entity
         TEXT details
         TIMESTAMP created_at
+    }
+
+    API_KEYS {
+        VARCHAR(64) id PK
+        VARCHAR(64) project_id FK
+        VARCHAR(32) environment
+        VARCHAR(64) key_hash UK
+        VARCHAR(32) key_prefix
+        VARCHAR(255) name
+        VARCHAR(32) role
+        BOOLEAN revoked
+        TIMESTAMP created_at
+    }
+
+    CHANGE_REQUESTS {
+        VARCHAR(64) id PK
+        VARCHAR(64) project_id FK
+        VARCHAR(128) flag_key
+        VARCHAR(32) environment
+        VARCHAR(32) action
+        VARCHAR(32) status
+        JSONB target_state
+        VARCHAR(255) requested_by
+        VARCHAR(255) reviewed_by
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
     }
 ```
 
@@ -98,9 +151,9 @@ Flagura is optimized for **Transaction Connection Poolers** (e.g. Supabase Port 
 
 ```go
 db.SetMaxOpenConns(25)                  // Limits active connections to pooler
-db.SetMaxIdleConns(10)                  // Keeps warm connections ready
-db.SetConnMaxLifetime(10 * time.Minute) // Periodically cycles stale pooler sockets
-db.SetConnMaxIdleTime(3 * time.Minute)  // Reclaims idle connections
+db.SetMaxIdleConns(25)                  // Keeps warm connections ready
+db.SetConnMaxLifetime(15 * time.Minute) // Periodically cycles stale pooler sockets
+db.SetConnMaxIdleTime(5 * time.Minute)  // Reclaims idle connections
 ```
 
 | Environment | Database Host | Port | SSL Mode | Notes |
@@ -117,21 +170,21 @@ The persistence layer adheres to the clean **Go `Store` interface** in [`pkg/sto
 
 ```go
 type Store interface {
-    GetFlag(ctx context.Context, key string) (domain.FeatureFlag, error)
-    ListFlags(ctx context.Context) ([]domain.FeatureFlag, error)
-    CreateFlag(ctx context.Context, flag domain.FeatureFlag) error
-    UpdateFlag(ctx context.Context, flag domain.FeatureFlag) error
-    DeleteFlag(ctx context.Context, key string) error
+    // Multi-Tenancy
+    CreateOrganization(ctx context.Context, org domain.Organization) (*domain.Organization, error)
+    CreateProject(ctx context.Context, project domain.Project) (*domain.Project, error)
+    ListProjects(ctx context.Context, organizationID string) ([]domain.Project, error)
+
+    // Project-Scoped Flags & Audit
+    ListFlagsByProject(ctx context.Context, projectID string) ([]domain.FeatureFlag, error)
+    GetFlagByProject(ctx context.Context, projectID, keyOrID string) (*domain.FeatureFlag, error)
+    SaveFlag(ctx context.Context, flag domain.FeatureFlag, actor string) (*domain.AuditLogEntry, error)
+    DeleteFlag(ctx context.Context, keyOrID string, actor string) (*domain.AuditLogEntry, error)
+    ToggleFlag(ctx context.Context, keyOrID string, env domain.Environment, enabled *bool, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error)
     
-    GetUserByEmail(ctx context.Context, email string) (domain.User, error)
-    CreateUser(ctx context.Context, user domain.User) (domain.User, error)
-    
-    GetSession(ctx context.Context, token string) (domain.Session, error)
-    CreateSession(ctx context.Context, session domain.Session) error
-    DeleteSession(ctx context.Context, token string) error
-    
-    CreateAuditLog(ctx context.Context, log domain.AuditLog) error
-    ListAuditLogs(ctx context.Context, limit int) ([]domain.AuditLog, error)
+    // Health Check & Driver
+    Ping(ctx context.Context) error
+    DriverName() string
 }
 ```
 

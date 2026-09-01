@@ -34,7 +34,7 @@ func FlagMatrix(flags []domain.FeatureFlag) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-6\" x-show=\"activeView === 'flags'\" x-data=\"flagMatrixViewComponent()\"><!-- Header & Controls Frame --><div class=\"console-card p-6 sm:p-7 space-y-5\"><div class=\"flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4\"><div class=\"flex items-center gap-3\"><span class=\"text-xs font-bold text-slate-500 uppercase tracking-wider font-mono\">Feature Flag Directory</span> <span class=\"rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-mono text-blue-700 font-bold\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-6\" x-show=\"activeView === 'flags'\" x-cloak x-data=\"flagMatrixViewComponent()\"><!-- Header & Controls Frame --><div class=\"console-card p-6 sm:p-7 space-y-5\"><div class=\"flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4\"><div class=\"flex items-center gap-3\"><span class=\"text-xs font-bold text-slate-500 uppercase tracking-wider font-mono\">Feature Flag Directory</span> <span class=\"rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-mono text-blue-700 font-bold\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -305,9 +305,9 @@ func FlagMatrix(flags []domain.FeatureFlag) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var20 string
-			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("openEditFlagEditor('%s', '%s', '%s', '%s', '%s');", f.ID, f.Key, f.Name, f.Description, f.Type))
+			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("openEditFlagEditor('%s');", f.Key))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 256, Col: 126}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 256, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 			if templ_7745c5c3_Err != nil {
@@ -331,7 +331,17 @@ func FlagMatrix(flags []domain.FeatureFlag) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if len(flags) == 0 {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<div class=\"console-card p-12 text-center space-y-4\"><div class=\"w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center mx-auto\"><i data-lucide=\"flag\" class=\"w-6 h-6\"></i></div><div class=\"space-y-1\"><h3 class=\"text-base font-bold text-slate-900 font-display\">No Feature Flags Yet</h3><p class=\"text-xs text-slate-500 max-w-sm mx-auto\">Create your first flag to start toggling features and controlling gradual rollouts.</p></div><button @click=\"openNewFlagEditor()\" class=\"px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md shadow-blue-600/25 cursor-pointer\"><i data-lucide=\"plus\" class=\"h-3.5 w-3.5 stroke-[2.5]\"></i> <span>Create Feature Flag</span></button></div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

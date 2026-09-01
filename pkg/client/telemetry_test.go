@@ -1,4 +1,4 @@
-package client_test
+package client
 
 import (
 	"context"
@@ -7,16 +7,14 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
-
-	"github.com/dhawalhost/flagura/pkg/client"
 )
 
 func TestTelemetryBufferAggregationAndFlush(t *testing.T) {
-	flushedPayloads := make(chan client.TelemetryPayload, 1)
+	flushedPayloads := make(chan TelemetryPayload, 1)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/telemetry/events" && r.Method == http.MethodPost {
-			var payload client.TelemetryPayload
+			var payload TelemetryPayload
 			_ = json.NewDecoder(r.Body).Decode(&payload)
 			select {
 			case flushedPayloads <- payload:
@@ -30,7 +28,7 @@ func TestTelemetryBufferAggregationAndFlush(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	tb := client.NewTelemetryBuffer(ts.URL, "test_api_key", nil)
+	tb := NewTelemetryBuffer(ts.URL, "test_api_key", nil)
 
 	// Record evaluations
 	tb.Record("ai-search", "treatment")

@@ -49,7 +49,14 @@ This directory contains the operational runbooks and standard operating procedur
    - SAST / SCA Vulnerability Triage (Gosec, Govulncheck, Dependabot)
    - HTTP Security Headers & DoS Defense Verification
 
-5. **[Supabase & Vercel Cloud Integration Guide](../integrations/supabase-vercel-setup.md)**
+5. **[SDK Release & Publishing Procedures](sdk-publishing.md)**
+   - Go Submodule publishing (`proxy.golang.org`, `pkg.go.dev`)
+   - NPM package release (`@flagura/sdk` for JS/TS/React)
+   - PyPI package release (`flagura-sdk` for Python)
+   - Crates.io package release (`flagura` for Rust)
+   - OpenFeature Ecosystem Catalog submission
+
+6. **[Supabase & Vercel Cloud Integration Guide](../integrations/supabase-vercel-setup.md)**
    - End-to-end Supabase project creation & connection pooler setup
    - Vercel Serverless Function import and environment variables
    - GitHub Actions automated continuous deployment pipeline

@@ -1,64 +1,73 @@
-package domain_test
+package domain
 
 import (
 	"testing"
-
-	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
-func TestFlagHealthAnalyzer(t *testing.T) {
-	// 1. 100% Rolled out flag should be READY_FOR_CLEANUP
-	staleFlag := domain.FeatureFlag{
-		Key:  "permanent-flag",
-		Type: "boolean",
-		Environments: map[domain.Environment]domain.EnvironmentConfig{
-			domain.EnvProduction: {
-				Enabled:    true,
-				Strategy:   domain.StrategyPercentage,
-				Percentage: 100,
+func TestAnalyzeFlagHealth(t *testing.T) {
+	tests := []struct {
+		name           string
+		flag           FeatureFlag
+		expectedStatus HealthStatus
+		expectedStale  bool
+	}{
+		{
+			name: "100% Rolled out permanent flag -> READY_FOR_CLEANUP",
+			flag: FeatureFlag{
+				Key:  "permanent-flag",
+				Type: "boolean",
+				Environments: map[Environment]EnvironmentConfig{
+					EnvProduction: {
+						Enabled:    true,
+						Strategy:   StrategyPercentage,
+						Percentage: 100,
+					},
+				},
 			},
+			expectedStatus: HealthStatusStale,
+			expectedStale:  true,
 		},
-	}
-	report1 := domain.AnalyzeFlagHealth(staleFlag)
-	if report1.Status != domain.HealthStatusStale {
-		t.Fatalf("expected HealthStatusStale for 100%% flag, got %s", report1.Status)
-	}
-	if !report1.IsStale {
-		t.Fatalf("expected IsStale true")
+		{
+			name: "Disabled feature flag -> DEAD_FLAG",
+			flag: FeatureFlag{
+				Key:  "dead-flag",
+				Type: "boolean",
+				Environments: map[Environment]EnvironmentConfig{
+					EnvProduction: {
+						Enabled: false,
+					},
+				},
+			},
+			expectedStatus: HealthStatusDead,
+			expectedStale:  true,
+		},
+		{
+			name: "Active canary rollout flag -> ACTIVE",
+			flag: FeatureFlag{
+				Key:  "canary-flag",
+				Type: "boolean",
+				Environments: map[Environment]EnvironmentConfig{
+					EnvProduction: {
+						Enabled:    true,
+						Strategy:   StrategyPercentage,
+						Percentage: 25,
+					},
+				},
+			},
+			expectedStatus: HealthStatusActive,
+			expectedStale:  false,
+		},
 	}
 
-	// 2. Disabled flag should be DEAD_FLAG
-	deadFlag := domain.FeatureFlag{
-		Key:  "dead-flag",
-		Type: "boolean",
-		Environments: map[domain.Environment]domain.EnvironmentConfig{
-			domain.EnvProduction: {
-				Enabled: false,
-			},
-		},
-	}
-	report2 := domain.AnalyzeFlagHealth(deadFlag)
-	if report2.Status != domain.HealthStatusDead {
-		t.Fatalf("expected HealthStatusDead for disabled flag, got %s", report2.Status)
-	}
-
-	// 3. Active canary rollout flag should be ACTIVE
-	activeFlag := domain.FeatureFlag{
-		Key:  "canary-flag",
-		Type: "boolean",
-		Environments: map[domain.Environment]domain.EnvironmentConfig{
-			domain.EnvProduction: {
-				Enabled:    true,
-				Strategy:   domain.StrategyPercentage,
-				Percentage: 25,
-			},
-		},
-	}
-	report3 := domain.AnalyzeFlagHealth(activeFlag)
-	if report3.Status != domain.HealthStatusActive {
-		t.Fatalf("expected HealthStatusActive for canary flag, got %s", report3.Status)
-	}
-	if report3.IsStale {
-		t.Fatalf("expected IsStale false")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report := AnalyzeFlagHealth(tt.flag)
+			if report.Status != tt.expectedStatus {
+				t.Errorf("AnalyzeFlagHealth() status = %s, expected %s", report.Status, tt.expectedStatus)
+			}
+			if report.IsStale != tt.expectedStale {
+				t.Errorf("AnalyzeFlagHealth() isStale = %v, expected %v", report.IsStale, tt.expectedStale)
+			}
+		})
 	}
 }

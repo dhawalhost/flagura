@@ -373,7 +373,11 @@ func runToggle(key string) {
 }
 
 func runRollout(key string, pct float64) {
-	resp, body, err := makeRequest(http.MethodPatch, fmt.Sprintf("/api/v1/flags/%s/rollout?percentage=%g&env=%s", key, pct, env), nil)
+	payload := map[string]interface{}{
+		"environment": env,
+		"percentage":  pct,
+	}
+	resp, body, err := makeRequest(http.MethodPatch, fmt.Sprintf("/api/v1/flags/%s/rollout", key), payload)
 	if err != nil || resp.StatusCode >= 400 {
 		fmt.Fprintf(os.Stderr, "Failed to update rollout: %s\n", string(body))
 		os.Exit(1)

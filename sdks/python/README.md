@@ -27,6 +27,7 @@ from flagura import FlaguraClient, EvaluationContext
 client = FlaguraClient(
     endpoint="https://flagura.dhawalhost.com",
     api_key="your-api-key",
+    project_id="proj_default", # optional: project scoping
     default_environment="production",
     enable_streaming=True, # <5ms live flag updates
 )

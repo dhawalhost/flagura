@@ -6,7 +6,7 @@ import (
 )
 
 templ AnalyticsDashboard(flags []domain.FeatureFlag) {
-	<div class="space-y-8" x-show="activeView === 'analytics'" x-data="analyticsViewComponent()">
+	<div class="space-y-8" x-show="activeView === 'analytics'" x-cloak x-data="analyticsViewComponent()">
 		<!-- Page Header -->
 		<div class="console-card p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 			<div>

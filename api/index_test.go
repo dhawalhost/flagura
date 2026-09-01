@@ -73,3 +73,13 @@ func TestVercelHandlerRouting(t *testing.T) {
 		})
 	}
 }
+
+func TestInitServerWithDatabaseURLFallback(t *testing.T) {
+	_ = os.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/flagura_invalid?sslmode=disable")
+	defer os.Unsetenv("DATABASE_URL")
+
+	initServer()
+	if server == nil {
+		t.Fatalf("expected server initialized with fallback memory store")
+	}
+}

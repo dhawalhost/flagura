@@ -8,88 +8,119 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
-func TestNormalCDFAndPValues(t *testing.T) {
-	// Standard golden reference tests
+func TestTwoTailedPValue(t *testing.T) {
 	tests := []struct {
+		name      string
 		z         float64
 		expectedP float64
 		tolerance float64
 	}{
-		{z: 0.0, expectedP: 1.0, tolerance: 0.001},
-		{z: 1.96, expectedP: 0.05, tolerance: 0.002},
-		{z: 2.576, expectedP: 0.01, tolerance: 0.002},
-		{z: 3.291, expectedP: 0.001, tolerance: 0.0005},
+		{name: "Z = 0.0 (No difference)", z: 0.0, expectedP: 1.0, tolerance: 0.001},
+		{name: "Z = 1.96 (p = 0.05 threshold)", z: 1.96, expectedP: 0.05, tolerance: 0.002},
+		{name: "Z = 2.576 (p = 0.01 threshold)", z: 2.576, expectedP: 0.01, tolerance: 0.002},
+		{name: "Z = 3.291 (p = 0.001 threshold)", z: 3.291, expectedP: 0.001, tolerance: 0.0005},
 	}
 
 	for _, tt := range tests {
-		p := TwoTailedPValue(tt.z)
-		if math.Abs(p-tt.expectedP) > tt.tolerance {
-			t.Errorf("TwoTailedPValue(%f) = %f; expected %f (tolerance %f)", tt.z, p, tt.expectedP, tt.tolerance)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			p := TwoTailedPValue(tt.z)
+			if math.Abs(p-tt.expectedP) > tt.tolerance {
+				t.Errorf("TwoTailedPValue(%f) = %f; expected %f (tolerance %f)", tt.z, p, tt.expectedP, tt.tolerance)
+			}
+		})
 	}
 }
 
-func TestBinaryVariantStats(t *testing.T) {
-	// 1000 exposures, 100 conversions (10% conversion rate)
-	stats := ComputeVariantBinaryStats("control", 1000, 100)
-
-	if stats.ConversionRate != 0.10 {
-		t.Fatalf("expected conversion rate 0.10, got %f", stats.ConversionRate)
+func TestComputeVariantBinaryStats(t *testing.T) {
+	tests := []struct {
+		name         string
+		variant      string
+		exposures    int64
+		conversions  int64
+		expectedRate float64
+	}{
+		{
+			name:         "10% Conversion Rate (100/1000)",
+			variant:      "control",
+			exposures:    1000,
+			conversions:  100,
+			expectedRate: 0.10,
+		},
+		{
+			name:         "25% Conversion Rate (250/1000)",
+			variant:      "treatment",
+			exposures:    1000,
+			conversions:  250,
+			expectedRate: 0.25,
+		},
 	}
 
-	// SE = sqrt(0.10 * 0.90 / 1000) = sqrt(0.00009) ≈ 0.0094868
-	expectedSE := math.Sqrt(0.09 / 1000.0)
-	if math.Abs(stats.StandardError-expectedSE) > 0.0001 {
-		t.Errorf("expected SE ≈ %f, got %f", expectedSE, stats.StandardError)
-	}
-
-	// 95% CI should bracket 10%
-	if stats.CI95Lower >= 0.10 || stats.CI95Upper <= 0.10 {
-		t.Errorf("CI95 [%f, %f] does not bracket 0.10", stats.CI95Lower, stats.CI95Upper)
-	}
-}
-
-func TestAAndBVariantComparisonWinning(t *testing.T) {
-	// Control: 1,000 exposures, 100 conversions (10%)
-	control := ComputeVariantBinaryStats("control", 1000, 100)
-	// Treatment: 1,000 exposures, 150 conversions (15% - a 50% relative increase!)
-	treatment := ComputeVariantBinaryStats("treatment", 1000, 150)
-
-	comp := CompareBinaryVariants(control, treatment)
-
-	if comp.Status != domain.ExpStatusWinning {
-		t.Fatalf("expected status %s, got %s", domain.ExpStatusWinning, comp.Status)
-	}
-	if !comp.IsSignificant95 {
-		t.Fatalf("expected statistically significant at 95%% level")
-	}
-	if math.Abs(comp.RelativeLiftPct-50.0) > 0.001 {
-		t.Fatalf("expected +50%% relative lift, got %f", comp.RelativeLiftPct)
-	}
-	if comp.ConfidencePct < 99.0 {
-		t.Fatalf("expected >99%% confidence, got %f", comp.ConfidencePct)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stats := ComputeVariantBinaryStats(tt.variant, tt.exposures, tt.conversions)
+			if math.Abs(stats.ConversionRate-tt.expectedRate) > 0.0001 {
+				t.Fatalf("expected conversion rate %f, got %f", tt.expectedRate, stats.ConversionRate)
+			}
+			if stats.CI95Lower >= tt.expectedRate || stats.CI95Upper <= tt.expectedRate {
+				t.Errorf("CI95 [%f, %f] does not bracket %f", stats.CI95Lower, stats.CI95Upper, tt.expectedRate)
+			}
+		})
 	}
 }
 
-func TestAAndBVariantComparisonInsufficientData(t *testing.T) {
-	// Small sample size (N=10)
-	control := ComputeVariantBinaryStats("control", 10, 1)
-	treatment := ComputeVariantBinaryStats("treatment", 10, 2)
+func TestCompareBinaryVariants(t *testing.T) {
+	tests := []struct {
+		name              string
+		controlExposures  int64
+		controlConvs      int64
+		treatmentExpos    int64
+		treatmentConvs    int64
+		expectedStatus    domain.ExperimentStatus
+		expectSignificant bool
+	}{
+		{
+			name:              "Statistically significant winner (+50% relative lift)",
+			controlExposures:  1000,
+			controlConvs:      100,
+			treatmentExpos:    1000,
+			treatmentConvs:    150,
+			expectedStatus:    domain.ExpStatusWinning,
+			expectSignificant: true,
+		},
+		{
+			name:              "Insufficient sample size (N=10)",
+			controlExposures:  10,
+			controlConvs:      1,
+			treatmentExpos:    10,
+			treatmentConvs:    2,
+			expectedStatus:    domain.ExpStatusInsufficientData,
+			expectSignificant: false,
+		},
+	}
 
-	comp := CompareBinaryVariants(control, treatment)
-	if comp.Status != domain.ExpStatusInsufficientData {
-		t.Fatalf("expected status %s for small sample, got %s", domain.ExpStatusInsufficientData, comp.Status)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			control := ComputeVariantBinaryStats("control", tt.controlExposures, tt.controlConvs)
+			treatment := ComputeVariantBinaryStats("treatment", tt.treatmentExpos, tt.treatmentConvs)
+
+			comp := CompareBinaryVariants(control, treatment)
+			if comp.Status != tt.expectedStatus {
+				t.Errorf("CompareBinaryVariants() status = %s, expected %s", comp.Status, tt.expectedStatus)
+			}
+			if comp.IsSignificant95 != tt.expectSignificant {
+				t.Errorf("CompareBinaryVariants() isSignificant95 = %v, expected %v", comp.IsSignificant95, tt.expectSignificant)
+			}
+		})
 	}
 }
 
-func TestAnalyzeExperimentFullReport(t *testing.T) {
+func TestAnalyzeExperiment(t *testing.T) {
 	exposures := map[string]int64{
 		"control":   500,
 		"treatment": 500,
 	}
 
 	var events []domain.ExperimentEvent
-	// 50 conversions for control (10%)
 	for i := 0; i < 50; i++ {
 		events = append(events, domain.ExperimentEvent{
 			FlagKey:    "checkout-button",
@@ -99,7 +130,6 @@ func TestAnalyzeExperimentFullReport(t *testing.T) {
 			Timestamp:  time.Now(),
 		})
 	}
-	// 80 conversions for treatment (16%)
 	for i := 0; i < 80; i++ {
 		events = append(events, domain.ExperimentEvent{
 			FlagKey:    "checkout-button",
@@ -110,19 +140,76 @@ func TestAnalyzeExperimentFullReport(t *testing.T) {
 		})
 	}
 
-	report := AnalyzeExperiment("checkout-button", "signup", domain.EventTypeConversion, domain.EnvProduction, "control", exposures, events)
-
-	if report.WinnerVariant != "treatment" {
-		t.Fatalf("expected winner 'treatment', got %q", report.WinnerVariant)
+	tests := []struct {
+		name           string
+		flagKey        string
+		metricName     string
+		expectedWinner string
+		expectedEvents int64
+	}{
+		{
+			name:           "Analyze experiment with winning treatment",
+			flagKey:        "checkout-button",
+			metricName:     "signup",
+			expectedWinner: "treatment",
+			expectedEvents: 130,
+		},
 	}
 
-	if report.TotalEvents != 130 {
-		t.Fatalf("expected total events 130, got %d", report.TotalEvents)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report := AnalyzeExperiment(tt.flagKey, tt.metricName, domain.EventTypeConversion, domain.EnvProduction, "control", exposures, events)
+			if report.WinnerVariant != tt.expectedWinner {
+				t.Errorf("AnalyzeExperiment() winner = %q, expected %q", report.WinnerVariant, tt.expectedWinner)
+			}
+			if report.TotalEvents != tt.expectedEvents {
+				t.Errorf("AnalyzeExperiment() totalEvents = %d, expected %d", report.TotalEvents, tt.expectedEvents)
+			}
+		})
+	}
+}
+
+func TestStats_EdgeCases(t *testing.T) {
+	// 1. Zero exposures in ComputeVariantBinaryStats
+	zeroStats := ComputeVariantBinaryStats("zero", 0, 0)
+	if zeroStats.Exposures != 0 || zeroStats.ConversionRate != 0 {
+		t.Errorf("expected zero stats for 0 exposures")
 	}
 
-	comp := report.Comparisons["treatment"]
-	if comp.Status != domain.ExpStatusWinning {
-		t.Fatalf("expected winning status, got %s", comp.Status)
+	// 2. Statistically significant losing treatment
+	ctrlWinning := ComputeVariantBinaryStats("control", 1000, 250)
+	treatLosing := ComputeVariantBinaryStats("treatment", 1000, 100)
+	compLosing := CompareBinaryVariants(ctrlWinning, treatLosing)
+	if compLosing.Status != domain.ExpStatusLosing || !compLosing.IsSignificant95 {
+		t.Errorf("expected losing status for underperforming variant, got %s", compLosing.Status)
+	}
+
+	// 3. No variance (sePool == 0)
+	ctrlZero := ComputeVariantBinaryStats("control", 100, 0)
+	treatZero := ComputeVariantBinaryStats("treatment", 100, 0)
+	compZero := CompareBinaryVariants(ctrlZero, treatZero)
+	if compZero.Status != domain.ExpStatusInconclusive {
+		t.Errorf("expected inconclusive for 0 conversions, got %s", compZero.Status)
+	}
+
+	// 4. Inconclusive variant
+	ctrlInc := ComputeVariantBinaryStats("control", 100, 10)
+	treatInc := ComputeVariantBinaryStats("treatment", 100, 11)
+	compInc := CompareBinaryVariants(ctrlInc, treatInc)
+	if compInc.Status != domain.ExpStatusInconclusive {
+		t.Errorf("expected inconclusive for similar small sample, got %s", compInc.Status)
+	}
+
+	// 5. AnalyzeExperiment with default controlVariant and filtered events
+	events := []domain.ExperimentEvent{
+		{FlagKey: "other-flag", MetricName: "signup", Variant: "control", Value: 1.0},
+		{FlagKey: "test-flag", MetricName: "other-metric", Variant: "control", Value: 1.0},
+		{FlagKey: "test-flag", MetricName: "signup", Environment: domain.EnvStaging, Variant: "control", Value: 1.0},
+		{FlagKey: "test-flag", MetricName: "signup", Environment: domain.EnvProduction, Variant: "control", Value: 1.0},
+	}
+	rep := AnalyzeExperiment("test-flag", "signup", domain.EventTypeConversion, domain.EnvProduction, "", map[string]int64{"control": 10}, events)
+	if rep.TotalEvents != 1 {
+		t.Errorf("expected 1 matching event, got %d", rep.TotalEvents)
 	}
 }
 

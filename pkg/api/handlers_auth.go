@@ -17,7 +17,7 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
-const SessionCookieName = "flagura_session"
+const SessionCookieName = domain.CookieSessionName
 
 func generateSessionToken() (string, error) {
 	bytes := make([]byte, 32)
@@ -27,18 +27,39 @@ func generateSessionToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
+func (s *Server) setProjectCookie(w http.ResponseWriter, r *http.Request, projectID string, expiresAt time.Time) {
+	isSecure := false
+	if r != nil && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https") {
+		isSecure = true
+	}
+	if os.Getenv("ENVIRONMENT") == string(domain.EnvProduction) || os.Getenv("SECURE_COOKIE") == "true" {
+		isSecure = true
+	}
+
+	// #nosec G124 -- active project selection cookie configured with SameSite and dynamic TLS
+	http.SetCookie(w, &http.Cookie{
+		Name:     domain.CookieProjectName,
+		Value:    projectID,
+		Path:     "/",
+		Expires:  expiresAt,
+		HttpOnly: false,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   isSecure,
+	})
+}
+
 func (s *Server) setSessionCookie(w http.ResponseWriter, r *http.Request, token string, expiresAt time.Time) {
 	isSecure := false
 	if r != nil && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https") {
 		isSecure = true
 	}
-	if os.Getenv("ENVIRONMENT") == "production" || os.Getenv("SECURE_COOKIE") == "true" {
+	if os.Getenv("ENVIRONMENT") == string(domain.EnvProduction) || os.Getenv("SECURE_COOKIE") == "true" {
 		isSecure = true
 	}
 
 	// #nosec G124 -- dynamic secure flag based on TLS and environment
 	http.SetCookie(w, &http.Cookie{
-		Name:     SessionCookieName,
+		Name:     domain.CookieSessionName,
 		Value:    token,
 		Path:     "/",
 		Expires:  expiresAt,
@@ -53,13 +74,13 @@ func (s *Server) clearSessionCookie(w http.ResponseWriter, r *http.Request) {
 	if r != nil && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https") {
 		isSecure = true
 	}
-	if os.Getenv("ENVIRONMENT") == "production" || os.Getenv("SECURE_COOKIE") == "true" {
+	if os.Getenv("ENVIRONMENT") == string(domain.EnvProduction) || os.Getenv("SECURE_COOKIE") == "true" {
 		isSecure = true
 	}
 
 	// #nosec G124 -- dynamic secure flag based on TLS and environment
 	http.SetCookie(w, &http.Cookie{
-		Name:     SessionCookieName,
+		Name:     domain.CookieSessionName,
 		Value:    "",
 		Path:     "/",
 		Expires:  time.Unix(0, 0),
@@ -74,13 +95,13 @@ func (s *Server) getUserFromRequest(r *http.Request) (*domain.User, error) {
 	var token string
 
 	// 1. Check HTTP Cookie
-	if cookie, err := r.Cookie(SessionCookieName); err == nil && cookie.Value != "" {
+	if cookie, err := r.Cookie(domain.CookieSessionName); err == nil && cookie.Value != "" {
 		token = cookie.Value
 	}
 
 	// 2. Fallback to Authorization Header (Bearer token)
 	if token == "" {
-		authHeader := r.Header.Get("Authorization")
+		authHeader := r.Header.Get(domain.HeaderAuthorization)
 		if strings.HasPrefix(authHeader, "Bearer ") {
 			token = strings.TrimPrefix(authHeader, "Bearer ")
 		}
@@ -88,11 +109,11 @@ func (s *Server) getUserFromRequest(r *http.Request) (*domain.User, error) {
 
 	// 3. Fallback to X-API-Key Header
 	if token == "" {
-		token = r.Header.Get("X-API-Key")
+		token = r.Header.Get(domain.HeaderAPIKey)
 	}
 
 	if token == "" {
-		return nil, fmt.Errorf("no session token or API key found")
+		return nil, domain.ErrUnauthorized
 	}
 
 	// Check master API key if configured
@@ -120,14 +141,35 @@ func (s *Server) getUserFromRequest(r *http.Request) (*domain.User, error) {
 
 	sess, err := s.store.GetSession(r.Context(), token)
 	if err != nil {
-		return nil, err
+		return nil, domain.ErrUnauthorized
 	}
 
 	if sess.User == nil {
-		return nil, fmt.Errorf("session user not found")
+		return nil, domain.ErrUserNotFound
 	}
 
 	return sess.User, nil
+}
+
+func (s *Server) getAPIKeyFromRequest(r *http.Request) *domain.APIKey {
+	var token string
+	authHeader := r.Header.Get(domain.HeaderAuthorization)
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		token = strings.TrimPrefix(authHeader, "Bearer ")
+	}
+	if token == "" {
+		token = r.Header.Get(domain.HeaderAPIKey)
+	}
+	if token == "" {
+		return nil
+	}
+
+	h := sha256.Sum256([]byte(token))
+	keyHash := hex.EncodeToString(h[:])
+	if apiKey, err := s.store.GetAPIKeyByHash(r.Context(), keyHash); err == nil && apiKey != nil && !apiKey.Revoked {
+		return apiKey
+	}
+	return nil
 }
 
 func validatePasswordComplexity(password string) error {
@@ -144,7 +186,7 @@ func validatePasswordComplexity(password string) error {
 			hasLower = true
 		case ch >= '0' && ch <= '9':
 			hasDigit = true
-		case strings.ContainsRune("!@#$%^&*()_+-=[]{};':\"|,.<>/?`~", ch):
+		case strings.ContainsRune("!@#$%^&*()_+-=[]{}|;:,.<>/?~", ch):
 			hasSpecial = true
 		}
 	}
@@ -173,7 +215,7 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 
 	var req domain.SignUpRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON payload: "+err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "Invalid JSON payload: "+err.Error(), http.StatusBadRequest, err))
 		return
 	}
 
@@ -181,51 +223,82 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 	req.Name = strings.TrimSpace(req.Name)
 
 	if req.Email == "" || !strings.Contains(req.Email, "@") {
-		http.Error(w, "A valid email address is required", http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "A valid email address is required", http.StatusBadRequest, domain.ErrInvalidInput))
 		return
 	}
 	if err := validatePasswordComplexity(req.Password); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodePasswordTooWeak, err.Error(), http.StatusBadRequest, err))
 		return
 	}
 	if req.Name == "" {
 		req.Name = strings.Split(req.Email, "@")[0]
 	}
 
-	// Security: Client cannot self-assign administrative roles at registration.
-	// All new registrations default strictly to RoleDeveloper. Role elevation requires an admin.
+	// Security: All new registrations default strictly to RoleDeveloper.
 	userRole := domain.RoleDeveloper
 
 	// Check if user exists
 	if _, err := s.store.GetUserByEmail(r.Context(), req.Email); err == nil {
-		http.Error(w, "An account with this email address already exists", http.StatusConflict)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeEmailAlreadyExists, "An account with this email address already exists", http.StatusConflict, domain.ErrEmailAlreadyExists))
 		return
 	}
 
 	// Hash password with bcrypt
 	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeInternal, "Failed to hash password", http.StatusInternalServerError, err))
 		return
 	}
 
-	user := domain.User{
-		Email:        req.Email,
-		PasswordHash: string(hashedBytes),
-		Name:         req.Name,
-		Role:         userRole,
-	}
+	user := domain.NewUser(req.Email, req.Name, string(hashedBytes), userRole)
 
 	createdUser, err := s.store.CreateUser(r.Context(), user)
 	if err != nil {
-		http.Error(w, "Failed to create user: "+err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeInternal, "Failed to create user: "+err.Error(), http.StatusInternalServerError, err))
 		return
+	}
+
+	var activeProjID string
+	if req.InviteToken != "" {
+		if inv, err := s.store.GetOrgInvitation(r.Context(), req.InviteToken); err == nil && inv != nil {
+			_, _ = s.store.AcceptOrgInvitation(r.Context(), req.InviteToken, createdUser.ID)
+			if projs, err := s.store.ListProjects(r.Context(), inv.OrganizationID); err == nil && len(projs) > 0 {
+				activeProjID = projs[0].ID
+			}
+		}
+	}
+
+	if activeProjID == "" {
+		// Provision dedicated multi-tenant Organization for the new user
+		orgName := fmt.Sprintf("%s's Workspace", createdUser.Name)
+		orgSlug := fmt.Sprintf("%s-%s", domain.Slugify(createdUser.Name), createdUser.ID[len(createdUser.ID)-4:])
+		userOrg := domain.NewOrganization(orgName, orgSlug, "Dedicated workspace for "+createdUser.Name)
+		createdOrg, _ := s.store.CreateOrganization(r.Context(), userOrg)
+
+		orgID := "org_" + createdUser.ID
+		if createdOrg != nil && createdOrg.ID != "" {
+			orgID = createdOrg.ID
+		}
+		// Register user as workspace owner
+		_, _ = s.store.CreateOrgMember(r.Context(), domain.OrgMember{
+			OrganizationID: orgID,
+			UserID:         createdUser.ID,
+			Role:           "owner",
+		})
+
+		// Provision default Project within the newly created Organization
+		userProjSlug := fmt.Sprintf("prod-%s", createdUser.ID[len(createdUser.ID)-4:])
+		userProj := domain.NewProject(orgID, "Production Flags", userProjSlug, "Production feature flags scope for "+createdUser.Name)
+		createdProj, _ := s.store.CreateProject(r.Context(), userProj)
+		if createdProj != nil && createdProj.ID != "" {
+			activeProjID = createdProj.ID
+		}
 	}
 
 	// Create session token (expires in 7 days)
 	token, err := generateSessionToken()
 	if err != nil {
-		http.Error(w, "Failed to generate session token", http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeInternal, "Failed to generate session token", http.StatusInternalServerError, err))
 		return
 	}
 
@@ -236,11 +309,16 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt: expiresAt,
 	}
 	if err := s.store.CreateSession(r.Context(), sess); err != nil {
-		http.Error(w, "Failed to persist session", http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeInternal, "Failed to persist session", http.StatusInternalServerError, err))
 		return
 	}
 
 	s.setSessionCookie(w, r, token, expiresAt)
+
+	// Set active project cookie to user's freshly provisioned unique project
+	if activeProjID != "" {
+		s.setProjectCookie(w, r, activeProjID, expiresAt)
+	}
 
 	// Send welcome email in background if email service is active
 	if s.mailer != nil && s.mailer.IsEnabled() {
@@ -258,9 +336,7 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 		}(createdUser.Email, createdUser.Name, dashboardURL)
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(domain.AuthResponse{
+	s.writeJSON(w, http.StatusCreated, domain.AuthResponse{
 		User:    createdUser,
 		Token:   token,
 		Message: "Account created successfully",
@@ -275,27 +351,27 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	var req domain.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON payload: "+err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "Invalid JSON payload: "+err.Error(), http.StatusBadRequest, err))
 		return
 	}
 
 	email := strings.TrimSpace(strings.ToLower(req.Email))
 	user, err := s.store.GetUserByEmail(r.Context(), email)
 	if err != nil {
-		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeInvalidCredentials, "Invalid email or password", http.StatusUnauthorized, domain.ErrUnauthorized))
 		return
 	}
 
 	// Verify bcrypt hash
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeInvalidCredentials, "Invalid email or password", http.StatusUnauthorized, domain.ErrUnauthorized))
 		return
 	}
 
 	// Create session token
 	token, err := generateSessionToken()
 	if err != nil {
-		http.Error(w, "Failed to generate session token", http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeInternal, "Failed to generate session token", http.StatusInternalServerError, err))
 		return
 	}
 
@@ -306,14 +382,23 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt: expiresAt,
 	}
 	if err := s.store.CreateSession(r.Context(), sess); err != nil {
-		http.Error(w, "Failed to persist session", http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeInternal, "Failed to persist session", http.StatusInternalServerError, err))
 		return
 	}
 
 	s.setSessionCookie(w, r, token, expiresAt)
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(domain.AuthResponse{
+	// Set active project cookie if user has a scoped organization/project
+	if orgs, err := s.store.ListUserOrganizations(r.Context(), user.ID); err == nil && len(orgs) > 0 {
+		for _, org := range orgs {
+			if projs, err := s.store.ListProjects(r.Context(), org.ID); err == nil && len(projs) > 0 {
+				s.setProjectCookie(w, r, projs[0].ID, expiresAt)
+				break
+			}
+		}
+	}
+
+	s.writeJSON(w, http.StatusOK, domain.AuthResponse{
 		User:    user,
 		Token:   token,
 		Message: "Login successful",

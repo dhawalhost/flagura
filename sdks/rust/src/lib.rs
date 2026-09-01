@@ -122,6 +122,7 @@ struct TrackEvent<'a> {
 pub struct ClientConfig {
     pub endpoint: String,
     pub api_key: Option<String>,
+    pub project_id: Option<String>,
     pub default_environment: String,
     pub timeout: Duration,
 }
@@ -176,6 +177,9 @@ impl FlaguraClient {
         if let Some(ref key) = self.config.api_key {
             req = req.header("Authorization", format!("Bearer {}", key));
         }
+        if let Some(ref project_id) = self.config.project_id {
+            req = req.header("X-Project-ID", project_id);
+        }
 
         let resp = req.send().await?;
         if !resp.status().is_success() {
@@ -200,21 +204,25 @@ impl FlaguraClient {
         value: f64,
         user_id: &str,
     ) -> Result<()> {
-        let url = format!("{}/api/v1/events", self.config.endpoint.trim_end_matches('/'));
-        let payload = TrackEventPayload {
-            event: TrackEvent {
-                flag_key,
-                variant,
-                metric_name,
-                value,
-                user_id,
-                environment: &self.config.default_environment,
-            },
-        };
+        let url = format!("{}/api/v1/telemetry/events", self.config.endpoint.trim_end_matches('/'));
+        let payload = serde_json::json!({
+            "events": [{
+                "flag_key": flag_key,
+                "project_id": self.config.project_id,
+                "variant": variant,
+                "metric_name": metric_name,
+                "value": value,
+                "user_id": user_id,
+                "environment": &self.config.default_environment,
+            }]
+        });
 
         let mut req = self.http.post(&url).json(&payload);
         if let Some(ref key) = self.config.api_key {
             req = req.header("Authorization", format!("Bearer {}", key));
+        }
+        if let Some(ref project_id) = self.config.project_id {
+            req = req.header("X-Project-ID", project_id);
         }
 
         let resp = req.send().await?;
@@ -236,6 +244,7 @@ impl FlaguraClient {
 pub struct FlaguraBuilder {
     endpoint: Option<String>,
     api_key: Option<String>,
+    project_id: Option<String>,
     environment: Option<String>,
     timeout: Option<Duration>,
 }
@@ -248,6 +257,11 @@ impl FlaguraBuilder {
 
     pub fn api_key(mut self, key: impl Into<String>) -> Self {
         self.api_key = Some(key.into());
+        self
+    }
+
+    pub fn project_id(mut self, project_id: impl Into<String>) -> Self {
+        self.project_id = Some(project_id.into());
         self
     }
 
@@ -266,6 +280,7 @@ impl FlaguraBuilder {
         let config = ClientConfig {
             endpoint,
             api_key: self.api_key,
+            project_id: self.project_id,
             default_environment: self.environment.unwrap_or_else(|| "production".to_string()),
             timeout: self.timeout.unwrap_or(Duration::from_millis(500)),
         };

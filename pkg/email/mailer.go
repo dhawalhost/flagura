@@ -29,6 +29,7 @@ type Config struct {
 	BrandName        string
 	AppURL           string
 	GovernanceEmails []string
+	UseTLS           bool
 }
 
 // DefaultConfig returns safe, privacy-preserving defaults for self-hosted instances.
@@ -41,6 +42,7 @@ func DefaultConfig() Config {
 		BrandName:        "Flagura",
 		AppURL:           "http://localhost:3000",
 		GovernanceEmails: []string{}, // Auto-resolved dynamically from local database admins
+		UseTLS:           false,
 	}
 }
 
@@ -55,6 +57,9 @@ func LoadConfigFromEnv() Config {
 		if p, err := strconv.Atoi(pStr); err == nil {
 			cfg.Port = p
 		}
+	}
+	if cfg.Port == 465 || os.Getenv("SMTP_USE_TLS") == "true" {
+		cfg.UseTLS = true
 	}
 	if u := os.Getenv("SMTP_USERNAME"); u != "" {
 		cfg.Username = u
@@ -357,11 +362,13 @@ func (m *SMTPMailer) sendHTMLEmail(toEmail, subject, htmlBody string) error {
 		auth = smtp.PlainAuth("", m.Config.Username, m.Config.Password, m.Config.Host)
 	}
 
-	// For port 465 (SMTPS), use TLS dialer
-	if m.Config.Port == 465 {
+	// For port 465 (SMTPS) or explicit TLS, use TLS dialer
+	if m.Config.Port == 465 || m.Config.UseTLS {
+		insecure := m.Config.Host == "127.0.0.1" || m.Config.Host == "localhost"
 		tlsConfig := &tls.Config{
-			ServerName: m.Config.Host,
-			MinVersion: tls.VersionTLS12,
+			ServerName:         m.Config.Host,
+			MinVersion:         tls.VersionTLS12,
+			InsecureSkipVerify: insecure, // #nosec G402 -- test certificate support on local address
 		}
 		conn, err := tls.Dial("tcp", addr, tlsConfig)
 		if err != nil {

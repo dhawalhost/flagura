@@ -31,6 +31,7 @@ docs/
 └── runbooks/                          # SRE & DevOps Runbooks
     ├── README.md                      # Runbook index & operational principles
     ├── deployment.md                  # Release management & deployment procedures
+    ├── sdk-publishing.md              # Multi-language SDK publishing (Go, NPM, PyPI, Crates)
     ├── database-operations.md         # PostgreSQL migrations, pooler setup & backups
     ├── security-and-access.md         # RBAC, session management & credentials
     └── incident-response.md           # Master kill-switches, rollbacks & troubleshooting
@@ -73,6 +74,7 @@ docs/
 
 ### 5. 🛡️ Operations & SRE Runbooks
 - **[Deployment Runbook](runbooks/deployment.md)** — CI/CD approval workflows, manual triggers, and GoReleaser tagging.
+- **[SDK Release & Publishing Runbook](runbooks/sdk-publishing.md)** — Publishing Go submodule, NPM `@flagura/sdk`, PyPI `flagura-sdk`, Crates.io `flagura`, and OpenFeature catalog.
 - **[Database Operations](runbooks/database-operations.md)** — PostgreSQL connection pooling, migrations, and health checks.
 - **[Security & Access Management](runbooks/security-and-access.md)** — Admin roles, session cookies, and security audit logs.
 - **[Incident Response](runbooks/incident-response.md)** — 1-click master kill-switch circuit breakers and emergency rollbacks.

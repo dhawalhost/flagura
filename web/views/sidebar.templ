@@ -5,12 +5,31 @@ import (
 	"fmt"
 )
 
-templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry) {
+func resolveActiveOrgName(orgs []domain.Organization, projects []domain.Project, activeProjectID string) string {
+	var targetOrgID string
+	for _, p := range projects {
+		if p.ID == activeProjectID || (activeProjectID == "" && p.ID == "proj_default") {
+			targetOrgID = p.OrganizationID
+			break
+		}
+	}
+	for _, o := range orgs {
+		if o.ID == targetOrgID {
+			return o.Name
+		}
+	}
+	if len(orgs) > 0 {
+		return orgs[0].Name
+	}
+	return "Organization"
+}
+
+templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, orgs []domain.Organization, projects []domain.Project, activeProjectID string) {
 	<aside 
 		class="w-64 fixed lg:sticky top-0 h-screen bg-white border-r border-slate-200 p-5 flex flex-col justify-between z-40 transition-transform duration-300 shadow-xs shrink-0"
 		:class="isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
 	>
-		<div class="space-y-6">
+		<div class="space-y-5">
 			<!-- Logo & Flagura Brand -->
 			<div class="flex items-center justify-between px-1">
 				<a href="/" class="flex items-center gap-3 group">
@@ -26,6 +45,82 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 				>
 					<i data-lucide="x" class="w-4 h-4"></i>
 				</button>
+			</div>
+
+			<!-- Organization & Project Selector Dropdown -->
+			<div class="relative" x-data="{ projDropdownOpen: false }">
+				<button 
+					@click="projDropdownOpen = !projDropdownOpen"
+					class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-left transition shadow-2xs group cursor-pointer"
+				>
+					<div class="flex items-center gap-2.5 min-w-0">
+						<div class="w-7 h-7 rounded-lg bg-blue-600/10 text-blue-600 border border-blue-200/50 flex items-center justify-center shrink-0">
+							<i data-lucide="layers" class="w-3.5 h-3.5"></i>
+						</div>
+						<div class="min-w-0">
+							<div class="text-[10px] font-mono font-semibold text-slate-500 uppercase tracking-wider truncate">
+								{ resolveActiveOrgName(orgs, projects, activeProjectID) }
+							</div>
+							<div class="text-xs font-bold text-slate-900 font-display truncate">
+								for _, p := range projects {
+									if p.ID == activeProjectID || (activeProjectID == "" && p.ID == "proj_default") {
+										{ p.Name }
+									}
+								}
+							</div>
+						</div>
+					</div>
+					<i data-lucide="chevrons-up-down" class="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 shrink-0"></i>
+				</button>
+
+				<!-- Dropdown Menu -->
+				<div 
+					x-show="projDropdownOpen" 
+					@click.outside="projDropdownOpen = false"
+					class="absolute left-0 mt-1.5 w-full bg-white p-2 z-50 shadow-xl border border-slate-200 rounded-xl space-y-1"
+					style="display: none;"
+					x-transition
+				>
+					<div class="max-h-56 overflow-y-auto space-y-1.5">
+						for _, org := range orgs {
+							<div class="px-2 pt-1 text-[10px] font-mono uppercase font-bold text-slate-400">
+								{ org.Name }
+							</div>
+							for _, p := range projects {
+								if p.OrganizationID == org.ID || (org.ID == "org_default" && p.OrganizationID == "") {
+									<button 
+										@click={ fmt.Sprintf("switchProject('%s')", p.ID) }
+										class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono flex items-center justify-between hover:bg-slate-50 text-slate-800 cursor-pointer"
+									>
+										<div class="truncate">
+											<div class="font-semibold text-slate-900 truncate">{ p.Name }</div>
+											<div class="text-[10px] text-slate-400 font-mono truncate">{ p.Slug }</div>
+										</div>
+										if p.ID == activeProjectID || (activeProjectID == "" && p.ID == "proj_default") {
+											<i data-lucide="check" class="w-3.5 h-3.5 text-blue-600 shrink-0"></i>
+										}
+									</button>
+								}
+							}
+						}
+					</div>
+					<div class="border-t border-slate-100 pt-1 mt-1 space-y-0.5">
+						<button 
+							@click="projDropdownOpen = false; $dispatch('open-create-project-modal');"
+							class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold text-blue-600 hover:bg-blue-50 flex items-center gap-1.5 cursor-pointer"
+						>
+							<i data-lucide="plus" class="w-3.5 h-3.5"></i>
+							<span>Create Project / Scope</span>
+						</button>
+						<button 
+							@click="projDropdownOpen = false; $dispatch('open-invite-modal');"
+							class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
+						>
+							<i data-lucide="user-plus" class="w-3.5 h-3.5 text-blue-600"></i>
+							<span>Invite Team Member</span>
+						</button>
+					</div>
+				</div>
 			</div>
 
 			<!-- Navigation Links -->

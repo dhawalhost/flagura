@@ -1,7 +1,7 @@
 package views
 
 templ BenchmarkModal() {
-	<div class="space-y-8" x-show="activeView === 'benchmark'" x-data="benchmarkViewComponent()">
+	<div class="space-y-8" x-show="activeView === 'benchmark'" x-cloak x-data="benchmarkViewComponent()">
 		<!-- Top Header Card -->
 		<div class="console-card p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 			<div class="flex items-center gap-3.5">

@@ -12,7 +12,7 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
-func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, changeRequests []domain.ChangeRequest, driverName string) templ.Component {
+func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, changeRequests []domain.ChangeRequest, driverName string, orgs []domain.Organization, projects []domain.Project, activeProjectID string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -49,7 +49,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = Sidebar(user, flags, auditLogs).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = Sidebar(user, flags, auditLogs, orgs, projects, activeProjectID).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -141,7 +141,15 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</main></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<!-- VIEW 11: Project & Workspace Modal -->")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = ProjectModal(orgs, projects, activeProjectID).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</main></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

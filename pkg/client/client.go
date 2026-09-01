@@ -50,6 +50,21 @@ type EvaluationResult struct {
 	EvaluationLatencyUs float64     `json:"latency_us"`
 }
 
+// Logger provides an extensible interface for SDK structured logging.
+type Logger interface {
+	Debugf(format string, args ...interface{})
+	Infof(format string, args ...interface{})
+	Warnf(format string, args ...interface{})
+	Errorf(format string, args ...interface{})
+}
+
+type nopLogger struct{}
+
+func (n *nopLogger) Debugf(format string, args ...interface{}) {}
+func (n *nopLogger) Infof(format string, args ...interface{})  {}
+func (n *nopLogger) Warnf(format string, args ...interface{})  {}
+func (n *nopLogger) Errorf(format string, args ...interface{}) {}
+
 // Config holds client configuration settings.
 type Config struct {
 	// Endpoint is the base URL of the Flagura server (e.g. "http://localhost:3000" or "https://flagura.yourdomain.com")
@@ -63,6 +78,9 @@ type Config struct {
 
 	// HTTPClient to use for network requests (default: http.DefaultClient with 5s timeout)
 	HTTPClient *http.Client
+
+	// Logger to use for structured debug/info logging (default: no-op logger)
+	Logger Logger
 
 	// LocalEvaluation enables background flag caching and in-process local evaluation
 	LocalEvaluation bool
@@ -90,6 +108,9 @@ type Config struct {
 
 	// DisableTelemetry disables client-side evaluation telemetry push
 	DisableTelemetry bool
+
+	// ProjectID optionally binds the SDK client to a specific project scope (default: "proj_default")
+	ProjectID string
 }
 
 // Option configures a Flagura Client.
@@ -99,6 +120,20 @@ type Option func(*Config)
 func WithAPIKey(key string) Option {
 	return func(c *Config) {
 		c.APIKey = key
+	}
+}
+
+// WithProject binds the SDK client to a specific project scope.
+func WithProject(projectID string) Option {
+	return func(c *Config) {
+		c.ProjectID = projectID
+	}
+}
+
+// WithLogger sets the structured logger for the SDK.
+func WithLogger(logger Logger) Option {
+	return func(c *Config) {
+		c.Logger = logger
 	}
 }
 
@@ -204,6 +239,10 @@ func New(endpoint string, opts ...Option) *Client {
 
 	for _, opt := range opts {
 		opt(&cfg)
+	}
+
+	if cfg.Logger == nil {
+		cfg.Logger = &nopLogger{}
 	}
 
 	var cb *CircuitBreaker
@@ -402,9 +441,12 @@ func (c *Client) evaluateBatchRemote(ctx context.Context, flagKeys []string, eva
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(domain.HeaderContentType, "application/json")
 	if c.config.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+		req.Header.Set(domain.HeaderAuthorization, "Bearer "+c.config.APIKey)
+	}
+	if c.config.ProjectID != "" {
+		req.Header.Set(domain.HeaderProjectID, c.config.ProjectID)
 	}
 
 	resp, err := c.config.HTTPClient.Do(req)
@@ -447,7 +489,10 @@ func (c *Client) syncFlags(ctx context.Context) error {
 	}
 
 	if c.config.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+		req.Header.Set(domain.HeaderAuthorization, "Bearer "+c.config.APIKey)
+	}
+	if c.config.ProjectID != "" {
+		req.Header.Set(domain.HeaderProjectID, c.config.ProjectID)
 	}
 
 	resp, err := c.config.HTTPClient.Do(req)
@@ -557,6 +602,7 @@ func (c *Client) toDomainContext(ctx Context) domain.EvaluationContext {
 func (c *Client) Track(ctx context.Context, flagKey, variant, metricName string, value float64, userID string) error {
 	payload := map[string]interface{}{
 		"event": domain.ExperimentEvent{
+			ProjectID:   c.config.ProjectID,
 			FlagKey:     flagKey,
 			Variant:     variant,
 			MetricName:  metricName,
@@ -581,6 +627,9 @@ func (c *Client) Track(ctx context.Context, flagKey, variant, metricName string,
 	req.Header.Set("Content-Type", "application/json")
 	if c.config.APIKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+	}
+	if c.config.ProjectID != "" {
+		req.Header.Set("X-Project-ID", c.config.ProjectID)
 	}
 
 	resp, err := c.config.HTTPClient.Do(req)

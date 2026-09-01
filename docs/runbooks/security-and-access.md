@@ -21,7 +21,7 @@ curl -X POST "https://flagura.yourdomain.com/api/v1/auth/signup" \
   -d '{
     "name": "Jane Doe",
     "email": "jane@company.com",
-    "password": "SecurePassword123!",
+    "password": "<YOUR_STRONG_PASSWORD>",
     "role": "developer"
   }'
 ```

@@ -47,7 +47,9 @@ func TestTemplComponents(t *testing.T) {
 
 	t.Run("Dashboard", func(t *testing.T) {
 		var buf bytes.Buffer
-		if err := views.Dashboard(user, flags, logs, nil, mem.DriverName()).Render(ctx, &buf); err != nil {
+		orgs, _ := mem.ListOrganizations(ctx)
+		projects, _ := mem.ListProjects(ctx, "")
+		if err := views.Dashboard(user, flags, logs, nil, mem.DriverName(), orgs, projects, store.DefaultProjectID).Render(ctx, &buf); err != nil {
 			t.Fatalf("Failed to render Dashboard: %v", err)
 		}
 		if buf.Len() == 0 {

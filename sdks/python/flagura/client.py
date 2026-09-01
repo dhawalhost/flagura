@@ -55,12 +55,14 @@ class FlaguraClient:
         self,
         endpoint: str = "http://localhost:3000",
         api_key: Optional[str] = None,
+        project_id: Optional[str] = None,
         default_environment: str = "production",
         timeout: float = 5.0,
         enable_streaming: bool = False,
     ):
         self.endpoint = endpoint.rstrip("/")
         self.api_key = api_key
+        self.project_id = project_id
         self.default_environment = default_environment
         self.timeout = timeout
         self._local_flags: Dict[str, Any] = {}
@@ -84,6 +86,8 @@ class FlaguraClient:
         headers = {"Accept": "text/event-stream"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
+        if self.project_id:
+            headers["X-Project-ID"] = self.project_id
 
         while not self._stop_event.is_set():
             try:
@@ -96,12 +100,19 @@ class FlaguraClient:
                         if line.startswith("data:"):
                             try:
                                 data_str = line[5:].strip()
-                                flags_list = json.loads(data_str)
-                                if isinstance(flags_list, list):
-                                    new_map = {f["key"]: f for f in flags_list if "key" in f}
-                                    self._local_flags = new_map
-                                    for listener in self._listeners:
-                                        listener(dict(self._local_flags))
+                                if data_str == "ping" or not data_str:
+                                    continue
+                                payload = json.loads(data_str)
+                                if isinstance(payload, list):
+                                    self._local_flags = {f["key"]: f for f in payload if "key" in f}
+                                elif isinstance(payload, dict) and "flags" in payload:
+                                    raw_flags = payload["flags"]
+                                    if isinstance(raw_flags, list):
+                                        self._local_flags = {f["key"]: f for f in raw_flags if "key" in f}
+                                    elif isinstance(raw_flags, dict):
+                                        self._local_flags = raw_flags
+                                for listener in self._listeners:
+                                    listener(dict(self._local_flags))
                             except Exception:
                                 pass
             except Exception:
@@ -152,6 +163,8 @@ class FlaguraClient:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
+        if self.project_id:
+            headers["X-Project-ID"] = self.project_id
 
         req = urllib.request.Request(
             f"{self.endpoint}/api/v1/evaluate",
@@ -184,23 +197,28 @@ class FlaguraClient:
     def track(self, flag_key: str, variant: str, metric_name: str, value: float = 1.0, user_id: str = "") -> None:
         """Track an experiment conversion or numeric metric event."""
         payload = {
-            "event": {
-                "flag_key": flag_key,
-                "variant": variant,
-                "metric_name": metric_name,
-                "value": value,
-                "user_id": user_id,
-                "environment": self.default_environment,
-                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            }
+            "events": [
+                {
+                    "flag_key": flag_key,
+                    "project_id": self.project_id,
+                    "variant": variant,
+                    "metric_name": metric_name,
+                    "value": value,
+                    "user_id": user_id,
+                    "environment": self.default_environment,
+                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                }
+            ]
         }
         req_data = json.dumps(payload).encode("utf-8")
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
+        if self.project_id:
+            headers["X-Project-ID"] = self.project_id
 
         req = urllib.request.Request(
-            f"{self.endpoint}/api/v1/events",
+            f"{self.endpoint}/api/v1/telemetry/events",
             data=req_data,
             headers=headers,
             method="POST",

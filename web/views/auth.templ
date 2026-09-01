@@ -72,7 +72,7 @@ templ AuthPage(showLanding ...bool) {
 						</div>
 						<input 
 							type="password" 
-							x-model="loginForm.password" 
+							x-model="loginForm.passphrase" 
 							required
 							class="input-clean w-full text-xs font-mono"
 							placeholder="••••••••••••"
@@ -120,8 +120,8 @@ templ AuthPage(showLanding ...bool) {
 								<label class="block text-xs font-semibold text-slate-700 mb-1.5">Password</label>
 								<input 
 									type="password" 
-									x-model="signUpForm.password" 
-									@input="evaluatePassword(signUpForm.password)"
+									x-model="signUpForm.passphrase" 
+									@input="evaluatePassword(signUpForm.passphrase)"
 									required
 									minlength="8"
 									class="input-clean w-full text-xs font-mono"
@@ -132,7 +132,7 @@ templ AuthPage(showLanding ...bool) {
 								<label class="block text-xs font-semibold text-slate-700 mb-1.5">Confirm Password</label>
 								<input 
 									type="password" 
-									x-model="signUpForm.confirmPassword" 
+									x-model="signUpForm.confirmPassphrase" 
 									required
 									minlength="8"
 									class="input-clean w-full text-xs font-mono"
@@ -142,7 +142,7 @@ templ AuthPage(showLanding ...bool) {
 						</div>
 
 						<!-- Real-Time Password Complexity Requirements -->
-						<div x-show="signUpForm.password.length > 0" class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-[11px]">
+						<div x-show="signUpForm.passphrase.length > 0" class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-[11px]">
 							<div class="flex items-center justify-between font-semibold">
 								<span class="text-slate-600">Password Strength:</span>
 								<span :class="passwordStrengthColor" x-text="passwordStrengthText"></span>
@@ -264,8 +264,8 @@ templ AuthPage(showLanding ...bool) {
 								<label class="block text-xs font-semibold text-slate-700 mb-1.5">New Password</label>
 								<input 
 									type="password" 
-									x-model="resetForm.password" 
-									@input="evaluatePassword(resetForm.password)"
+									x-model="resetForm.passphrase" 
+									@input="evaluatePassword(resetForm.passphrase)"
 									required
 									minlength="8"
 									class="input-clean w-full text-xs font-mono"
@@ -274,7 +274,7 @@ templ AuthPage(showLanding ...bool) {
 							</div>
 
 							<!-- Real-Time Password Complexity Requirements -->
-							<div x-show="resetForm.password.length > 0" class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-[11px]">
+							<div x-show="resetForm.passphrase.length > 0" class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-[11px]">
 								<div class="flex items-center justify-between font-semibold">
 									<span class="text-slate-600">Strength:</span>
 									<span :class="passwordStrengthColor" x-text="passwordStrengthText"></span>
@@ -310,7 +310,7 @@ templ AuthPage(showLanding ...bool) {
 								<label class="block text-xs font-semibold text-slate-700 mb-1.5">Confirm New Password</label>
 								<input 
 									type="password" 
-									x-model="resetForm.confirmPassword" 
+									x-model="resetForm.confirmPassphrase" 
 									required
 									minlength="8"
 									class="input-clean w-full text-xs font-mono"
@@ -372,23 +372,25 @@ templ AuthPage(showLanding ...bool) {
 					error: '',
 					successMessage: '',
 					resetToken: '',
+					inviteToken: '',
+					inviteOrgName: '',
 					loginForm: {
 						email: '',
-						password: ''
+						passphrase: ''
 					},
 					signUpForm: {
 						name: '',
 						email: '',
-						password: '',
-						confirmPassword: '',
+						passphrase: '',
+						confirmPassphrase: '',
 						role: 'developer'
 					},
 					forgotForm: {
 						email: ''
 					},
 					resetForm: {
-						password: '',
-						confirmPassword: ''
+						passphrase: '',
+						confirmPassphrase: ''
 					},
 					criteria: {
 						len: false,
@@ -406,7 +408,22 @@ templ AuthPage(showLanding ...bool) {
 						const urlParams = new URLSearchParams(window.location.search);
 						const modeParam = urlParams.get('mode');
 						const tokenParam = urlParams.get('token');
-						if (modeParam === 'reset' && tokenParam) {
+						const inviteParam = urlParams.get('invite');
+						if (inviteParam) {
+							this.inviteToken = inviteParam;
+							this.mode = 'signup';
+							fetch('/api/v1/invitations/' + inviteParam)
+								.then(r => r.json())
+								.then(data => {
+									if (data.invitation) {
+										this.inviteOrgName = data.invitation.org_name;
+										if (data.invitation.email) this.signUpForm.email = data.invitation.email;
+										if (data.invitation.role) this.signUpForm.role = data.invitation.role;
+										this.successMessage = `You've been invited to join ${this.inviteOrgName}! Complete your account below.`;
+									}
+								})
+								.catch(() => {});
+						} else if (modeParam === 'reset' && tokenParam) {
 							this.mode = 'reset';
 							this.resetToken = tokenParam;
 						} else if (modeParam === 'forgot') {
@@ -475,7 +492,10 @@ templ AuthPage(showLanding ...bool) {
 							const res = await fetch('/api/v1/auth/login', {
 								method: 'POST',
 								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify(this.loginForm)
+								body: JSON.stringify({
+									email: this.loginForm.email,
+									password: this.loginForm.passphrase
+								})
 							});
 							const data = await res.json();
 							if (!res.ok) {
@@ -494,11 +514,11 @@ templ AuthPage(showLanding ...bool) {
 					},
 
 					async submitSignUp() {
-						if (!this.isPasswordValid(this.signUpForm.password)) {
+						if (!this.isPasswordValid(this.signUpForm.passphrase)) {
 							this.error = 'Password does not meet all security complexity requirements (8+ chars, uppercase, lowercase, number, and special symbol).';
 							return;
 						}
-						if (this.signUpForm.password !== this.signUpForm.confirmPassword) {
+						if (this.signUpForm.passphrase !== this.signUpForm.confirmPassphrase) {
 							this.error = 'Passwords do not match.';
 							return;
 						}
@@ -513,8 +533,9 @@ templ AuthPage(showLanding ...bool) {
 								body: JSON.stringify({
 									name: this.signUpForm.name,
 									email: this.signUpForm.email,
-									password: this.signUpForm.password,
-									role: this.signUpForm.role
+									password: this.signUpForm.passphrase,
+									role: this.signUpForm.role,
+									inviteToken: this.inviteToken || undefined
 								})
 							});
 							const data = await res.json();
@@ -559,11 +580,11 @@ templ AuthPage(showLanding ...bool) {
 					},
 
 					async submitResetPassword() {
-						if (!this.isPasswordValid(this.resetForm.password)) {
+						if (!this.isPasswordValid(this.resetForm.passphrase)) {
 							this.error = 'Password does not meet all security complexity requirements (8+ chars, uppercase, lowercase, number, and special symbol).';
 							return;
 						}
-						if (this.resetForm.password !== this.resetForm.confirmPassword) {
+						if (this.resetForm.passphrase !== this.resetForm.confirmPassphrase) {
 							this.error = 'Passwords do not match.';
 							return;
 						}
@@ -581,7 +602,7 @@ templ AuthPage(showLanding ...bool) {
 								headers: { 'Content-Type': 'application/json' },
 								body: JSON.stringify({
 									token: this.resetToken,
-									newPassword: this.resetForm.password
+									newPassword: this.resetForm.passphrase
 								})
 							});
 							const data = await res.json();

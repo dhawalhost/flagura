@@ -1,15 +1,15 @@
-package client_test
+package client
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
-	"github.com/dhawalhost/flagura/pkg/client"
 )
 
 func mockServer(t *testing.T) *httptest.Server {
@@ -54,15 +54,15 @@ func mockServer(t *testing.T) *httptest.Server {
 
 		case "/api/v1/evaluate":
 			var req struct {
-				Flags   []string       `json:"flags"`
-				Context client.Context `json:"context"`
+				Flags   []string `json:"flags"`
+				Context Context  `json:"context"`
 			}
 			_ = json.NewDecoder(r.Body).Decode(&req)
 
-			results := make(map[string]client.EvaluationResult)
+			results := make(map[string]EvaluationResult)
 			for _, flagKey := range req.Flags {
 				if flagKey == "ai-smart-search" {
-					results[flagKey] = client.EvaluationResult{
+					results[flagKey] = EvaluationResult{
 						FlagKey:             flagKey,
 						Enabled:             true,
 						Variant:             "treatment",
@@ -73,7 +73,7 @@ func mockServer(t *testing.T) *httptest.Server {
 						EvaluationLatencyUs: 0.085,
 					}
 				} else if flagKey == "beta-dark-theme" {
-					results[flagKey] = client.EvaluationResult{
+					results[flagKey] = EvaluationResult{
 						FlagKey:             flagKey,
 						Enabled:             true,
 						Variant:             "dark-blue",
@@ -84,7 +84,7 @@ func mockServer(t *testing.T) *httptest.Server {
 						EvaluationLatencyUs: 0.09,
 					}
 				} else {
-					results[flagKey] = client.EvaluationResult{
+					results[flagKey] = EvaluationResult{
 						FlagKey: flagKey,
 						Enabled: false,
 						Variant: "off",
@@ -100,16 +100,8 @@ func mockServer(t *testing.T) *httptest.Server {
 			})
 
 		case "/api/v1/events":
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusAccepted)
-			_ = json.NewEncoder(w).Encode(map[string]string{"status": "accepted"})
-			return
-
-		case "/api/v1/telemetry/events":
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusAccepted)
-			_ = json.NewEncoder(w).Encode(map[string]string{"status": "accepted"})
-			return
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "recorded"})
 
 		default:
 			http.NotFound(w, r)
@@ -121,63 +113,88 @@ func TestClientRemoteEvaluation(t *testing.T) {
 	ts := mockServer(t)
 	defer ts.Close()
 
-	c := client.New(ts.URL)
+	c := New(ts.URL)
 	defer c.Close()
 
 	ctx := context.Background()
-	evalCtx := client.Context{
+	evalCtx := Context{
 		UserID: "usr_100",
 		Email:  "dhawal@flagura.dev",
 	}
 
-	// 1. IsEnabled
-	if !c.IsEnabled(ctx, "ai-smart-search", evalCtx) {
-		t.Errorf("expected ai-smart-search to be enabled")
-	}
+	t.Run("IsEnabled", func(t *testing.T) {
+		tests := []struct {
+			name            string
+			flagKey         string
+			expectedEnabled bool
+		}{
+			{"Existing enabled flag", "ai-smart-search", true},
+			{"Non-existent flag", "non-existent-flag", false},
+		}
 
-	if c.IsEnabled(ctx, "non-existent-flag", evalCtx) {
-		t.Errorf("expected non-existent flag to be disabled")
-	}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				enabled := c.IsEnabled(ctx, tt.flagKey, evalCtx)
+				if enabled != tt.expectedEnabled {
+					t.Errorf("IsEnabled(%q) = %v, expected %v", tt.flagKey, enabled, tt.expectedEnabled)
+				}
+			})
+		}
+	})
 
-	// 2. Evaluate
-	res, err := c.Evaluate(ctx, "ai-smart-search", evalCtx)
-	if err != nil {
-		t.Fatalf("unexpected evaluate error: %v", err)
-	}
-	if !res.Enabled || res.Variant != "treatment" {
-		t.Errorf("unexpected evaluation result: %+v", res)
-	}
+	t.Run("GetVariant", func(t *testing.T) {
+		tests := []struct {
+			name            string
+			flagKey         string
+			fallback        string
+			expectedVariant string
+		}{
+			{"Multivariate matched variant", "beta-dark-theme", "default", "dark-blue"},
+			{"Non-existent flag fallback", "non-existent", "fallback-v", "fallback-v"},
+		}
 
-	// 3. GetVariant
-	variant := c.GetVariant(ctx, "beta-dark-theme", evalCtx, "default")
-	if variant != "dark-blue" {
-		t.Errorf("expected variant dark-blue, got: %s", variant)
-	}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				variant := c.GetVariant(ctx, tt.flagKey, evalCtx, tt.fallback)
+				if variant != tt.expectedVariant {
+					t.Errorf("GetVariant(%q) = %q, expected %q", tt.flagKey, variant, tt.expectedVariant)
+				}
+			})
+		}
+	})
 
-	fallbackVariant := c.GetVariant(ctx, "non-existent", evalCtx, "fallback-v")
-	if fallbackVariant != "fallback-v" {
-		t.Errorf("expected fallback variant, got: %s", fallbackVariant)
-	}
+	t.Run("EvaluateBatch", func(t *testing.T) {
+		tests := []struct {
+			name          string
+			flagKeys      []string
+			expectedCount int
+		}{
+			{"Batch evaluation of 2 flags", []string{"ai-smart-search", "beta-dark-theme"}, 2},
+		}
 
-	// 4. EvaluateBatch
-	batch, err := c.EvaluateBatch(ctx, []string{"ai-smart-search", "beta-dark-theme"}, evalCtx)
-	if err != nil {
-		t.Fatalf("unexpected batch evaluate error: %v", err)
-	}
-	if len(batch) != 2 {
-		t.Errorf("expected 2 flags in batch response, got: %d", len(batch))
-	}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				batch, err := c.EvaluateBatch(ctx, tt.flagKeys, evalCtx)
+				if err != nil {
+					t.Fatalf("unexpected batch evaluate error: %v", err)
+				}
+				if len(batch) != tt.expectedCount {
+					t.Errorf("expected %d flags in batch response, got %d", tt.expectedCount, len(batch))
+				}
+			})
+		}
+	})
 }
 
 func TestClientLocalEvaluation(t *testing.T) {
 	ts := mockServer(t)
 	defer ts.Close()
 
-	c := client.New(ts.URL, client.WithLocalEvaluation(100*time.Millisecond))
+	c := New(ts.URL, WithLocalEvaluation(100*time.Millisecond))
 	defer c.Close()
 
 	ctx := context.Background()
-	evalCtx := client.Context{
+	evalCtx := Context{
 		UserID: "usr_500",
 		Email:  "dhawal@flagura.dev",
 	}
@@ -198,16 +215,16 @@ func TestClientSnapshotPersistenceAndOfflineBootstrap(t *testing.T) {
 	tmpFile := t.TempDir() + "/flagura_snapshot.json"
 
 	// 1. Initial client syncs from server and saves snapshot to disk
-	c1 := client.New(ts.URL, client.WithLocalEvaluation(1*time.Second), client.WithSnapshotFile(tmpFile))
+	c1 := New(ts.URL, WithLocalEvaluation(1*time.Second), WithSnapshotFile(tmpFile))
 	c1.Close()
 	ts.Close() // Simulate server shutdown / network partition
 
 	// 2. New client boots up pointing to dead endpoint with snapshot file
-	c2 := client.New("http://127.0.0.1:54321", client.WithLocalEvaluation(1*time.Second), client.WithSnapshotFile(tmpFile))
+	c2 := New("http://127.0.0.1:54321", WithLocalEvaluation(1*time.Second), WithSnapshotFile(tmpFile))
 	defer c2.Close()
 
 	ctx := context.Background()
-	evalCtx := client.Context{
+	evalCtx := Context{
 		UserID: "offline_user_1",
 		Email:  "user@example.com",
 	}
@@ -226,7 +243,7 @@ func TestClientTrackExperimentEvent(t *testing.T) {
 	ts := mockServer(t)
 	defer ts.Close()
 
-	c := client.New(ts.URL, client.WithAPIKey("test-key"))
+	c := New(ts.URL, WithAPIKey("test-key"))
 	defer c.Close()
 
 	ctx := context.Background()
@@ -235,3 +252,142 @@ func TestClientTrackExperimentEvent(t *testing.T) {
 		t.Fatalf("expected Track to succeed, got error: %v", err)
 	}
 }
+
+func TestClientWithProject(t *testing.T) {
+	var receivedProjectID string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedProjectID = r.Header.Get("X-Project-ID")
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/evaluate" {
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"results": map[string]EvaluationResult{
+					"custom-flag": {
+						FlagKey: "custom-flag",
+						Enabled: true,
+						Variant: "on",
+					},
+				},
+			})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"flags": []domain.FeatureFlag{},
+		})
+	}))
+	defer ts.Close()
+
+	c := New(ts.URL, WithAPIKey("test-key"), WithProject("proj_payments_v2"))
+	defer c.Close()
+
+	ctx := context.Background()
+	res, err := c.Evaluate(ctx, "custom-flag", Context{UserID: "u1"})
+	if err != nil {
+		t.Fatalf("unexpected evaluate error: %v", err)
+	}
+	if !res.Enabled {
+		t.Fatalf("expected enabled flag")
+	}
+	if receivedProjectID != "proj_payments_v2" {
+		t.Fatalf("expected X-Project-ID 'proj_payments_v2', got '%s'", receivedProjectID)
+	}
+}
+
+type testLogger struct {
+	debugLogs []string
+	infoLogs  []string
+}
+
+func (l *testLogger) Debugf(format string, args ...interface{}) {
+	l.debugLogs = append(l.debugLogs, fmt.Sprintf(format, args...))
+}
+func (l *testLogger) Infof(format string, args ...interface{}) {
+	l.infoLogs = append(l.infoLogs, fmt.Sprintf(format, args...))
+}
+func (l *testLogger) Warnf(format string, args ...interface{}) {}
+func (l *testLogger) Errorf(format string, args ...interface{}) {}
+
+func TestSDKFunctionalOptionsAndLogger(t *testing.T) {
+	ts := mockServer(t)
+	defer ts.Close()
+
+	logger := &testLogger{}
+	c := New(
+		ts.URL,
+		WithAPIKey("test-api-key"),
+		WithProject("proj_custom_test"),
+		WithEnvironment(domain.EnvStaging),
+		WithLogger(logger),
+	)
+	defer c.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	res, err := c.Evaluate(ctx, "ai-smart-search", Context{UserID: "usr_logger_test"})
+	if err != nil {
+		t.Fatalf("unexpected evaluate error: %v", err)
+	}
+	if !res.Enabled {
+		t.Errorf("expected flag to be enabled")
+	}
+}
+
+func TestSDKAllOptionsAndBatchLocalEvaluation(t *testing.T) {
+	ts := mockServer(t)
+	defer ts.Close()
+
+	customHTTP := &http.Client{Timeout: 5 * time.Second}
+	var updateNotified bool
+
+	c := New(
+		ts.URL,
+		WithHTTPClient(customHTTP),
+		WithDisabledCircuitBreaker(),
+		WithDisabledTelemetry(),
+		WithTelemetryFlushInterval(10*time.Millisecond),
+		WithLocalEvaluation(50*time.Millisecond),
+	)
+	defer c.Close()
+
+	c.RegisterUpdateListener(func(flags map[string]domain.FeatureFlag, changedKeys []string) {
+		updateNotified = true
+	})
+
+	if c.CircuitBreakerState() != StateClosed {
+		t.Errorf("expected circuit breaker state CLOSED, got %s", c.CircuitBreakerState())
+	}
+
+	// Wait for local cache sync
+	time.Sleep(100 * time.Millisecond)
+
+	// Test EvaluateBatch using local evaluator
+	ctx := context.Background()
+	results, err := c.EvaluateBatch(ctx, []string{"ai-smart-search", "beta-dark-theme", "missing-flag"}, Context{UserID: "usr_batch_01"})
+	if err != nil {
+		t.Fatalf("unexpected EvaluateBatch error: %v", err)
+	}
+	if len(results) != 3 {
+		t.Errorf("expected 3 results, got %d", len(results))
+	}
+	if !results["ai-smart-search"].Enabled {
+		t.Errorf("expected ai-smart-search enabled")
+	}
+	if results["missing-flag"].Enabled {
+		t.Errorf("expected missing-flag disabled")
+	}
+
+	// Test Track
+	if err := c.Track(ctx, "ai-smart-search", "treatment", "signup_event", 1.0, "usr_01"); err != nil {
+		t.Errorf("expected nil error on Track, got %v", err)
+	}
+
+	// Test nopLogger methods
+	nopLog := &nopLogger{}
+	nopLog.Debugf("debug %s", "msg")
+	nopLog.Infof("info %s", "msg")
+	nopLog.Warnf("warn %s", "msg")
+	nopLog.Errorf("error %s", "msg")
+
+	_ = updateNotified
+}
+

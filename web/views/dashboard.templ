@@ -4,11 +4,11 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
-templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, changeRequests []domain.ChangeRequest, driverName string) {
+templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, changeRequests []domain.ChangeRequest, driverName string, orgs []domain.Organization, projects []domain.Project, activeProjectID string) {
 	@Layout("Developer Console") {
 		<div class="min-h-screen flex bg-slate-50/60">
 			<!-- Docked Left Sidebar -->
-			@Sidebar(user, flags, auditLogs)
+			@Sidebar(user, flags, auditLogs, orgs, projects, activeProjectID)
 
 			<!-- Main Content Viewport -->
 			<div class="flex-1 flex flex-col min-w-0">
@@ -46,6 +46,9 @@ templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domai
 
 					<!-- VIEW 10: 4-Eyes Change Governance Approvals -->
 					@GovernanceModal(user, changeRequests)
+
+					<!-- VIEW 11: Project & Workspace Modal -->
+					@ProjectModal(orgs, projects, activeProjectID)
 				</main>
 			</div>
 		</div>

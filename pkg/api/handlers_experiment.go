@@ -38,6 +38,13 @@ func (s *Server) handleIngestEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	projectID := s.resolveProjectID(r)
+	for i := range events {
+		if events[i].ProjectID == "" {
+			events[i].ProjectID = projectID
+		}
+	}
+
 	if err := s.store.RecordExperimentEvents(r.Context(), events); err != nil {
 		http.Error(w, "Failed to record events: "+err.Error(), http.StatusInternalServerError)
 		return

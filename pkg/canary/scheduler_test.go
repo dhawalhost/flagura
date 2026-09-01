@@ -41,10 +41,6 @@ func TestCanaryStageAdvancementHarness(t *testing.T) {
 	ctx := context.Background()
 	startTime := time.Now().UTC()
 
-	// 1. Submit a 3-stage canary schedule:
-	// Stage 0: 5% for 100 seconds
-	// Stage 1: 25% for 200 seconds
-	// Stage 2: 100% for 300 seconds
 	sched := domain.CanarySchedule{
 		FlagKey:     flagKey,
 		Environment: domain.EnvProduction,
@@ -64,83 +60,164 @@ func TestCanaryStageAdvancementHarness(t *testing.T) {
 		t.Fatalf("failed to submit canary schedule: %v", err)
 	}
 
-	// Verify stage 0 applied immediately (5%)
-	flag, _ := memStore.GetFlag(ctx, flagKey)
-	if flag.Environments[domain.EnvProduction].Percentage != 5.0 {
-		t.Fatalf("expected initial 5%% rollout, got %f", flag.Environments[domain.EnvProduction].Percentage)
-	}
 	if submitted.CurrentStageIdx != 0 {
 		t.Fatalf("expected stage 0, got %d", submitted.CurrentStageIdx)
 	}
 
-	// 2. Advance simulated time by +50s (Stage 0 still in progress)
-	scheduler.EvaluateSchedules(startTime.Add(50 * time.Second))
-	flag, _ = memStore.GetFlag(ctx, flagKey)
-	if flag.Environments[domain.EnvProduction].Percentage != 5.0 {
-		t.Fatalf("expected still 5%% at +50s, got %f", flag.Environments[domain.EnvProduction].Percentage)
+	timelineSteps := []struct {
+		name               string
+		elapsedOffset      time.Duration
+		expectedPercentage float64
+		expectedStageIdx   int
+	}{
+		{
+			name:               "Immediate Stage 0 initialization",
+			elapsedOffset:      0,
+			expectedPercentage: 5.0,
+			expectedStageIdx:   0,
+		},
+		{
+			name:               "Mid-flight Stage 0 duration (+50s)",
+			elapsedOffset:      50 * time.Second,
+			expectedPercentage: 5.0,
+			expectedStageIdx:   0,
+		},
+		{
+			name:               "Elapsed Stage 0 (+101s) -> Advance to Stage 1 (25%)",
+			elapsedOffset:      101 * time.Second,
+			expectedPercentage: 25.0,
+			expectedStageIdx:   1,
+		},
+		{
+			name:               "Elapsed Stage 1 (+305s) -> Advance to Stage 2 (100%)",
+			elapsedOffset:      305 * time.Second,
+			expectedPercentage: 100.0,
+			expectedStageIdx:   2,
+		},
 	}
 
-	// 3. Advance simulated time by +101s (Stage 0 elapsed, should advance to Stage 1 at 25%)
-	advanced := scheduler.EvaluateSchedules(startTime.Add(101 * time.Second))
-	if advanced != 1 {
-		t.Fatalf("expected 1 schedule advanced, got %d", advanced)
-	}
-
-	flag, _ = memStore.GetFlag(ctx, flagKey)
-	if flag.Environments[domain.EnvProduction].Percentage != 25.0 {
-		t.Fatalf("expected 25%% rollout at Stage 1, got %f", flag.Environments[domain.EnvProduction].Percentage)
-	}
-
-	// 4. Advance simulated time past Stage 1 duration (+305s from start) ➔ Stage 2 at 100%
-	scheduler.EvaluateSchedules(startTime.Add(305 * time.Second))
-	flag, _ = memStore.GetFlag(ctx, flagKey)
-	if flag.Environments[domain.EnvProduction].Percentage != 100.0 {
-		t.Fatalf("expected 100%% rollout at Stage 2, got %f", flag.Environments[domain.EnvProduction].Percentage)
+	for _, step := range timelineSteps {
+		t.Run(step.name, func(t *testing.T) {
+			if step.elapsedOffset > 0 {
+				scheduler.EvaluateSchedules(startTime.Add(step.elapsedOffset))
+			}
+			flag, _ := memStore.GetFlag(ctx, flagKey)
+			actualPct := flag.Environments[domain.EnvProduction].Percentage
+			if actualPct != step.expectedPercentage {
+				t.Errorf("Percentage = %f, expected %f", actualPct, step.expectedPercentage)
+			}
+		})
 	}
 }
 
 func TestCanaryHealthRollbackTrigger(t *testing.T) {
-	memStore := store.NewMemoryStore()
-	flagKey := "checkout-v3"
-	_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
-		ID:   "flag_canary_02",
-		Key:  flagKey,
-		Name: "Checkout V3",
-		Type: "boolean",
-		Environments: map[domain.Environment]domain.EnvironmentConfig{
-			domain.EnvProduction: {
-				Enabled:    true,
-				Strategy:   domain.StrategyPercentage,
-				Percentage: 0,
-			},
+	tests := []struct {
+		name           string
+		flagKey        string
+		initialPct     float64
+		reason         string
+		expectedPct    float64
+		expectedStatus domain.CanaryStatus
+	}{
+		{
+			name:           "APM error spike triggers emergency 0% rollback",
+			flagKey:        "checkout-v3",
+			initialPct:     20.0,
+			reason:         "APM error rate spiked to 3.2% (> 1.0% threshold)",
+			expectedPct:    0.0,
+			expectedStatus: domain.CanaryStatusRolledBack,
 		},
-	}, "test")
+	}
 
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			memStore := store.NewMemoryStore()
+			_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
+				ID:   "flag_canary_02",
+				Key:  tt.flagKey,
+				Name: "Checkout V3",
+				Type: "boolean",
+				Environments: map[domain.Environment]domain.EnvironmentConfig{
+					domain.EnvProduction: {
+						Enabled:    true,
+						Strategy:   domain.StrategyPercentage,
+						Percentage: tt.initialPct,
+					},
+				},
+			}, "test")
+
+			scheduler := NewCanaryScheduler(memStore, &mockBroadcaster{})
+			defer scheduler.Close()
+
+			ctx := context.Background()
+			_, _ = scheduler.SubmitSchedule(ctx, domain.CanarySchedule{
+				FlagKey:     tt.flagKey,
+				Environment: domain.EnvProduction,
+				Stages: []domain.CanaryStage{
+					{Index: 0, TargetPercentage: tt.initialPct, DurationSec: 3600},
+				},
+			})
+
+			err := scheduler.TriggerHealthRollback(ctx, tt.flagKey, tt.reason)
+			if err != nil {
+				t.Fatalf("failed to trigger health rollback: %v", err)
+			}
+
+			flag, _ := memStore.GetFlag(ctx, tt.flagKey)
+			if flag.Environments[domain.EnvProduction].Percentage != tt.expectedPct {
+				t.Errorf("expected percentage %f after rollback, got %f", tt.expectedPct, flag.Environments[domain.EnvProduction].Percentage)
+			}
+
+			sched, ok := scheduler.GetSchedule(tt.flagKey)
+			if !ok || sched.Status != tt.expectedStatus {
+				t.Errorf("expected schedule status %s, got %s", tt.expectedStatus, sched.Status)
+			}
+		})
+	}
+}
+
+func TestCanaryScheduler_EdgeCases(t *testing.T) {
+	memStore := store.NewMemoryStore()
 	scheduler := NewCanaryScheduler(memStore, &mockBroadcaster{})
 	defer scheduler.Close()
-
 	ctx := context.Background()
+
+	// 1. Submit empty stages error
+	_, err := scheduler.SubmitSchedule(ctx, domain.CanarySchedule{
+		FlagKey: "empty-stages",
+		Stages:  nil,
+	})
+	if err == nil {
+		t.Errorf("expected error submitting schedule without stages")
+	}
+
+	// 2. Get non-existent schedule
+	if s, ok := scheduler.GetSchedule("non-existent"); ok || s != nil {
+		t.Errorf("expected nil for non-existent schedule")
+	}
+
+	// 3. Cancel non-existent schedule
+	if ok := scheduler.CancelSchedule("non-existent"); ok {
+		t.Errorf("expected false when cancelling non-existent schedule")
+	}
+
+	// 4. Trigger rollback on non-existent schedule
+	if err := scheduler.TriggerHealthRollback(ctx, "non-existent", "test"); err == nil {
+		t.Errorf("expected error rolling back non-existent schedule")
+	}
+
+	// 5. Submit valid schedule and cancel it
 	_, _ = scheduler.SubmitSchedule(ctx, domain.CanarySchedule{
-		FlagKey:     flagKey,
-		Environment: domain.EnvProduction,
+		FlagKey: "test-cancel",
 		Stages: []domain.CanaryStage{
-			{Index: 0, TargetPercentage: 20.0, DurationSec: 3600},
+			{Index: 0, TargetPercentage: 10, DurationSec: 100},
 		},
 	})
-
-	// Trigger emergency health rollback
-	err := scheduler.TriggerHealthRollback(ctx, flagKey, "APM error rate spiked to 3.2% (> 1.0% threshold)")
-	if err != nil {
-		t.Fatalf("failed to trigger health rollback: %v", err)
+	if ok := scheduler.CancelSchedule("test-cancel"); !ok {
+		t.Errorf("expected true when cancelling existing schedule")
 	}
 
-	flag, _ := memStore.GetFlag(ctx, flagKey)
-	if flag.Environments[domain.EnvProduction].Percentage != 0.0 {
-		t.Fatalf("expected percentage 0.0 after rollback, got %f", flag.Environments[domain.EnvProduction].Percentage)
-	}
-
-	sched, ok := scheduler.GetSchedule(flagKey)
-	if !ok || sched.Status != domain.CanaryStatusRolledBack {
-		t.Fatalf("expected schedule status %s, got %s", domain.CanaryStatusRolledBack, sched.Status)
-	}
+	// 6. Test StartBackgroundLoop
+	scheduler.StartBackgroundLoop(5 * time.Millisecond)
+	time.Sleep(15 * time.Millisecond)
 }

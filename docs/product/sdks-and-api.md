@@ -23,17 +23,20 @@ import (
 	"time"
 
 	"github.com/dhawalhost/flagura/pkg/client"
+	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
 func main() {
-	// Initialize client with SSE streaming, offline snapshot disk cache, and circuit breaking
+	// Initialize client with SSE streaming, offline snapshot disk cache, project scoping, and circuit breaking
 	c := client.New("https://flagura.dhawalhost.com",
+		client.WithProject("proj_default"),                  // scope to project (optional)
+		client.WithEnvironment(domain.EnvProduction),        // default environment scope
 		client.WithLocalEvaluation(30*time.Second),
 		client.WithStreaming(true),                          // <5ms instant updates via SSE
 		client.WithSnapshotFile("/tmp/flagura-cache.json"),  // 0ms offline cold-boot
 		client.WithCircuitBreaker(5, 10*time.Second),        // 3-state failure circuit breaker
 		client.WithTelemetryFlushInterval(60*time.Second),   // evaluation metrics push
-		client.WithAPIKey("your-api-key"),                   // optional
+		client.WithAPIKey("flg_live_..."),                   // environment-scoped API key
 	)
 	defer c.Close()
 
@@ -60,12 +63,17 @@ c.RegisterUpdateListener(func(flags map[string]domain.FeatureFlag, changedKeys [
 })
 ```
 
-### Boolean Evaluation Helper
+### Evaluation Helpers
 ```go
-// Returns fallback value if flag is missing or network fails
-isEnabled := c.EvaluateBool(ctx, "ai-smart-search", false, client.Context{
+// Returns boolean status safely
+isEnabled := c.IsEnabled(ctx, "ai-smart-search", client.Context{
 	UserID: "usr_123",
 })
+
+// Returns variant or fallback
+variant := c.GetVariant(ctx, "checkout-v2", client.Context{
+	UserID: "usr_123",
+}, "control")
 ```
 
 ---
@@ -342,4 +350,51 @@ curl "https://flagura.dhawalhost.com/api/v1/api-keys" \
 curl -X DELETE "https://flagura.dhawalhost.com/api/v1/api-keys/key_1788085710350701000_b3f8c993" \
   -H "Authorization: Bearer <token>"
 ```
+
+---
+
+## 8. Layered Error Codes & Error Response Envelope
+
+All API errors return standard HTTP status codes accompanied by a structured JSON error envelope containing unit-incrementing internal integer codes categorized by architectural layer:
+
+```json
+{
+  "error": {
+    "code": 1006,
+    "type": "ENVIRONMENT_RESTRICTED",
+    "layer": "SecurityLayer",
+    "message": "API key is scoped to environment 'staging' and cannot access 'production'",
+    "status": 403,
+    "request_id": "req_1788156313537006000_7946c832"
+  }
+}
+```
+
+| Layer Range | Architectural Subsystem | Example Code | Description |
+|:---|:---|:---|:---|
+| **`1000–1999`** | Security, Auth & RBAC | `1001` (Unauthorized), `1006` (Environment Restricted) | Authentication, permission tokens, environment boundaries |
+| **`2000–2999`** | Multi-Tenancy & Workspaces | `2001` (Org Not Found), `2003` (Project Not Found) | Tenant isolation, organization/project management |
+| **`3000–3999`** | Feature Flag Engine | `3001` (Flag Not Found), `3004` (Invalid Rollout) | Flag resolution, targeting rules, rollout percentages |
+| **`4000–4999`** | Governance & 4-Eyes Approvals | `4001` (CR Not Found), `4002` (Four-Eyes Violation) | Change reviews, author self-approval violations |
+| **`5000–5999`** | Storage & Database Layer | `5001` (DB Connection), `5002` (DB Query Error) | SQL constraints, connection failures |
+| **`6000–6999`** | Transport & Network Layer | `6002` (Circuit Breaker Open), `6003` (Rate Limit) | SSE streams, rate limiting, request validation |
+| **`9000–9999`** | Internal Server Layer | `9001` (Internal Error) | Unhandled panics, system runtime exceptions |
+
+## 9. Observability & Health Probes
+
+Flagura provides dedicated endpoints for Kubernetes, container orchestrators, and Prometheus:
+
+- **`GET /livez`**: Liveness probe returning `200 OK` `{ "status": "alive" }`.
+- **`GET /readyz`**: Deep readiness probe testing database connection pool (`store.Ping`). Returns `503 Service Unavailable` if database is down.
+- **`GET /metrics`**: Prometheus-formatted metrics (evaluation counts, latency histograms, error rates).
+- **`GET /healthz`**: Summary status endpoint for internal monitoring.
+
+---
+
+## 10. SDK Publishing & Package Registries
+
+For maintainers and contributors wishing to release new versions of the Flagura SDKs to public registries (**Go Modules**, **NPM**, **PyPI**, **Crates.io**), see the complete operational guide:
+
+👉 **[SDK Release & Publishing Runbook](../runbooks/sdk-publishing.md)**
+
 

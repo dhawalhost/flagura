@@ -30,6 +30,10 @@ templ Layout(title string) {
 			</script>
 			<!-- App CSS from zip -->
 			<link rel="stylesheet" href="/static/app.css"/>
+			<!-- Eliminate Alpine.js Flash of Unstyled / Uninitialized Content (FOUC) -->
+			<style>
+				[x-cloak] { display: none !important; }
+			</style>
 			<!-- Alpine.js & HTMX -->
 			<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.10/dist/cdn.min.js"></script>
 			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
@@ -195,14 +199,30 @@ templ Layout(title string) {
 							};
 							return titles[this.activeView] || 'Console';
 						},
+						async switchProject(projectID) {
+							try {
+								const res = await fetch('/api/v1/projects/active', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({ project_id: projectID })
+								});
+								if (res.ok) {
+									window.location.reload();
+								} else {
+									this.showToast('Failed to switch project', 'error');
+								}
+							} catch (e) {
+								this.showToast('Network error switching project', 'error');
+							}
+						},
 						openNewFlagEditor() {
 							this.previousView = this.activeView;
 							this.$dispatch('populate-editor', { isEditing: false });
 							this.activeView = 'editor';
 						},
-						openEditFlagEditor(id, key, name, description, type) {
+						openEditFlagEditor(key) {
 							this.previousView = this.activeView;
-							this.$dispatch('populate-editor', { isEditing: true, id, key, name, description, type });
+							this.$dispatch('populate-editor', { isEditing: true, key });
 							this.activeView = 'editor';
 						},
 						openEvaluatorForFlag(flagKey) {
@@ -517,7 +537,7 @@ templ Layout(title string) {
 						copied: false,
 						apiKeys: [],
 						showKeyModal: false,
-						keyForm: { name: '', role: 'developer' },
+						keyForm: { name: '', role: 'developer', environment: 'production' },
 						newlyCreatedKey: null,
 						keyCopied: false,
 						async fetchAPIKeys() {
@@ -543,7 +563,7 @@ templ Layout(title string) {
 									const data = await res.json();
 									this.newlyCreatedKey = data.api_key;
 									this.showKeyModal = false;
-									this.keyForm = { name: '', role: 'developer' };
+									this.keyForm = { name: '', role: 'developer', environment: 'production' };
 									this.fetchAPIKeys();
 								} else {
 									const err = await res.text();
@@ -572,17 +592,17 @@ templ Layout(title string) {
 						},
 						getSdkSnippet() {
 							if (this.sdkTab === 'go') {
-								return `package main\n\nimport (\n    "context"\n    "fmt"\n    "github.com/dhawalhost/flagura/pkg/client"\n)\n\nfunc main() {\n    c := client.New("${window.location.origin}",\n        client.WithAPIKey("flg_live_your_api_key"),\n    )\n    res, _ := c.Evaluate(context.Background(), "ai-smart-search", client.Context{\n        UserID: "usr_dhawal_01",\n        Email:  "dhawal@flagura.dev",\n    })\n    fmt.Printf("Enabled: %v | Latency: %v ns\\n", res.Enabled, res.EvaluationLatencyNs)\n}`;
+								return `package main\n\nimport (\n    "context"\n    "fmt"\n    flagura "github.com/dhawalhost/flagura/sdks/go"\n)\n\nfunc main() {\n    // Project scope and environment are automatically resolved from your API key\n    client := flagura.NewClient("${window.location.origin}", "flg_live_your_api_key",\n        flagura.WithLocalEvaluation(true),\n    )\n    defer client.Close()\n\n    res, _ := client.Evaluate(context.Background(), "ai-smart-search", flagura.Context{\n        UserID: "usr_dhawal_01",\n        Email:  "dhawal@flagura.dev",\n    })\n    fmt.Printf("Enabled: %v | Latency: %v ns\\n", res.Enabled, res.EvaluationLatencyNs)\n}`;
 							} else if (this.sdkTab === 'ts') {
-								return `import { FlaguraClient } from '@flagura/sdk';\n\nconst client = new FlaguraClient({\n  endpoint: '${window.location.origin}',\n  apiKey: 'flg_live_your_api_key'\n});\nconst { enabled, variant } = await client.evaluate('ai-smart-search', {\n  userId: 'usr_dhawal_01',\n  email: 'dhawal@flagura.dev',\n});\nconsole.log({ enabled, variant });`;
+								return `import { FlaguraClient } from '@flagura/sdk';\n\n// Project scope is automatically resolved from your API key\nconst client = new FlaguraClient({\n  endpoint: '${window.location.origin}',\n  apiKey: 'flg_live_your_api_key'\n});\nconst { enabled, variant } = await client.evaluate('ai-smart-search', {\n  user_id: 'usr_dhawal_01',\n  email: 'dhawal@flagura.dev',\n});\nconsole.log({ enabled, variant });`;
 							} else if (this.sdkTab === 'python') {
-								return `from flagura import Client\n\nclient = Client("${window.location.origin}", api_key="flg_live_your_api_key")\nres = client.evaluate("ai-smart-search", user_id="usr_dhawal_01", email="dhawal@flagura.dev")\nprint(res.enabled, res.variant)`;
+								return `from flagura import FlaguraClient, EvaluationContext\n\n# Project scope is automatically resolved from your API key\nclient = FlaguraClient("${window.location.origin}", api_key="flg_live_your_api_key")\nres = client.evaluate("ai-smart-search", EvaluationContext(user_id="usr_dhawal_01", email="dhawal@flagura.dev"))\nprint(res.enabled, res.variant)`;
 							} else if (this.sdkTab === 'rust') {
-								return `use flagura::{FlaguraClient, EvaluationContext};\n\n#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n    let client = FlaguraClient::new("${window.location.origin}")\n        .with_api_key("flg_live_your_api_key");\n    let ctx = EvaluationContext::new("usr_alex_42").with_email("alex@company.com");\n\n    if client.is_enabled("ai-smart-search", &ctx).await {\n        println!("✨ AI Smart Search is active!");\n    }\n    Ok(())\n}`;
+								return `use flagura::{FlaguraClient, EvaluationContext};\n\n#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n    // Project scope is automatically resolved from your API key\n    let client = FlaguraClient::new("${window.location.origin}")\n        .with_api_key("flg_live_your_api_key");\n    let ctx = EvaluationContext::new("usr_alex_42").with_email("alex@company.com");\n\n    if client.is_enabled("ai-smart-search", &ctx).await {\n        println!("✨ AI Smart Search is active!");\n    }\n    Ok(())\n}`;
 							} else if (this.sdkTab === 'cli') {
-								return `# Install or run Flagura Developer CLI\nexport FLAGURA_API_KEY="flg_live_your_api_key"\nflagura api-key list\nflagura api-key create --name="Production Worker" --role=admin\nflagura list\nflagura rollout ai-smart-search 50% --env=production`;
+								return `# Install or run Flagura Developer CLI\nexport FLAGURA_API_KEY="flg_live_your_api_key"\nflagura api-key list\nflagura list\nflagura rollout ai-smart-search 50% --env=production`;
 							}
-							return `curl -X POST ${window.location.origin}/api/v1/evaluate \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-Key: flg_live_your_api_key" \\\n  -d '{"flags":["ai-smart-search"],"context":{"user_id":"usr_dhawal_01","email":"dhawal@flagura.dev"}}'`;
+							return `curl -X POST ${window.location.origin}/api/v1/evaluate \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer flg_live_your_api_key" \\\n  -d '{"flags":["ai-smart-search"],"context":{"user_id":"usr_dhawal_01","email":"dhawal@flagura.dev"}}'`;
 						},
 						copySnippet() {
 							navigator.clipboard.writeText(this.getSdkSnippet());
@@ -610,15 +630,45 @@ templ Layout(title string) {
 							}
 						},
 						init() {
-							window.addEventListener('populate-editor', (e) => {
+							window.addEventListener('populate-editor', async (e) => {
 								const d = e.detail;
 								this.isEditing = d.isEditing;
-								if (d.isEditing) {
-									this.form.id = d.id || d.key;
-									this.form.key = d.key;
-									this.form.name = d.name;
-									this.form.description = d.description;
-									this.form.type = d.type || 'boolean';
+								if (d.isEditing && d.key) {
+									try {
+										const res = await fetch('/api/v1/flags');
+										if (res.ok) {
+											const data = await res.json();
+											const flag = (data.flags || []).find(f => f.key === d.key || f.id === d.key);
+											if (flag) {
+												this.form.id = flag.id || flag.key;
+												this.form.key = flag.key;
+												this.form.name = flag.name;
+												this.form.description = flag.description || '';
+												this.form.type = flag.type || 'boolean';
+												this.form.tagsInput = (flag.tags || []).join(', ');
+												this.form.environments = JSON.parse(JSON.stringify(flag.environments || {}));
+												for (const env of ['production', 'staging', 'development']) {
+													if (!this.form.environments[env]) {
+														this.form.environments[env] = { enabled: false, strategy: 'boolean', percentage: 0, rules: [] };
+													}
+													if (!this.form.environments[env].strategy) {
+														this.form.environments[env].strategy = 'boolean';
+													}
+													if (!this.form.environments[env].rules) {
+														this.form.environments[env].rules = [];
+													}
+													for (const r of this.form.environments[env].rules) {
+														if (!r.valuesInput && r.values) {
+															r.valuesInput = Array.isArray(r.values) ? r.values.join(', ') : String(r.values);
+														}
+													}
+												}
+												return;
+											}
+										}
+									} catch (err) {
+										console.error('Error populating flag editor', err);
+									}
 								} else {
 									this.form.id = 'flag_' + Date.now();
 									this.form.key = '';
@@ -626,6 +676,11 @@ templ Layout(title string) {
 									this.form.description = '';
 									this.form.type = 'boolean';
 									this.form.tagsInput = 'frontend, experimental';
+									this.form.environments = {
+										production: { enabled: true, strategy: 'percentage', percentage: 50, rules: [] },
+										staging: { enabled: true, strategy: 'percentage', percentage: 100, rules: [] },
+										development: { enabled: true, strategy: 'boolean', percentage: 100, rules: [] }
+									};
 								}
 							});
 						},
@@ -668,6 +723,18 @@ templ Layout(title string) {
 							this.saving = true;
 							try {
 								const tags = this.form.tagsInput.split(',').map(t => t.trim()).filter(Boolean);
+								const envs = JSON.parse(JSON.stringify(this.form.environments));
+								for (const envKey of Object.keys(envs)) {
+									const envCfg = envs[envKey];
+									envCfg.percentage = Number(envCfg.percentage) || 0;
+									if (envCfg.rules && Array.isArray(envCfg.rules)) {
+										for (const r of envCfg.rules) {
+											if (r.valuesInput && typeof r.valuesInput === 'string') {
+												r.values = r.valuesInput.split(',').map(v => v.trim()).filter(Boolean);
+											}
+										}
+									}
+								}
 								const payload = {
 									id: this.form.id || this.form.key,
 									key: this.form.key,
@@ -675,7 +742,7 @@ templ Layout(title string) {
 									description: this.form.description,
 									type: this.form.type,
 									tags: tags,
-									environments: this.form.environments
+									environments: envs
 								};
 								const res = await fetch('/api/v1/flags', {
 									method: 'POST',
@@ -685,7 +752,12 @@ templ Layout(title string) {
 								if (res.ok) {
 									this.showToast('Saved flag ' + this.form.key + ' successfully!');
 									setTimeout(() => window.location.reload(), 600);
+								} else {
+									const err = await res.text();
+									this.showToast('Failed to save flag: ' + err, 'error');
 								}
+							} catch (e) {
+								this.showToast('Network error saving flag: ' + e.message, 'error');
 							} finally {
 								this.saving = false;
 							}

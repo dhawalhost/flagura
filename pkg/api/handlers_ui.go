@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/web/views"
 )
 
@@ -57,17 +58,52 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	flags, err := s.store.ListFlags(r.Context())
+	projectID := s.resolveProjectID(r)
+
+	// Fetch user's organizations and associated projects
+	orgs, _ := s.store.ListUserOrganizations(r.Context(), user.ID)
+	if len(orgs) == 0 {
+		allOrgs, _ := s.store.ListOrganizations(r.Context())
+		if len(allOrgs) > 0 {
+			orgs = allOrgs
+		}
+	}
+
+	var projects []domain.Project
+	if len(orgs) > 0 {
+		for _, org := range orgs {
+			if projs, err := s.store.ListProjects(r.Context(), org.ID); err == nil {
+				projects = append(projects, projs...)
+			}
+		}
+	} else {
+		projects, _ = s.store.ListProjects(r.Context(), "")
+	}
+
+	if len(projects) > 0 {
+		found := false
+		for _, p := range projects {
+			if p.ID == projectID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			projectID = projects[0].ID
+		}
+	}
+
+	flags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	logs, _ := s.store.ListAuditLogs(r.Context(), 20)
-	changeRequests, _ := s.store.ListChangeRequests(r.Context(), "")
+	logs, _ := s.store.ListAuditLogsByProject(r.Context(), projectID, 20)
+	changeRequests, _ := s.store.ListChangeRequestsByProject(r.Context(), projectID, "")
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	component := views.Dashboard(user, flags, logs, changeRequests, s.store.DriverName())
+	component := views.Dashboard(user, flags, logs, changeRequests, s.store.DriverName(), orgs, projects, projectID)
 	if err := component.Render(r.Context(), w); err != nil {
 		http.Error(w, "Templ Render Error: "+err.Error(), http.StatusInternalServerError)
 	}

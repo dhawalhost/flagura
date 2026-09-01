@@ -22,17 +22,28 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
+func (s *Server) handleLivez(w http.ResponseWriter, r *http.Request) {
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":    "alive",
+		"service":   "flagura",
+		"timestamp": time.Now().UTC(),
+	})
+}
+
 func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
-	_, err := s.store.ListFlags(r.Context())
-	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_, _ = w.Write([]byte(`{"status":"unavailable","error":"storage not ready"}`))
+	if err := s.store.Ping(r.Context()); err != nil {
+		s.writeJSON(w, http.StatusServiceUnavailable, map[string]interface{}{
+			"status":    "unavailable",
+			"error":     err.Error(),
+			"timestamp": time.Now().UTC(),
+		})
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"status":"ready"}`))
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":    "ready",
+		"driver":    s.store.DriverName(),
+		"timestamp": time.Now().UTC(),
+	})
 }
 
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
@@ -53,17 +64,37 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) resolveProjectID(r *http.Request) string {
+	if p := r.Header.Get(domain.HeaderProjectID); p != "" {
+		return p
+	}
+	if p := r.URL.Query().Get("project_id"); p != "" {
+		return p
+	}
+	if p := r.URL.Query().Get("projectId"); p != "" {
+		return p
+	}
+	if apiKey := s.getAPIKeyFromRequest(r); apiKey != nil && apiKey.ProjectID != "" {
+		return apiKey.ProjectID
+	}
+	if c, err := r.Cookie(domain.CookieProjectName); err == nil && c.Value != "" {
+		return c.Value
+	}
+	return domain.DefaultProjectID
+}
+
 func (s *Server) handleGetFlags(w http.ResponseWriter, r *http.Request) {
-	flags, err := s.store.ListFlags(r.Context())
+	projectID := s.resolveProjectID(r)
+	flags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"flags":     flags,
-		"count":     len(flags),
-		"timestamp": time.Now().UTC(),
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"project_id": projectID,
+		"flags":      flags,
+		"count":      len(flags),
+		"timestamp":  time.Now().UTC(),
 	})
 }
 
@@ -71,7 +102,7 @@ func (s *Server) getActorFromRequest(r *http.Request, fallback string) string {
 	if u := UserFromContext(r.Context()); u != nil && u.Email != "" {
 		return u.Email
 	}
-	if a := r.Header.Get("X-Actor"); a != "" {
+	if a := r.Header.Get(domain.HeaderActor); a != "" {
 		return a
 	}
 	if a := r.URL.Query().Get("actor"); a != "" {
@@ -86,27 +117,28 @@ func (s *Server) getActorFromRequest(r *http.Request, fallback string) string {
 func (s *Server) handleCreateFlag(w http.ResponseWriter, r *http.Request) {
 	var flag domain.FeatureFlag
 	if err := json.NewDecoder(r.Body).Decode(&flag); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
 		return
 	}
 	if flag.Key == "" {
-		http.Error(w, "flag key is required", http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "flag key is required", http.StatusBadRequest, domain.ErrInvalidInput))
 		return
+	}
+	if flag.ProjectID == "" {
+		flag.ProjectID = s.resolveProjectID(r)
 	}
 
 	actor := s.getActorFromRequest(r, "developer@flagura.dev")
 
 	log, err := s.store.SaveFlag(r.Context(), flag, actor)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
 		return
 	}
 
 	s.broadcastCurrentFlags(r.Context())
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	s.writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"flag":  flag,
 		"audit": log,
 	})
@@ -118,25 +150,28 @@ func (s *Server) handleUpdateFlag(w http.ResponseWriter, r *http.Request) {
 
 	var flag domain.FeatureFlag
 	if err := json.NewDecoder(r.Body).Decode(&flag); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
 		return
 	}
+
 	if flag.Key == "" {
 		flag.Key = id
+	}
+	if flag.ProjectID == "" {
+		flag.ProjectID = s.resolveProjectID(r)
 	}
 
 	actor := s.getActorFromRequest(r, "developer@flagura.dev")
 
 	log, err := s.store.SaveFlag(r.Context(), flag, actor)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
 		return
 	}
 
 	s.broadcastCurrentFlags(r.Context())
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"flag":  flag,
 		"audit": log,
 	})
@@ -150,14 +185,13 @@ func (s *Server) handleDeleteFlag(w http.ResponseWriter, r *http.Request) {
 
 	log, err := s.store.DeleteFlag(r.Context(), id, actor)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeFlagNotFound, err.Error(), http.StatusNotFound, domain.ErrFlagNotFound))
 		return
 	}
 
 	s.broadcastCurrentFlags(r.Context())
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"deleted": id,
 		"audit":   log,
@@ -165,37 +199,45 @@ func (s *Server) handleDeleteFlag(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleToggleFlag(w http.ResponseWriter, r *http.Request) {
-	// Path: /api/v1/flags/{id}/toggle
-	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/flags/"), "/")
-	if len(parts) < 2 {
-		http.Error(w, "invalid path", http.StatusBadRequest)
-		return
-	}
-	id := parts[0]
+	id := strings.TrimPrefix(r.URL.Path, "/api/v1/flags/")
+	id = strings.TrimSuffix(id, "/toggle")
 
 	var req struct {
 		Environment domain.Environment `json:"environment"`
 		Enabled     *bool              `json:"enabled"`
 		Actor       string             `json:"actor"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if r.Body != nil && r.ContentLength > 0 {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
 
 	if req.Environment == "" {
 		req.Environment = domain.EnvProduction
+	}
+
+	if apiKey := s.getAPIKeyFromRequest(r); apiKey != nil {
+		if !apiKey.AllowsEnvironment(req.Environment) {
+			s.writeError(w, r, domain.NewAppError(
+				domain.ErrCodeEnvironmentRestricted,
+				fmt.Sprintf("API key is scoped to environment '%s' and cannot modify '%s'", apiKey.Environment, req.Environment),
+				http.StatusForbidden,
+				domain.ErrEnvironmentRestricted,
+			))
+			return
+		}
 	}
 
 	actor := s.getActorFromRequest(r, req.Actor)
 
 	flag, log, err := s.store.ToggleFlag(r.Context(), id, req.Environment, req.Enabled, actor)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeFlagNotFound, err.Error(), http.StatusNotFound, domain.ErrFlagNotFound))
 		return
 	}
 
 	s.broadcastCurrentFlags(r.Context())
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"flag_key":    flag.Key,
 		"environment": req.Environment,
 		"enabled":     flag.Environments[req.Environment].Enabled,
@@ -205,13 +247,8 @@ func (s *Server) handleToggleFlag(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdateRollout(w http.ResponseWriter, r *http.Request) {
-	// Path: /api/v1/flags/{id}/rollout
-	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/flags/"), "/")
-	if len(parts) < 2 {
-		http.Error(w, "invalid path", http.StatusBadRequest)
-		return
-	}
-	id := parts[0]
+	id := strings.TrimPrefix(r.URL.Path, "/api/v1/flags/")
+	id = strings.TrimSuffix(id, "/rollout")
 
 	var req struct {
 		Environment domain.Environment `json:"environment"`
@@ -219,7 +256,7 @@ func (s *Server) handleUpdateRollout(w http.ResponseWriter, r *http.Request) {
 		Actor       string             `json:"actor"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
 		return
 	}
 
@@ -227,18 +264,29 @@ func (s *Server) handleUpdateRollout(w http.ResponseWriter, r *http.Request) {
 		req.Environment = domain.EnvProduction
 	}
 
+	if apiKey := s.getAPIKeyFromRequest(r); apiKey != nil {
+		if !apiKey.AllowsEnvironment(req.Environment) {
+			s.writeError(w, r, domain.NewAppError(
+				domain.ErrCodeEnvironmentRestricted,
+				fmt.Sprintf("API key is scoped to environment '%s' and cannot modify '%s'", apiKey.Environment, req.Environment),
+				http.StatusForbidden,
+				domain.ErrEnvironmentRestricted,
+			))
+			return
+		}
+	}
+
 	actor := s.getActorFromRequest(r, req.Actor)
 
 	flag, log, err := s.store.UpdateRollout(r.Context(), id, req.Environment, req.Percentage, actor)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeFlagNotFound, err.Error(), http.StatusNotFound, domain.ErrFlagNotFound))
 		return
 	}
 
 	s.broadcastCurrentFlags(r.Context())
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"flag_key":    flag.Key,
 		"environment": req.Environment,
 		"percentage":  req.Percentage,
@@ -256,13 +304,34 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 		Trace   bool                     `json:"trace"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
 		return
+	}
+
+	// Environment validation for API Key authentication
+	if apiKey := s.getAPIKeyFromRequest(r); apiKey != nil {
+		if req.Context.Environment == "" && apiKey.Environment != "" && apiKey.Environment != string(domain.EnvAll) && apiKey.Environment != "*" {
+			req.Context.Environment = domain.Environment(apiKey.Environment)
+		}
+		if req.Context.Environment != "" && !apiKey.AllowsEnvironment(req.Context.Environment) {
+			s.writeError(w, r, domain.NewAppError(
+				domain.ErrCodeEnvironmentRestricted,
+				fmt.Sprintf("API key is scoped to environment '%s' and cannot access '%s'", apiKey.Environment, req.Context.Environment),
+				http.StatusForbidden,
+				domain.ErrEnvironmentRestricted,
+			))
+			return
+		}
+	}
+
+	if req.Context.Environment == "" {
+		req.Context.Environment = domain.EnvProduction
 	}
 
 	includeTrace := req.Trace || r.URL.Query().Get("trace") == "true"
 
-	allFlags, err := s.store.ListFlags(r.Context())
+	projectID := s.resolveProjectID(r)
+	allFlags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -322,6 +391,7 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if includeTrace {
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"project_id":        projectID,
 			"results":           results,
 			"traces":            traces,
 			"evaluated_count":   len(results),
@@ -353,7 +423,8 @@ func (s *Server) handleBenchmark(w http.ResponseWriter, r *http.Request) {
 		req.Environment = domain.EnvProduction
 	}
 
-	allFlags, err := s.store.ListFlags(r.Context())
+	projectID := s.resolveProjectID(r)
+	allFlags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil || len(allFlags) == 0 {
 		http.Error(w, "no flags available for benchmark", http.StatusInternalServerError)
 		return
@@ -374,7 +445,8 @@ func (s *Server) handleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	logs, err := s.store.ListAuditLogs(r.Context(), limit)
+	projectID := s.resolveProjectID(r)
+	logs, err := s.store.ListAuditLogsByProject(r.Context(), projectID, limit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -382,8 +454,9 @@ func (s *Server) handleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"logs":  logs,
-		"total": len(logs),
+		"project_id": projectID,
+		"logs":       logs,
+		"total":      len(logs),
 	})
 }
 
@@ -580,5 +653,136 @@ func (s *Server) handlePromoteEnvironment(w http.ResponseWriter, r *http.Request
 		"from":     fromEnv,
 		"to":       toEnv,
 		"audit":    auditLog,
+	})
+}
+
+func (s *Server) handleInvitations(w http.ResponseWriter, r *http.Request) {
+	user, err := s.getUserFromRequest(r)
+	if err != nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeUnauthorized, "Unauthorized", http.StatusUnauthorized, err))
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		orgID := r.URL.Query().Get("organization_id")
+		if orgID == "" {
+			orgs, _ := s.store.ListUserOrganizations(r.Context(), user.ID)
+			if len(orgs) > 0 {
+				orgID = orgs[0].ID
+			}
+		}
+		invitations, err := s.store.ListOrgInvitations(r.Context(), orgID)
+		if err != nil {
+			s.writeError(w, r, domain.NewAppError(domain.ErrCodeInternal, err.Error(), http.StatusInternalServerError, err))
+			return
+		}
+		s.writeJSON(w, http.StatusOK, map[string]interface{}{
+			"invitations": invitations,
+		})
+
+	case http.MethodPost:
+		var req struct {
+			OrganizationID string `json:"organization_id"`
+			Email          string `json:"email"`
+			Role           string `json:"role"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
+			return
+		}
+
+		if req.OrganizationID == "" {
+			orgs, _ := s.store.ListUserOrganizations(r.Context(), user.ID)
+			if len(orgs) > 0 {
+				req.OrganizationID = orgs[0].ID
+			}
+		}
+		if req.Role == "" {
+			req.Role = "developer"
+		}
+
+		org, err := s.store.GetOrganization(r.Context(), req.OrganizationID)
+		if err != nil {
+			s.writeError(w, r, domain.NewAppError(domain.ErrCodeNotFound, "Organization not found", http.StatusNotFound, err))
+			return
+		}
+
+		inv := domain.OrgInvitation{
+			OrganizationID: org.ID,
+			OrgName:        org.Name,
+			Email:          strings.TrimSpace(strings.ToLower(req.Email)),
+			Role:           req.Role,
+			InvitedBy:      user.Email,
+		}
+
+		createdInv, err := s.store.CreateOrgInvitation(r.Context(), inv)
+		if err != nil {
+			s.writeError(w, r, domain.NewAppError(domain.ErrCodeInternal, err.Error(), http.StatusInternalServerError, err))
+			return
+		}
+
+		s.writeJSON(w, http.StatusCreated, map[string]interface{}{
+			"invitation": createdInv,
+			"invite_url": fmt.Sprintf("/auth?invite=%s", createdInv.Token),
+		})
+
+	default:
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleGetInvitationByToken(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 4 {
+		http.Error(w, "invalid invitation token path", http.StatusBadRequest)
+		return
+	}
+	token := parts[len(parts)-1]
+	inv, err := s.store.GetOrgInvitation(r.Context(), token)
+	if err != nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeNotFound, err.Error(), http.StatusNotFound, err))
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"invitation": inv,
+	})
+}
+
+func (s *Server) handleAcceptInvitation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, err := s.getUserFromRequest(r)
+	if err != nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeUnauthorized, "Unauthorized", http.StatusUnauthorized, err))
+		return
+	}
+
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
+		return
+	}
+
+	member, err := s.store.AcceptOrgInvitation(r.Context(), req.Token, user.ID)
+	if err != nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeNotFound, err.Error(), http.StatusNotFound, err))
+		return
+	}
+
+	// Switch active project to accepted org's project
+	if projs, err := s.store.ListProjects(r.Context(), member.OrganizationID); err == nil && len(projs) > 0 {
+		s.setProjectCookie(w, r, projs[0].ID, time.Now().Add(7*24*time.Hour))
+	}
+
+	s.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"member":  member,
+		"message": "Invitation accepted successfully",
 	})
 }
