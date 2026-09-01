@@ -22,6 +22,7 @@ export interface EvaluationResult<T = any> {
 export interface FlaguraClientOptions {
   endpoint: string;
   apiKey?: string;
+  projectId?: string;
   defaultEnvironment?: string;
   timeoutMs?: number;
   enableStreaming?: boolean;
@@ -30,6 +31,7 @@ export interface FlaguraClientOptions {
 export class FlaguraClient {
   private endpoint: string;
   private apiKey?: string;
+  private projectId?: string;
   private defaultEnvironment: string;
   private timeoutMs: number;
   private localFlags: Map<string, any> = new Map();
@@ -39,6 +41,7 @@ export class FlaguraClient {
   constructor(options: FlaguraClientOptions) {
     this.endpoint = options.endpoint.replace(/\/+$/, '');
     this.apiKey = options.apiKey;
+    this.projectId = options.projectId;
     this.defaultEnvironment = options.defaultEnvironment || 'production';
     this.timeoutMs = options.timeoutMs || 5000;
 
@@ -69,6 +72,9 @@ export class FlaguraClient {
     if (this.apiKey) {
       headers['Authorization'] = `Bearer ${this.apiKey}`;
     }
+    if (this.projectId) {
+      headers['X-Project-ID'] = this.projectId;
+    }
 
     try {
       const response = await fetch(url, {
@@ -95,15 +101,23 @@ export class FlaguraClient {
           if (line.startsWith('data:')) {
             try {
               const dataStr = line.slice(5).trim();
-              const flags = JSON.parse(dataStr);
-              if (Array.isArray(flags)) {
+              if (dataStr === 'ping' || !dataStr) continue;
+              const payload = JSON.parse(dataStr);
+              if (Array.isArray(payload)) {
                 this.localFlags.clear();
-                for (const f of flags) {
+                for (const f of payload) {
                   this.localFlags.set(f.key, f);
                 }
-                for (const listener of this.listeners) {
-                  listener(new Map(this.localFlags));
+              } else if (payload.flags) {
+                this.localFlags.clear();
+                if (Array.isArray(payload.flags)) {
+                  for (const f of payload.flags) this.localFlags.set(f.key, f);
+                } else if (typeof payload.flags === 'object') {
+                  for (const [k, v] of Object.entries(payload.flags)) this.localFlags.set(k, v);
                 }
+              }
+              for (const listener of this.listeners) {
+                listener(new Map(this.localFlags));
               }
             } catch {}
           }
@@ -162,6 +176,9 @@ export class FlaguraClient {
     if (this.apiKey) {
       headers['Authorization'] = `Bearer ${this.apiKey}`;
     }
+    if (this.projectId) {
+      headers['X-Project-ID'] = this.projectId;
+    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -198,20 +215,26 @@ export class FlaguraClient {
     if (this.apiKey) {
       headers['Authorization'] = `Bearer ${this.apiKey}`;
     }
+    if (this.projectId) {
+      headers['X-Project-ID'] = this.projectId;
+    }
 
-    await fetch(`${this.endpoint}/api/v1/events`, {
+    await fetch(`${this.endpoint}/api/v1/telemetry/events`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        event: {
-          flag_key: flagKey,
-          variant,
-          metric_name: metricName,
-          value,
-          user_id: userId,
-          environment: this.defaultEnvironment,
-          timestamp: new Date().toISOString(),
-        },
+        events: [
+          {
+            flag_key: flagKey,
+            project_id: this.projectId,
+            variant,
+            metric_name: metricName,
+            value,
+            user_id: userId,
+            environment: this.defaultEnvironment,
+            timestamp: new Date().toISOString(),
+          }
+        ],
       }),
     });
   }
