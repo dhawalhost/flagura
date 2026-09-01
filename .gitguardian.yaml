@@ -1,0 +1,15 @@
+# Read only by the ggshield CLI (local scans, pre-commit hooks, CI steps).
+# The GitGuardian GitHub App check runs server-side on the VCS and does not read
+# this file, so PR-check exclusions must also be set in the dashboard workspace
+# settings under Secrets detection.
+version: 2
+
+secret:
+  ignored_paths:
+    # templ emits each template as a handful of very long single-line string
+    # literals, which trips the Generic Password detector on password form
+    # fields and on the character-class regex in the strength validator.
+    - '**/*_templ.go'
+    # Credentials here are built at runtime from time.Now().UnixNano(), so no
+    # fixed value exists in the source to leak.
+    - 'pkg/api/e2e_test.go'
