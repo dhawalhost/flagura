@@ -380,8 +380,6 @@ All API errors return standard HTTP status codes accompanied by a structured JSO
 | **`6000–6999`** | Transport & Network Layer | `6002` (Circuit Breaker Open), `6003` (Rate Limit) | SSE streams, rate limiting, request validation |
 | **`9000–9999`** | Internal Server Layer | `9001` (Internal Error) | Unhandled panics, system runtime exceptions |
 
----
-
 ## 9. Observability & Health Probes
 
 Flagura provides dedicated endpoints for Kubernetes, container orchestrators, and Prometheus:
@@ -390,4 +388,13 @@ Flagura provides dedicated endpoints for Kubernetes, container orchestrators, an
 - **`GET /readyz`**: Deep readiness probe testing database connection pool (`store.Ping`). Returns `503 Service Unavailable` if database is down.
 - **`GET /metrics`**: Prometheus-formatted metrics (evaluation counts, latency histograms, error rates).
 - **`GET /healthz`**: Summary status endpoint for internal monitoring.
+
+---
+
+## 10. SDK Publishing & Package Registries
+
+For maintainers and contributors wishing to release new versions of the Flagura SDKs to public registries (**Go Modules**, **NPM**, **PyPI**, **Crates.io**), see the complete operational guide:
+
+👉 **[SDK Release & Publishing Runbook](../runbooks/sdk-publishing.md)**
+
 
