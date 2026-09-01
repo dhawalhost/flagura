@@ -1,4 +1,4 @@
-package api_test
+package api
 
 import (
 	"bufio"
@@ -9,13 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dhawalhost/flagura/pkg/api"
 	"github.com/dhawalhost/flagura/pkg/store"
 )
 
 func TestSSEStreamingEndpoint(t *testing.T) {
 	st := store.NewMemoryStore()
-	server, err := api.NewServer(st)
+	server, err := NewServer(st)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}

@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/store"
@@ -338,7 +340,7 @@ func TestHandlers_ExtendedEdgeCases(t *testing.T) {
 			name:           "Login - Invalid Credentials",
 			method:         http.MethodPost,
 			url:            "/api/v1/auth/login",
-			body:           map[string]string{"email": "nobody@flagura.dev", "password": "WrongPassword123!"},
+			body:           map[string]string{"email": "nobody@flagura.dev", "password": fmt.Sprintf("invalid_pass_%d", time.Now().UnixNano())},
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
@@ -352,7 +354,7 @@ func TestHandlers_ExtendedEdgeCases(t *testing.T) {
 			name:           "Reset Password - Invalid Token",
 			method:         http.MethodPost,
 			url:            "/api/v1/auth/reset-password",
-			body:           map[string]string{"token": "invalid_tok_123", "new_password": "NewPassword123!"},
+			body:           map[string]string{"token": "invalid_tok_123", "new_password": fmt.Sprintf("new_mock_pwd_%d", time.Now().UnixNano())},
 			expectedStatus: http.StatusBadRequest,
 		},
 

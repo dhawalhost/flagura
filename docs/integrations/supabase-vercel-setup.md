@@ -173,11 +173,9 @@ If `DATABASE_URL` is omitted, Flagura boots instantly using its in-memory determ
 - **Cause**: Using direct connection port `5432` on serverless instead of pooler port `6543`, or password has special characters that are not URL-encoded.
 - **Fix**: Ensure the connection string uses port **`6543`** with `sslmode=require`. If your password contains characters like `#`, `@`, or `/`, URL-encode them (e.g. `@` $\rightarrow$ `%40`).
 
-### 2. Initial Admin Login
-- Default seed account:
-  - **Email**: `dhawal@flagura.dev`
-  - **Password**: `password123`
-- Immediately upon first login, navigate to your database or account settings to update the password hash.
+### 2. First-Time Admin Account Creation
+- Navigate to `/auth` in your browser and create your personal workspace administrator account.
+- Dynamic project initialization creates your root organization and default workspace automatically with zero hardcoded credentials.
 
 ### 3. Vercel Function Timeout
 - Go serverless functions resolve flag evaluations in `< 1ms`. If requests time out, verify that your Supabase database is not paused due to inactivity in free tier.

@@ -1,14 +1,15 @@
-package api_test
+package api
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/dhawalhost/flagura/pkg/api"
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/store"
 )
@@ -25,7 +26,7 @@ func TestObservabilityEndpoints(t *testing.T) {
 		},
 	}, "system")
 
-	server, err := api.NewServer(memStore)
+	server, err := NewServer(memStore)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -84,7 +85,7 @@ func TestWebhookKillSwitch(t *testing.T) {
 		},
 	}, "system")
 
-	server, err := api.NewServer(memStore)
+	server, err := NewServer(memStore)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -163,7 +164,7 @@ func TestPromoteEnvironment(t *testing.T) {
 		},
 	}, "system")
 
-	server, err := api.NewServer(memStore)
+	server, err := NewServer(memStore)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -172,7 +173,8 @@ func TestPromoteEnvironment(t *testing.T) {
 	defer ts.Close()
 
 	// 1. Sign up to get session cookie
-	signUpBody := `{"name":"Admin User","email":"admin@flagura.dev","password":"Password123!","role":"admin"}`
+	testPwd := fmt.Sprintf("AdminPass_%d_Safe!", time.Now().UnixNano())
+	signUpBody := fmt.Sprintf(`{"name":"Admin User","email":"admin@flagura.dev","password":"%s","role":"admin"}`, testPwd)
 	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/auth/signup", strings.NewReader(signUpBody))
 	req.Header.Set("Content-Type", "application/json")
 	signUpResp, err := ts.Client().Do(req)

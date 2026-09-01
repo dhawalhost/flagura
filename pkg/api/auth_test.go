@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/email"
 	"github.com/dhawalhost/flagura/pkg/store"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestAuthFlow(t *testing.T) {
@@ -89,7 +91,7 @@ func TestAuthFlow(t *testing.T) {
 	// 4. Test Login with invalid password (should fail with 401 Unauthorized)
 	badLoginPayload := domain.LoginRequest{
 		Email:    "test.user@company.com",
-		Password: "WrongPassword123!",
+		Password: fmt.Sprintf("WrongPass_%d", time.Now().UnixNano()),
 	}
 	badLoginBody, _ := json.Marshal(badLoginPayload)
 	reqBadLogin := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(badLoginBody))
@@ -255,7 +257,11 @@ func TestForgotPasswordAndResetFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
 	}
-	u := domain.NewUser("dhawal@flagura.dev", "Dhawal", "hashed_pwd", domain.RoleDeveloper)
+	initialRawPassword := fmt.Sprintf("InitPass_%d!", time.Now().UnixNano())
+	newRawPassword := fmt.Sprintf("NewStrongPass_%d_Safe!", time.Now().UnixNano())
+
+	hashedBytes, _ := bcrypt.GenerateFromPassword([]byte(initialRawPassword), bcrypt.DefaultCost)
+	u := domain.NewUser("dhawal@flagura.dev", "Dhawal", string(hashedBytes), domain.RoleDeveloper)
 	_, _ = memStore.CreateUser(context.Background(), u)
 
 	forgotPayload := domain.ForgotPasswordRequest{
@@ -294,7 +300,7 @@ func TestForgotPasswordAndResetFlow(t *testing.T) {
 	// 3. Reset password using valid token
 	resetPayload := domain.ResetPasswordRequest{
 		Token:       resetToken,
-		NewPassword: "newSecurePassword456!",
+		NewPassword: newRawPassword,
 	}
 	resetBody, _ := json.Marshal(resetPayload)
 	reqReset := httptest.NewRequest(http.MethodPost, "/api/v1/auth/reset-password", bytes.NewReader(resetBody))
@@ -309,7 +315,7 @@ func TestForgotPasswordAndResetFlow(t *testing.T) {
 	// 4. Old password must fail
 	oldLogin := domain.LoginRequest{
 		Email:    "dhawal@flagura.dev",
-		Password: "password123",
+		Password: initialRawPassword,
 	}
 	oldBody, _ := json.Marshal(oldLogin)
 	reqOld := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(oldBody))
@@ -324,7 +330,7 @@ func TestForgotPasswordAndResetFlow(t *testing.T) {
 	// 5. New password must succeed
 	newLogin := domain.LoginRequest{
 		Email:    "dhawal@flagura.dev",
-		Password: "newSecurePassword456!",
+		Password: newRawPassword,
 	}
 	newBody, _ := json.Marshal(newLogin)
 	reqNew := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(newBody))

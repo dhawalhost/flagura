@@ -1,4 +1,4 @@
-package api_test
+package api
 
 import (
 	"bytes"
@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/dhawalhost/flagura/pkg/api"
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/store"
 )
@@ -29,7 +28,7 @@ func BenchmarkHTTPEvaluateEndpoint(b *testing.B) {
 		},
 	}, "system")
 
-	server, err := api.NewServer(memStore)
+	server, err := NewServer(memStore)
 	if err != nil {
 		b.Fatalf("failed to create server: %v", err)
 	}

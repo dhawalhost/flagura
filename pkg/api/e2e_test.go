@@ -22,13 +22,15 @@ func TestE2E_FullPlatformLifecycle(t *testing.T) {
 		t.Fatalf("Failed to instantiate api.Server: %v", err)
 	}
 
+	testDevPassword := fmt.Sprintf("DevUserPass_%d_Safe!", time.Now().UnixNano())
+
 	// =========================================================================
 	// 1. E2E Auth & User Registration Flow
 	// =========================================================================
 	t.Run("1_Auth_And_User_Lifecycle", func(t *testing.T) {
 		signupBody := map[string]string{
 			"email":    "lead.dev@flagura-e2e.com",
-			"password": "StrongPassword123!",
+			"password": testDevPassword,
 			"name":     "Lead Developer",
 		}
 		b, _ := json.Marshal(signupBody)
@@ -79,13 +81,13 @@ func TestE2E_FullPlatformLifecycle(t *testing.T) {
 
 	t.Run("2_MultiTenant_Workspace_Flow", func(t *testing.T) {
 		// Provision Admin User and Session in Store
-		adminUser := domain.NewUser("admin.e2e@flagura.dev", "E2E Admin", "hash_admin_secret", domain.RoleAdmin)
+		adminUser := domain.NewUser("admin.e2e@flagura.dev", "E2E Admin", fmt.Sprintf("mock_hash_%d", time.Now().UnixNano()), domain.RoleAdmin)
 		createdAdmin, err := memStore.CreateUser(context.Background(), adminUser)
 		if err != nil {
 			t.Fatalf("Failed to create admin user: %v", err)
 		}
 
-		adminToken := "tok_e2e_admin_valid_123"
+		adminToken := fmt.Sprintf("tok_mock_admin_%d", time.Now().UnixNano())
 		_ = memStore.CreateSession(context.Background(), domain.Session{
 			Token:     adminToken,
 			UserID:    createdAdmin.ID,
@@ -248,7 +250,7 @@ func TestE2E_FullPlatformLifecycle(t *testing.T) {
 		// 1. Author (Lead Dev) logs in
 		loginBody := map[string]string{
 			"email":    "lead.dev@flagura-e2e.com",
-			"password": "StrongPassword123!",
+			"password": testDevPassword,
 		}
 		b, _ := json.Marshal(loginBody)
 		req := httptest.NewRequest("POST", "/api/v1/auth/login", bytes.NewReader(b))

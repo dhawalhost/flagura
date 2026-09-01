@@ -1,4 +1,4 @@
-package api_test
+package api
 
 import (
 	"bytes"
@@ -7,13 +7,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/dhawalhost/flagura/pkg/api"
 	"github.com/dhawalhost/flagura/pkg/store"
 )
 
 func TestTelemetryIngestionAndStats(t *testing.T) {
 	memStore := store.NewMemoryStore()
-	server, err := api.NewServer(memStore)
+	server, err := NewServer(memStore)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}

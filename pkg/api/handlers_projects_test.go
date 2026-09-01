@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -171,8 +172,10 @@ func TestMultiTenantUserSignUpIsolation(t *testing.T) {
 		t.Fatalf("Failed to create server: %v", err)
 	}
 
+	testPassword := fmt.Sprintf("TestPwd_%d_Safe!", time.Now().UnixNano())
+
 	// 1. Sign up User A
-	userAPayload := []byte(`{"email":"alice@acme.com","password":"Password123!","name":"Alice Acme"}`)
+	userAPayload := []byte(fmt.Sprintf(`{"email":"alice@acme.com","password":"%s","name":"Alice Acme"}`, testPassword))
 	reqA := httptest.NewRequest(http.MethodPost, "/api/v1/auth/signup", bytes.NewReader(userAPayload))
 	reqA.Header.Set("Content-Type", "application/json")
 	recA := httptest.NewRecorder()
@@ -194,7 +197,7 @@ func TestMultiTenantUserSignUpIsolation(t *testing.T) {
 	}
 
 	// 2. Sign up User B
-	userBPayload := []byte(`{"email":"bob@stark.com","password":"Password123!","name":"Bob Stark"}`)
+	userBPayload := []byte(fmt.Sprintf(`{"email":"bob@stark.com","password":"%s","name":"Bob Stark"}`, testPassword))
 	reqB := httptest.NewRequest(http.MethodPost, "/api/v1/auth/signup", bytes.NewReader(userBPayload))
 	reqB.Header.Set("Content-Type", "application/json")
 	recB := httptest.NewRecorder()
