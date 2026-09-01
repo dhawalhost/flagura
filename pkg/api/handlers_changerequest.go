@@ -203,9 +203,7 @@ func (s *Server) handleApplyChangeRequest(w http.ResponseWriter, r *http.Request
 	}
 
 	if s.streamHub != nil {
-		flags, _ := s.store.ListFlags(r.Context())
-		s.streamHub.BroadcastFlags(flags)
-		s.streamHub.Broadcast("change_request_applied", cr)
+		s.broadcastCurrentFlags(r.Context(), cr.ProjectID, cr.Environment)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -164,10 +164,10 @@ func TestPostgresStore_FlagOperations(t *testing.T) {
 	envJSON, _ := json.Marshal(sampleFlag.Environments)
 
 	// 1. GetFlag
-	mock.ExpectQuery(`SELECT id, project_id, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags`).
+	mock.ExpectQuery(`SELECT id, project_id, config_version, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags`).
 		WithArgs("proj_default", "ai-smart-search").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
-			AddRow(sampleFlag.ID, sampleFlag.ProjectID, sampleFlag.Key, sampleFlag.Name, sampleFlag.Description, sampleFlag.Type, "{ai,search}", envJSON, sampleFlag.CreatedAt, sampleFlag.UpdatedAt))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
+			AddRow(sampleFlag.ID, sampleFlag.ProjectID, 1, sampleFlag.Key, sampleFlag.Name, sampleFlag.Description, sampleFlag.Type, "{ai,search}", envJSON, sampleFlag.CreatedAt, sampleFlag.UpdatedAt))
 
 	flg, err := st.GetFlag(ctx, "ai-smart-search")
 	if err != nil || flg.Key != "ai-smart-search" {
@@ -175,10 +175,10 @@ func TestPostgresStore_FlagOperations(t *testing.T) {
 	}
 
 	// 2. ListFlags
-	mock.ExpectQuery(`SELECT id, project_id, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags`).
+	mock.ExpectQuery(`SELECT id, project_id, config_version, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags`).
 		WithArgs("proj_default").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
-			AddRow(sampleFlag.ID, sampleFlag.ProjectID, sampleFlag.Key, sampleFlag.Name, sampleFlag.Description, sampleFlag.Type, "{ai,search}", envJSON, sampleFlag.CreatedAt, sampleFlag.UpdatedAt))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
+			AddRow(sampleFlag.ID, sampleFlag.ProjectID, 1, sampleFlag.Key, sampleFlag.Name, sampleFlag.Description, sampleFlag.Type, "{ai,search}", envJSON, sampleFlag.CreatedAt, sampleFlag.UpdatedAt))
 
 	flags, err := st.ListFlags(ctx)
 	if err != nil || len(flags) != 1 {
@@ -199,11 +199,11 @@ func TestPostgresStore_FlagOperations(t *testing.T) {
 	}
 
 	// 4. ToggleFlag
-	mock.ExpectQuery(`SELECT id, project_id, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags`).
+	mock.ExpectQuery(`SELECT id, project_id, config_version, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags`).
 		WithArgs("proj_default", "ai-smart-search").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
-			AddRow(sampleFlag.ID, sampleFlag.ProjectID, sampleFlag.Key, sampleFlag.Name, sampleFlag.Description, sampleFlag.Type, "{ai,search}", envJSON, sampleFlag.CreatedAt, sampleFlag.UpdatedAt))
-	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, updated_at = \$2 WHERE id = \$3`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
+			AddRow(sampleFlag.ID, sampleFlag.ProjectID, 1, sampleFlag.Key, sampleFlag.Name, sampleFlag.Description, sampleFlag.Type, "{ai,search}", envJSON, sampleFlag.CreatedAt, sampleFlag.UpdatedAt))
+	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, config_version = config_version \+ 1, updated_at = \$2 WHERE id = \$3`).
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sampleFlag.ID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(`INSERT INTO audit_logs`).
@@ -217,11 +217,11 @@ func TestPostgresStore_FlagOperations(t *testing.T) {
 	}
 
 	// 5. UpdateRollout
-	mock.ExpectQuery(`SELECT id, project_id, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags`).
+	mock.ExpectQuery(`SELECT id, project_id, config_version, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags`).
 		WithArgs("proj_default", "ai-smart-search").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
-			AddRow(sampleFlag.ID, sampleFlag.ProjectID, sampleFlag.Key, sampleFlag.Name, sampleFlag.Description, sampleFlag.Type, "{ai,search}", envJSON, sampleFlag.CreatedAt, sampleFlag.UpdatedAt))
-	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, updated_at = \$2 WHERE id = \$3`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
+			AddRow(sampleFlag.ID, sampleFlag.ProjectID, 1, sampleFlag.Key, sampleFlag.Name, sampleFlag.Description, sampleFlag.Type, "{ai,search}", envJSON, sampleFlag.CreatedAt, sampleFlag.UpdatedAt))
+	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, config_version = config_version \+ 1, updated_at = \$2 WHERE id = \$3`).
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sampleFlag.ID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(`INSERT INTO audit_logs`).
@@ -234,10 +234,10 @@ func TestPostgresStore_FlagOperations(t *testing.T) {
 	}
 
 	// 6. DeleteFlag
-	mock.ExpectQuery(`SELECT id, project_id, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags`).
+	mock.ExpectQuery(`SELECT id, project_id, config_version, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags`).
 		WithArgs("proj_default", "ai-smart-search").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
-			AddRow(sampleFlag.ID, sampleFlag.ProjectID, sampleFlag.Key, sampleFlag.Name, sampleFlag.Description, sampleFlag.Type, "{ai,search}", envJSON, sampleFlag.CreatedAt, sampleFlag.UpdatedAt))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
+			AddRow(sampleFlag.ID, sampleFlag.ProjectID, 1, sampleFlag.Key, sampleFlag.Name, sampleFlag.Description, sampleFlag.Type, "{ai,search}", envJSON, sampleFlag.CreatedAt, sampleFlag.UpdatedAt))
 	mock.ExpectExec(`DELETE FROM feature_flags WHERE id = \$1 OR key = \$1`).
 		WithArgs("ai-smart-search").
 		WillReturnResult(sqlmock.NewResult(1, 1))
@@ -517,7 +517,7 @@ func TestPostgresStore_ProjectScopedLists(t *testing.T) {
 	ctx := context.Background()
 
 	// 1. ListAuditLogsByProject
-	mock.ExpectQuery(`SELECT id, project_id, flag_key, action, environment, actor, details, timestamp FROM audit_logs WHERE project_id = \$1 OR project_id = 'proj_default' ORDER BY timestamp DESC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, action, environment, actor, details, timestamp FROM audit_logs WHERE project_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
 		WithArgs("proj_100", 50).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "flag_key", "action", "environment", "actor", "details", "timestamp"}).
 			AddRow("log_01", "proj_100", "feat-1", "TOGGLE", "production", "actor@test.com", "toggled", time.Now()))
@@ -528,7 +528,7 @@ func TestPostgresStore_ProjectScopedLists(t *testing.T) {
 	}
 
 	// 2. ListChangeRequestsByProject (with status)
-	mock.ExpectQuery(`SELECT id, project_id, flag_key, environment, title, description, author_user_id, author_email, author_name, proposed_config, status, reviewer_user_id, reviewer_email, reviewer_name, review_comments, created_at, reviewed_at, applied_at FROM change_requests WHERE \(project_id = \$1 OR project_id = 'proj_default'\) AND status = \$2 ORDER BY created_at DESC`).
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, environment, title, description, author_user_id, author_email, author_name, proposed_config, status, reviewer_user_id, reviewer_email, reviewer_name, review_comments, created_at, reviewed_at, applied_at FROM change_requests WHERE project_id = \$1 AND status = \$2 ORDER BY created_at DESC`).
 		WithArgs("proj_100", domain.ChangeRequestStatusPending).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "flag_key", "environment", "title", "description", "author_user_id", "author_email", "author_name", "proposed_config", "status", "reviewer_user_id", "reviewer_email", "reviewer_name", "review_comments", "created_at", "reviewed_at", "applied_at"}).
 			AddRow("cr_01", "proj_100", "feat-1", "production", "title", "desc", "u1", "u1@test.com", "U1", []byte(`{}`), string(domain.ChangeRequestStatusPending), "", "", "", "", time.Now(), nil, nil))
@@ -539,7 +539,7 @@ func TestPostgresStore_ProjectScopedLists(t *testing.T) {
 	}
 
 	// 3. ListChangeRequestsByProject (without status)
-	mock.ExpectQuery(`SELECT id, project_id, flag_key, environment, title, description, author_user_id, author_email, author_name, proposed_config, status, reviewer_user_id, reviewer_email, reviewer_name, review_comments, created_at, reviewed_at, applied_at FROM change_requests WHERE project_id = \$1 OR project_id = 'proj_default' ORDER BY created_at DESC`).
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, environment, title, description, author_user_id, author_email, author_name, proposed_config, status, reviewer_user_id, reviewer_email, reviewer_name, review_comments, created_at, reviewed_at, applied_at FROM change_requests WHERE project_id = \$1 ORDER BY created_at DESC`).
 		WithArgs("proj_100").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "flag_key", "environment", "title", "description", "author_user_id", "author_email", "author_name", "proposed_config", "status", "reviewer_user_id", "reviewer_email", "reviewer_name", "review_comments", "created_at", "reviewed_at", "applied_at"}).
 			AddRow("cr_01", "proj_100", "feat-1", "production", "title", "desc", "u1", "u1@test.com", "U1", []byte(`{}`), string(domain.ChangeRequestStatusPending), "", "", "", "", time.Now(), nil, nil))
@@ -550,7 +550,7 @@ func TestPostgresStore_ProjectScopedLists(t *testing.T) {
 	}
 
 	// 4. ListAPIKeysByProject
-	mock.ExpectQuery(`SELECT id, project_id, environment, key_prefix, name, role, created_by, created_at, last_used_at, revoked FROM api_keys WHERE \(project_id = \$1 OR project_id = 'proj_default'\) AND revoked = FALSE ORDER BY created_at DESC`).
+	mock.ExpectQuery(`SELECT id, project_id, environment, key_prefix, name, role, created_by, created_at, last_used_at, revoked FROM api_keys WHERE project_id = \$1 AND revoked = FALSE ORDER BY created_at DESC`).
 		WithArgs("proj_100").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "environment", "key_prefix", "name", "role", "created_by", "created_at", "last_used_at", "revoked"}).
 			AddRow("key_01", "proj_100", "production", "flg_live_", "Key 1", "developer", "u1", time.Now(), nil, false))
@@ -591,12 +591,12 @@ func TestPostgresStore_FlagMutationsAndUserOperations(t *testing.T) {
 	envsJSON, _ := json.Marshal(testFlag.Environments)
 
 	// 1. ToggleFlag
-	mock.ExpectQuery(`SELECT id, project_id, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags WHERE \(project_id = \$1 OR project_id = 'proj_default'\) AND \(key = \$2 OR id = \$2\) LIMIT 1`).
+	mock.ExpectQuery(`SELECT id, project_id, config_version, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags WHERE project_id = \$1 AND \(key = \$2 OR id = \$2\) LIMIT 1`).
 		WithArgs(DefaultProjectID, "mutate-feat").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
-			AddRow(testFlag.ID, testFlag.ProjectID, testFlag.Key, testFlag.Name, testFlag.Description, testFlag.Type, "{}", envsJSON, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
+			AddRow(testFlag.ID, testFlag.ProjectID, 1, testFlag.Key, testFlag.Name, testFlag.Description, testFlag.Type, "{}", envsJSON, now, now))
 
-	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, updated_at = \$2 WHERE id = \$3`).
+	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, config_version = config_version \+ 1, updated_at = \$2 WHERE id = \$3`).
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), testFlag.ID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -610,12 +610,12 @@ func TestPostgresStore_FlagMutationsAndUserOperations(t *testing.T) {
 	}
 
 	// 2. UpdateRollout
-	mock.ExpectQuery(`SELECT id, project_id, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags WHERE \(project_id = \$1 OR project_id = 'proj_default'\) AND \(key = \$2 OR id = \$2\) LIMIT 1`).
+	mock.ExpectQuery(`SELECT id, project_id, config_version, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags WHERE project_id = \$1 AND \(key = \$2 OR id = \$2\) LIMIT 1`).
 		WithArgs(DefaultProjectID, "mutate-feat").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
-			AddRow(testFlag.ID, testFlag.ProjectID, testFlag.Key, testFlag.Name, testFlag.Description, testFlag.Type, "{}", envsJSON, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
+			AddRow(testFlag.ID, testFlag.ProjectID, 1, testFlag.Key, testFlag.Name, testFlag.Description, testFlag.Type, "{}", envsJSON, now, now))
 
-	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, updated_at = \$2 WHERE id = \$3`).
+	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, config_version = config_version \+ 1, updated_at = \$2 WHERE id = \$3`).
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), testFlag.ID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -629,10 +629,10 @@ func TestPostgresStore_FlagMutationsAndUserOperations(t *testing.T) {
 	}
 
 	// 3. DeleteFlag
-	mock.ExpectQuery(`SELECT id, project_id, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags WHERE \(project_id = \$1 OR project_id = 'proj_default'\) AND \(key = \$2 OR id = \$2\) LIMIT 1`).
+	mock.ExpectQuery(`SELECT id, project_id, config_version, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags WHERE project_id = \$1 AND \(key = \$2 OR id = \$2\) LIMIT 1`).
 		WithArgs(DefaultProjectID, "mutate-feat").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
-			AddRow(testFlag.ID, testFlag.ProjectID, testFlag.Key, testFlag.Name, testFlag.Description, testFlag.Type, "{}", envsJSON, now, now))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
+			AddRow(testFlag.ID, testFlag.ProjectID, 1, testFlag.Key, testFlag.Name, testFlag.Description, testFlag.Type, "{}", envsJSON, now, now))
 
 	mock.ExpectExec(`DELETE FROM feature_flags WHERE id = \$1 OR key = \$1`).
 		WithArgs("mutate-feat").
@@ -726,10 +726,10 @@ func TestPostgresStore_GovernanceAndAuthExtended(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "flag_key", "environment", "title", "description", "author_user_id", "author_email", "author_name", "proposed_config", "status", "reviewer_user_id", "reviewer_email", "reviewer_name", "review_comments", "created_at", "reviewed_at", "applied_at"}).
 			AddRow(cr.ID, cr.FlagKey, string(cr.Environment), cr.Title, "", cr.AuthorUserID, "author@test.com", "Author", []byte(`{"enabled":true,"percentage":100}`), string(domain.ChangeRequestStatusApproved), "u_reviewer_01", "reviewer@test.com", "Reviewer", "LGTM", cr.CreatedAt, time.Now(), nil))
 
-	mock.ExpectQuery(`SELECT id, project_id, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags WHERE \(project_id = \$1 OR project_id = 'proj_default'\) AND \(key = \$2 OR id = \$2\) LIMIT 1`).
+	mock.ExpectQuery(`SELECT id, project_id, config_version, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags WHERE project_id = \$1 AND \(key = \$2 OR id = \$2\) LIMIT 1`).
 		WithArgs(DefaultProjectID, cr.FlagKey).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
-			AddRow("flg_feat_cr", "proj_default", cr.FlagKey, "Feat CR", "description", "boolean", "{}", []byte(`{}`), time.Now(), time.Now()))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
+			AddRow("flg_feat_cr", "proj_default", 1, cr.FlagKey, "Feat CR", "description", "boolean", "{}", []byte(`{}`), time.Now(), time.Now()))
 
 	mock.ExpectExec(`INSERT INTO feature_flags`).
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), cr.FlagKey, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
@@ -888,7 +888,7 @@ func TestPostgresStore_OrgMembersAndInvitations(t *testing.T) {
 	}
 
 	// 9. ListAPIKeysByProject
-	mock.ExpectQuery(`SELECT id, project_id, environment, key_prefix, name, role, created_by, created_at, last_used_at, revoked FROM api_keys WHERE \(project_id = \$1 OR project_id = 'proj_default'\) AND revoked = FALSE ORDER BY created_at DESC`).
+	mock.ExpectQuery(`SELECT id, project_id, environment, key_prefix, name, role, created_by, created_at, last_used_at, revoked FROM api_keys WHERE project_id = \$1 AND revoked = FALSE ORDER BY created_at DESC`).
 		WithArgs("proj_test_01").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "environment", "key_prefix", "name", "role", "created_by", "created_at", "last_used_at", "revoked"}).
 			AddRow("key_01", "proj_test_01", "production", "flg_live_***", "Test Key", string(domain.RoleDeveloper), "admin@flagura.dev", time.Now(), nil, false))

@@ -126,7 +126,8 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	CREATE TABLE IF NOT EXISTS feature_flags (
 		id TEXT PRIMARY KEY,
 		project_id TEXT NOT NULL DEFAULT 'proj_default',
-		key TEXT UNIQUE NOT NULL,
+		key TEXT NOT NULL,
+		config_version BIGINT NOT NULL DEFAULT 1,
 		name TEXT NOT NULL,
 		description TEXT,
 		type TEXT NOT NULL DEFAULT 'boolean',
@@ -134,7 +135,8 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 		variants JSONB DEFAULT '[]'::jsonb,
 		environments JSONB NOT NULL DEFAULT '{}'::jsonb,
 		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		UNIQUE(project_id, key)
 	);
 	CREATE INDEX IF NOT EXISTS idx_feature_flags_key ON feature_flags(key);
 	CREATE INDEX IF NOT EXISTS idx_feature_flags_proj ON feature_flags(project_id, key);
@@ -240,8 +242,10 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	CREATE INDEX IF NOT EXISTS idx_org_invitations_token ON org_invitations(token);
 	CREATE INDEX IF NOT EXISTS idx_org_invitations_org ON org_invitations(organization_id);
 
-	-- Add project_id and environment columns to existing tables if needed
+	-- Add project_id, config_version, and environment columns to existing tables if needed
 	ALTER TABLE feature_flags ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
+	ALTER TABLE feature_flags ADD COLUMN IF NOT EXISTS config_version BIGINT NOT NULL DEFAULT 1;
+	ALTER TABLE projects ADD COLUMN IF NOT EXISTS config_version BIGINT NOT NULL DEFAULT 1;
 	ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
 	ALTER TABLE change_requests ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
 	ALTER TABLE experiment_events ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
@@ -269,9 +273,9 @@ func (s *PostgresStore) ListFlagsByProject(ctx context.Context, projectID string
 		projectID = DefaultProjectID
 	}
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, project_id, key, name, description, type, tags, environments, created_at, updated_at
+		SELECT id, project_id, config_version, key, name, description, type, tags, environments, created_at, updated_at
 		FROM feature_flags
-		WHERE project_id = $1 OR project_id = 'proj_default'
+		WHERE project_id = $1
 		ORDER BY created_at DESC
 	`, projectID)
 	if err != nil {
@@ -285,7 +289,7 @@ func (s *PostgresStore) ListFlagsByProject(ctx context.Context, projectID string
 		var envsJSON []byte
 		var tags []string
 
-		if err := rows.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.Type, pq.Array(&tags), &envsJSON, &f.CreatedAt, &f.UpdatedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.ProjectID, &f.ConfigVersion, &f.Key, &f.Name, &f.Description, &f.Type, pq.Array(&tags), &envsJSON, &f.CreatedAt, &f.UpdatedAt); err != nil {
 			return nil, err
 		}
 		f.Tags = tags
@@ -306,9 +310,9 @@ func (s *PostgresStore) GetFlagByProject(ctx context.Context, projectID, keyOrID
 		projectID = DefaultProjectID
 	}
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, project_id, key, name, description, type, tags, environments, created_at, updated_at
+		SELECT id, project_id, config_version, key, name, description, type, tags, environments, created_at, updated_at
 		FROM feature_flags
-		WHERE (project_id = $1 OR project_id = 'proj_default') AND (key = $2 OR id = $2)
+		WHERE project_id = $1 AND (key = $2 OR id = $2)
 		LIMIT 1
 	`, projectID, keyOrID)
 
@@ -316,7 +320,7 @@ func (s *PostgresStore) GetFlagByProject(ctx context.Context, projectID, keyOrID
 	var envsJSON []byte
 	var tags []string
 
-	if err := row.Scan(&f.ID, &f.ProjectID, &f.Key, &f.Name, &f.Description, &f.Type, pq.Array(&tags), &envsJSON, &f.CreatedAt, &f.UpdatedAt); err != nil {
+	if err := row.Scan(&f.ID, &f.ProjectID, &f.ConfigVersion, &f.Key, &f.Name, &f.Description, &f.Type, pq.Array(&tags), &envsJSON, &f.CreatedAt, &f.UpdatedAt); err != nil {
 		return nil, err
 	}
 	f.Tags = tags
@@ -351,10 +355,10 @@ func (s *PostgresStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, a
 	}
 
 	query := `
-		INSERT INTO feature_flags (id, project_id, key, name, description, type, tags, environments, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		ON CONFLICT (key) DO UPDATE SET
-			project_id = EXCLUDED.project_id,
+		INSERT INTO feature_flags (id, project_id, key, config_version, name, description, type, tags, environments, created_at, updated_at)
+		VALUES ($1, $2, $3, 1, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT (project_id, key) DO UPDATE SET
+			config_version = feature_flags.config_version + 1,
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
 			type = EXCLUDED.type,
@@ -442,7 +446,8 @@ func (s *PostgresStore) ToggleFlag(ctx context.Context, keyOrID string, env doma
 		return nil, nil, err
 	}
 
-	_, err = s.db.ExecContext(ctx, "UPDATE feature_flags SET environments = $1, updated_at = $2 WHERE id = $3", envsJSON, f.UpdatedAt, f.ID)
+	f.ConfigVersion++
+	_, err = s.db.ExecContext(ctx, "UPDATE feature_flags SET environments = $1, config_version = config_version + 1, updated_at = $2 WHERE id = $3", envsJSON, f.UpdatedAt, f.ID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -496,7 +501,8 @@ func (s *PostgresStore) UpdateRollout(ctx context.Context, keyOrID string, env d
 		return nil, nil, err
 	}
 
-	_, err = s.db.ExecContext(ctx, "UPDATE feature_flags SET environments = $1, updated_at = $2 WHERE id = $3", envsJSON, f.UpdatedAt, f.ID)
+	f.ConfigVersion++
+	_, err = s.db.ExecContext(ctx, "UPDATE feature_flags SET environments = $1, config_version = config_version + 1, updated_at = $2 WHERE id = $3", envsJSON, f.UpdatedAt, f.ID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1286,7 +1292,7 @@ func (s *PostgresStore) ListAuditLogsByProject(ctx context.Context, projectID st
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, project_id, flag_key, action, environment, actor, details, timestamp
 		FROM audit_logs
-		WHERE project_id = $1 OR project_id = 'proj_default'
+		WHERE project_id = $1
 		ORDER BY timestamp DESC
 		LIMIT $2
 	`, projectID, limit)
@@ -1319,7 +1325,7 @@ func (s *PostgresStore) ListChangeRequestsByProject(ctx context.Context, project
 			       proposed_config, status, reviewer_user_id, reviewer_email,
 			       reviewer_name, review_comments, created_at, reviewed_at, applied_at
 			FROM change_requests
-			WHERE (project_id = $1 OR project_id = 'proj_default') AND status = $2
+			WHERE project_id = $1 AND status = $2
 			ORDER BY created_at DESC
 		`, projectID, status)
 	} else {
@@ -1329,7 +1335,7 @@ func (s *PostgresStore) ListChangeRequestsByProject(ctx context.Context, project
 			       proposed_config, status, reviewer_user_id, reviewer_email,
 			       reviewer_name, review_comments, created_at, reviewed_at, applied_at
 			FROM change_requests
-			WHERE project_id = $1 OR project_id = 'proj_default'
+			WHERE project_id = $1
 			ORDER BY created_at DESC
 		`, projectID)
 	}
@@ -1373,7 +1379,7 @@ func (s *PostgresStore) ListAPIKeysByProject(ctx context.Context, projectID stri
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, project_id, environment, key_prefix, name, role, created_by, created_at, last_used_at, revoked
 		FROM api_keys
-		WHERE (project_id = $1 OR project_id = 'proj_default') AND revoked = FALSE
+		WHERE project_id = $1 AND revoked = FALSE
 		ORDER BY created_at DESC
 	`, projectID)
 	if err != nil {

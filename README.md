@@ -1,19 +1,19 @@
-# ⚡ Flagura — Sub-Microsecond Feature Flagging & Release Engine
+# ⚡ Flagura — Open-Source Feature Control Plane & Evaluation Engine
 
 <div align="center">
 
-![Flagura Banner](https://img.shields.io/badge/Flagura-Feature%20Engine-2563eb?style=for-the-badge&logo=go&logoColor=white)
+![Flagura Banner](https://img.shields.io/badge/Flagura-Feature%20Control%20Plane-2563eb?style=for-the-badge&logo=go&logoColor=white)
 [![Go Report Card](https://goreportcard.com/badge/github.com/dhawalhost/flagura)](https://goreportcard.com/report/github.com/dhawalhost/flagura)
 ![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go&logoColor=white)
-![Evaluation Latency](https://img.shields.io/badge/P50%20Latency-~109ns-emerald?style=flat&logo=speedtest&logoColor=white)
+![Evaluation](https://img.shields.io/badge/In--Process%20Evaluation-~100ns-emerald?style=flat&logo=speedtest&logoColor=white)
 ![Build & Tests](<https://img.shields.io/badge/Tests-Passing%20(100%25)-emerald?style=flat&logo=githubactions&logoColor=white>)
-![OpenFeature](https://img.shields.io/badge/OpenFeature-Compatible-7c3aed?style=flat&logo=openfeature&logoColor=white)
+![OpenFeature](https://img.shields.io/badge/OpenFeature-Native-7c3aed?style=flat&logo=openfeature&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
-**Feature flags that disappear from your critical path.**  
-_In-process deterministic in-memory evaluation (~100ns), OpenFeature native providers, gradual rollouts, authenticated webhook kill-switches, and 4-Eyes change governance._
+**Developer-first, self-hosted feature management built for local evaluation and OpenFeature standard.**  
+_Deterministic in-memory evaluation (~100ns), OpenFeature Go/JS/Python/Rust providers, tenant-isolated streaming sync, authenticated kill-switches, and 4-Eyes change governance._
 
-[Live Demo & Console](#-quickstart) • [Architecture](#-architecture) • [OpenFeature](#-openfeature-go-provider) • [API Reference](#-rest-api-reference) • [SDK Integration](#-polyglot-sdk-quickstart) • [Deployment](#-deployment-options) • [Runbooks](docs/runbooks/README.md)
+[Live Demo & Console](#-quickstart) • [Architecture](#-architecture) • [OpenFeature](#-openfeature-go-provider) • [API Reference](#-rest-api-reference) • [Go SDK](sdks/go) • [Deployment](#-deployment-options) • [Runbooks](docs/runbooks/README.md)
 
 </div>
 
@@ -21,87 +21,66 @@ _In-process deterministic in-memory evaluation (~100ns), OpenFeature native prov
 
 ## 📖 Overview
 
-**Flagura** is a modern, high-performance feature flag and experimentation engine engineered for in-process flag evaluation. Traditional SaaS feature flagging services introduce remote HTTP network hops (~20–80ms) that slow down user interactions and degrade Core Web Vitals.
-
-Flagura evaluates rules and percentage rollouts locally in-memory using **deterministic 64-bit FNV-1a hashing** and cached targeting rule matchers, executing in **sub-microsecond time (~90ns – 220ns)** with zero database I/O on evaluation hot paths.
-
----
-
-## ⚡ Key Highlights
-
-- **🏢 Multi-Tenant Organization & Project Hierarchy:** Group flags, API keys, change requests, and experiments into isolated Organizations and Projects.
-- **⚡ Sub-Microsecond Local Evaluation:** In-memory deterministic rule engine resolving flags in ~90ns – 250ns with zero remote network I/O.
-- **🌐 Native OpenFeature Provider:** Drop-in vendor-neutral `open-feature/go-sdk` integration—switch or adopt Flagura with zero code lock-in.
-- **🛡️ 4-Eyes Change Governance & RBAC:** Protected API endpoints, non-self-assignable roles, and multi-approver pull requests for production flag mutations.
-- **🎯 Deterministic Sticky Percentage Bucketing:** Mathematical FNV-1a 64-bit hashing ensures users consistently land in the exact same rollout bucket across sessions and platforms.
-- **🚨 Authenticated Webhook Kill-Switch:** Secure circuit breaker (`X-Webhook-Secret` or Bearer token) to immediately shut down broken flags in production.
-- **📊 A/B Testing & Statistical Engine:** Ingestion API (`/api/v1/events`) computing two-tailed pooled Z-scores, p-values, confidence intervals, and variant lift in sub-35µs.
-- **💎 Clean Developer Console:** Built with Go, Templ, and Tailwind CSS featuring an interactive switchboard, live evaluator sandbox, and append-only audit trail.
+**Flagura** is an open-source, developer-first feature management platform engineered around a fundamental separation of concerns:
+- **Control Plane**: Governs environments, organizations, projects, API keys, RBAC, 4-Eyes change requests, and immutable audit trails backed by PostgreSQL.
+- **Data Plane (SDKs)**: Evaluates rules and percentage rollouts locally in-process using **deterministic 64-bit FNV-1a hashing** and cached targeting matchers, executing in **nanoseconds (~90ns – 220ns)** with zero network hops on application critical paths.
 
 ---
 
-## ⚖️ How Flagura Compares
+## ⚡ Core Architectural Pillars
 
-| Feature / Capability             |             ⚡ Flagura (`v1.7.0`)     |      LaunchDarkly       |            Unleash             |        Flagsmith         |       GrowthBook       |
-| :------------------------------- | :---------------------------------: | :---------------------: | :----------------------------: | :----------------------: | :--------------------: |
-| **Core Architecture**            |       **Go (Native Binary)**        |   Cloud SaaS / Daemon   |      Node.js / TypeScript      |     Python (Django)      |  TypeScript / Next.js  |
-| **P50 Local Evaluation Latency** |      **`~13 ns – 220 ns`**          | ~25 µs (In-Process SDK) |       ~25 µs (Proxy SDK)       |          ~50 µs          |         ~30 µs         |
-| **Data Sovereignty & Privacy**   |   **✅ 100% Private (Your DB/VPC)** |    ❌ 3rd-Party Cloud   |             ✅ Yes             |          ✅ Yes          |         ✅ Yes         |
-| **Zero Vendor Lock-in**          |  **✅ Native OpenFeature Provider** | ⚠️ Proprietary SDKs     | ⚠️ Proprietary SDKs            | ⚠️ Proprietary SDKs      | ⚠️ Proprietary SDKs    |
-| **4-Eyes Change Governance**     |     **✅ Included (100% Free)**     |   🔒 Enterprise ($$$)   |      🔒 Enterprise ($$$)       |   🔒 Enterprise ($$$)    |  🔒 Enterprise ($$$)   |
-| **Built-in Statistical A/B**     | **✅ Native ($Z$, $P$-Value, Lift)**| 🔒 Experimentation Addon|     ❌ Basic Variants Only     |  ❌ Basic Variants Only  |  ✅ Python / SQL Engine|
-| **Automated Canary + Guardrails**|     **✅ Native Stage Ramp**        | 🔒 Enterprise Guardrails|         ❌ Manual Ramp         |      ❌ Manual Ramp      |     ❌ Manual Ramp     |
-| **Prometheus Metrics (`/metrics`)** | **✅ Native Exporter**          |    ⚠️ Requires Sidecar  |        ⚠️ Requires Addon       |    ⚠️ Requires Plugin    |   ⚠️ Requires Addon    |
-| **Stale Flag Codebase Auditor**  |       **✅ `flagura audit` CLI**    | 🔒 Code References Addon|            ❌ Manual           |        ❌ Manual         |        ❌ Manual       |
-| **Memory Footprint**             |            **`~25 MB – 40 MB`**     |   High (Relay Daemon)   |       `~450 MB – 800 MB`       |     `~400 MB – 1 GB`     |   `~350 MB – 600 MB`   |
-| **Pricing Model**                |     **100% Free & Open Source**     |  **$500 – $5,000+/mo**  |       Freemium ($80+/mo)       |    Freemium ($45+/mo)    |   Freemium ($20+/mo)   |
-| **Zero DB I/O on Evaluation**    |    **✅ Yes (`atomic.Pointer` CoW)**|    ⚠️ Requires Proxy    |    ⚠️ Requires Redis/Proxy     |   ❌ Queries DB/Cache    |   ⚠️ Requires Cache    |
-| **Deployment Model**             | **Single Binary / Docker / Vercel** |     Cloud SaaS Only     | Multi-tier (Node + Redis + DB) | Multi-tier (Django + DB) | Multi-tier (Next + DB) |
+- **⚡ Local-First In-Process Evaluation:** Connected SDKs evaluate flags locally in-memory with deterministic sticky bucketing and zero database I/O on evaluation hot paths.
+- **🌐 OpenFeature Native:** Built-in standard OpenFeature providers for Go, TypeScript, Python, and Rust—switch or adopt Flagura with zero proprietary code lock-in.
+- **🏢 Strict Multi-Tenant Isolation:** Complete organization and project-level separation across storage, API credentials, and real-time SSE streaming channels.
+- **🛡️ 4-Eyes Change Governance:** Configurable environment protection requiring peer review and dual authorization before production flag mutations are applied.
+- **🔄 Versioned Configuration Synchronization:** Monotonic `config_version` stream protocol with real-time SSE push updates, cold-start disk snapshots, and automatic gap reconciliation.
+- **🎯 Deterministic Sticky Bucketing:** FNV-1a 64-bit hashing ensures consistent user assignment across distributed nodes without centralized state lookups.
+- **🚨 Authenticated Webhook Kill-Switch:** Secure automated circuit breakers (`X-Webhook-Secret` or Bearer token) for APM alerts (Datadog/Sentry) to shut down failing features instantly.
+- **💎 Self-Hosted Privacy & Sovereignty:** 100% private deployment within your own infrastructure (single Go binary, Docker, or PostgreSQL).
 
-> **Benchmark Methodology:** Evaluated on Apple M3 Pro using standard Go benchmarks (`go test -bench=. -benchmem ./pkg/engine/...`): Percentage Rollout ~111 ns (32 B/op), Rule Match ~91 ns (16 B/op), Bare FNV-1a Hash ~13 ns (0 B/op), Regex Match (Cached) ~221 ns (32 B/op). Competitor metrics reflect typical client SDK in-memory evaluation / relay daemon documentation.
+---
 
-[👉 Read full architectural comparison in documentation](docs/product/comparison.md)
+## ⚖️ Capability Matrix
+
+| Feature / Capability             | ⚡ Flagura (`v1.7.0`)                 | OpenFeature Native | Self-Hosted Support |
+| :------------------------------- | :---------------------------------- | :----------------: | :-----------------: |
+| **Local In-Process Evaluation**  | ✅ Sub-microsecond (~100ns)         | ✅ Yes             | ✅ Yes              |
+| **Standard OpenFeature SDKs**    | ✅ Go, TypeScript, Python, Rust     | ✅ Yes             | ✅ Yes              |
+| **Multi-Tenant Organizations**   | ✅ Isolated Projects & Keys         | N/A                | ✅ Yes              |
+| **Real-Time Streaming Sync**    | ✅ Project-Scoped SSE Channels      | ✅ Yes             | ✅ Yes              |
+| **Offline Snapshot Resilience**  | ✅ Local Cold-Start Cache           | ✅ Yes             | ✅ Yes              |
+| **4-Eyes Change Governance**     | ✅ Peer Approval Pipeline           | N/A                | ✅ Yes              |
+| **Config Version Reconciliation**| ✅ Monotonic `config_version`       | N/A                | ✅ Yes              |
+| **Automated Webhook Kill-Switch**| ✅ Token-Authenticated              | N/A                | ✅ Yes              |
+| **A/B Experiment Statistics**    | ✅ Two-Tailed Z-Score & P-Values    | ✅ Yes             | ✅ Yes              |
+| **Native Prometheus Metrics**    | ✅ `/metrics` Standard Exporter     | N/A                | ✅ Yes              |
+| **Data Sovereignty & Privacy**   | ✅ 100% Private (Your Database)     | ✅ Yes             | ✅ Yes              |
 
 ---
 
 ## 🏗️ Architecture
 
-Flagura is engineered for maximum execution speed, zero runtime overhead, and simple deployment:
-
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                              FLAGURA ENGINE                            │
+│                        FLAGURA CONTROL PLANE                           │
 ├────────────────────────────────────────────────────────────────────────┤
-│  • Go 1.26+ Core          ── High-concurrency engine & FNV-1a hashing   │
-│  • Direct SQL Store       ── Pure database/sql + lib/pq for Supabase   │
-│  • API-First Design       ── Ultra-fast batch & single evaluation API  │
-│  • Compiled Views         ── Type-safe compiled HTML views & CSS      │
-│  • Reactive UI Components ── Fast, zero-page-reload console components │
+│  • Go Core              ── High-concurrency control API & Web Console │
+│  • Storage Layer        ── Multi-tenant PostgreSQL / In-Memory Edge    │
+│  • Governance Engine    ── 4-Eyes review pipeline & Change Requests   │
+│  • Stream Hub           ── Project & environment-scoped SSE broadcast │
+│  • Audit & Telemetry    ── Append-only audit logs & experiment events │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ Config Stream (SSE + Versioning)
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                      FLAGURA DATA PLANE (SDKs)                         │
+├────────────────────────────────────────────────────────────────────────┤
+│  1. Check Environment Master Kill-Switch                               │
+│  2. Evaluate Specific Attribute Targeting Rules                        │
+│  3. Compute Deterministic FNV-1a 64-bit Sticky Hash Bucket (0-99.99%)  │
+│  4. Resolve Value / Variant locally in nanoseconds (~100ns)            │
 └────────────────────────────────────────────────────────────────────────┘
 ```
-
-```
-                     ┌──────────────────────────┐
-                     │ Client Application / SDK │
-                     └─────────────┬────────────┘
-                                   │ (In-Memory / HTTP)
-                                   ▼
-        ┌─────────────────────────────────────────────────────┐
-        │               Flagura Evaluation Engine             │
-        ├─────────────────────────────────────────────────────┤
-        │  1. Check Environment Master Kill-Switch            │
-        │  2. Evaluate Specific Attribute Rules (Email/Tier)  │
-        │  3. Compute FNV-1a 64-bit Sticky Hash Bucket (0-99) │
-        │  4. Resolve Treatment vs Control Group              │
-        └──────────────────────────┬──────────────────────────┘
-                                   │ (< 80ns execution)
-                                   ▼
-                     ┌──────────────────────────┐
-                     │  Boolean / Variant Value │
-                     └──────────────────────────┘
-```
-
----
 
 ## 🚀 Quickstart
 

@@ -67,26 +67,28 @@ type FlagVariant struct {
 }
 
 type EnvironmentConfig struct {
-	Enabled        bool            `json:"enabled"`
-	Strategy       StrategyType    `json:"strategy"`
-	Percentage     float64         `json:"percentage"`
-	Rules          []TargetingRule `json:"rules"`
-	Variants       []FlagVariant   `json:"variants"`
-	DefaultVariant string          `json:"defaultVariant,omitempty"`
-	OffVariant     string          `json:"offVariant,omitempty"`
+	Enabled          bool            `json:"enabled"`
+	Strategy         StrategyType    `json:"strategy"`
+	Percentage       float64         `json:"percentage"`
+	Rules            []TargetingRule `json:"rules"`
+	Variants         []FlagVariant   `json:"variants"`
+	DefaultVariant   string          `json:"defaultVariant,omitempty"`
+	OffVariant       string          `json:"offVariant,omitempty"`
+	RequiresApproval bool            `json:"requiresApproval,omitempty"`
 }
 
 type FeatureFlag struct {
-	ID           string                            `json:"id"`
-	ProjectID    string                            `json:"projectId,omitempty"`
-	Key          string                            `json:"key"`
-	Name         string                            `json:"name"`
-	Description  string                            `json:"description"`
-	Type         string                            `json:"type"` // boolean, multivariate, json
-	Tags         []string                          `json:"tags"`
-	Environments map[Environment]EnvironmentConfig `json:"environments"`
-	CreatedAt    time.Time                         `json:"createdAt"`
-	UpdatedAt    time.Time                         `json:"updatedAt"`
+	ID            string                            `json:"id"`
+	ProjectID     string                            `json:"projectId,omitempty"`
+	ConfigVersion uint64                            `json:"configVersion,omitempty"`
+	Key           string                            `json:"key"`
+	Name          string                            `json:"name"`
+	Description   string                            `json:"description"`
+	Type          string                            `json:"type"` // boolean, multivariate, json
+	Tags          []string                          `json:"tags"`
+	Environments  map[Environment]EnvironmentConfig `json:"environments"`
+	CreatedAt     time.Time                         `json:"createdAt"`
+	UpdatedAt     time.Time                         `json:"updatedAt"`
 }
 
 func (f FeatureFlag) EnvConfig(env string) EnvironmentConfig {
