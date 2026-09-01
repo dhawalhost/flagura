@@ -15,10 +15,11 @@ import (
 func BenchmarkHTTPEvaluateEndpoint(b *testing.B) {
 	memStore := store.NewMemoryStore()
 	_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
-		ID:   "flag_bench",
-		Key:  "ai-smart-search",
-		Name: "AI Smart Search",
-		Type: "boolean",
+		ID:        "flag_bench",
+		ProjectID: store.DefaultProjectID,
+		Key:       "ai-smart-search",
+		Name:      "AI Smart Search",
+		Type:      "boolean",
 		Environments: map[domain.Environment]domain.EnvironmentConfig{
 			domain.EnvProduction: {
 				Enabled:    true,

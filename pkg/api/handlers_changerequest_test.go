@@ -18,10 +18,11 @@ func TestFourEyesChangeRequestGovernanceFlow(t *testing.T) {
 	flagKey := "prod-database-failover"
 
 	_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
-		ID:   "flag_failover",
-		Key:  flagKey,
-		Name: "Production Database Failover",
-		Type: "boolean",
+		ID:        "flag_failover",
+		ProjectID: store.DefaultProjectID,
+		Key:       flagKey,
+		Name:      "Production Database Failover",
+		Type:      "boolean",
 		Environments: map[domain.Environment]domain.EnvironmentConfig{
 			domain.EnvProduction: {
 				Enabled:    false,

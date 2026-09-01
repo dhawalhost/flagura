@@ -26,6 +26,7 @@ func TestRealTimeStreamingSync(t *testing.T) {
 
 	// Initialize client with long 60s polling interval so we know updates come via SSE stream
 	c := New(ts.URL,
+		WithProjectID("proj_test"),
 		WithLocalEvaluation(60*time.Second),
 		WithStreaming(true),
 	)
@@ -38,10 +39,11 @@ func TestRealTimeStreamingSync(t *testing.T) {
 
 	// Seed target flag
 	_, _ = st.SaveFlag(ctx, domain.FeatureFlag{
-		ID:   "flag_rate_limiter",
-		Key:  "rate-limiter-v2",
-		Name: "Rate Limiter V2",
-		Type: "boolean",
+		ID:        "flag_rate_limiter",
+		ProjectID: "proj_test",
+		Key:       "rate-limiter-v2",
+		Name:      "Rate Limiter V2",
+		Type:      "boolean",
 		Environments: map[domain.Environment]domain.EnvironmentConfig{
 			domain.EnvProduction: {
 				Enabled:  true,
@@ -77,6 +79,7 @@ func TestRealTimeStreamingSync(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPatch, ts.URL+"/api/v1/flags/rate-limiter-v2/toggle", bytes.NewReader(toggleBody))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+sessionToken)
+	req.Header.Set("X-Project-ID", "proj_test")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		t.Fatalf("failed to toggle flag on server: %v (code: %v)", err, resp.StatusCode)

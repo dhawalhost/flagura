@@ -16,10 +16,11 @@ import (
 func TestExperimentIngestAndReportFlow(t *testing.T) {
 	memStore := store.NewMemoryStore()
 	_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
-		ID:   "flag_exp_test",
-		Key:  "pricing-experiment",
-		Name: "Pricing Tier Experiment",
-		Type: "string",
+		ID:        "flag_exp_test",
+		ProjectID: store.DefaultProjectID,
+		Key:       "pricing-experiment",
+		Name:      "Pricing Tier Experiment",
+		Type:      "string",
 		Environments: map[domain.Environment]domain.EnvironmentConfig{
 			domain.EnvProduction: {
 				Enabled:        true,

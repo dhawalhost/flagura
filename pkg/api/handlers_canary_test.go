@@ -17,10 +17,11 @@ func TestCanaryApiLifecycle(t *testing.T) {
 	memStore := store.NewMemoryStore()
 	flagKey := "canary-api-test"
 	_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
-		ID:   "flag_canary_api",
-		Key:  flagKey,
-		Name: "Canary API Test",
-		Type: "boolean",
+		ID:        "flag_canary_api",
+		ProjectID: store.DefaultProjectID,
+		Key:       flagKey,
+		Name:      "Canary API Test",
+		Type:      "boolean",
 		Environments: map[domain.Environment]domain.EnvironmentConfig{
 			domain.EnvProduction: {
 				Enabled:    true,

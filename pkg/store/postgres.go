@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -338,8 +339,8 @@ func (s *PostgresStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, a
 	if actor == "" {
 		actor = "developer@flagura.dev"
 	}
-	if flag.ProjectID == "" {
-		flag.ProjectID = DefaultProjectID
+	if strings.TrimSpace(flag.ProjectID) == "" {
+		return nil, errors.New("project_id is required to save a feature flag")
 	}
 	if flag.ID == "" {
 		b := make([]byte, 4)
@@ -1210,8 +1211,8 @@ func (s *PostgresStore) ListOrganizations(ctx context.Context) ([]domain.Organiz
 }
 
 func (s *PostgresStore) CreateProject(ctx context.Context, project domain.Project) (*domain.Project, error) {
-	if project.OrganizationID == "" {
-		project.OrganizationID = DefaultOrgID
+	if strings.TrimSpace(project.OrganizationID) == "" {
+		return nil, errors.New("organization_id is required to create a project")
 	}
 	if project.ID == "" {
 		b := make([]byte, 4)

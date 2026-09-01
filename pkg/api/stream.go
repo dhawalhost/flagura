@@ -196,6 +196,10 @@ func (s *Server) handleFlagsStream(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	projectID := s.resolveProjectID(r)
+	if projectID == "" {
+		http.Error(w, "project_id is required via X-Project-ID header, project_id query parameter, or API key", http.StatusBadRequest)
+		return
+	}
 	envParam := r.URL.Query().Get("environment")
 
 	flags, err := s.store.ListFlagsByProject(ctx, projectID)

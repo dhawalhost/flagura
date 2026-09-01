@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -228,8 +229,8 @@ func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 	flagCopy := flag.DeepCopy()
 	var log domain.AuditLogEntry
 
-	if flagCopy.ProjectID == "" {
-		flagCopy.ProjectID = DefaultProjectID
+	if strings.TrimSpace(flagCopy.ProjectID) == "" {
+		return nil, errors.New("project_id is required to save a feature flag")
 	}
 
 	for i, f := range newList {
@@ -912,8 +913,8 @@ func (s *MemoryStore) CreateProject(ctx context.Context, project domain.Project)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if project.OrganizationID == "" {
-		project.OrganizationID = DefaultOrgID
+	if strings.TrimSpace(project.OrganizationID) == "" {
+		return nil, errors.New("organization_id is required to create a project")
 	}
 	if project.ID == "" {
 		b := make([]byte, 4)

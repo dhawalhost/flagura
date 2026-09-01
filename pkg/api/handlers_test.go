@@ -14,11 +14,21 @@ import (
 )
 
 func getAdminAuthCookie(t *testing.T, memStore store.Store) *http.Cookie {
+	ctx := context.Background()
 	user := domain.NewUser("admin.suite@flagura.dev", "Admin Tester", "hashed_pwd", domain.RoleAdmin)
-	createdUser, err := memStore.CreateUser(context.Background(), user)
+	createdUser, err := memStore.CreateUser(ctx, user)
 	if err != nil {
-		createdUser, _ = memStore.GetUserByEmail(context.Background(), "admin.suite@flagura.dev")
+		createdUser, _ = memStore.GetUserByEmail(ctx, "admin.suite@flagura.dev")
 	}
+	org, err := memStore.GetOrganization(ctx, "org_suite")
+	if err != nil || org == nil {
+		org, _ = memStore.CreateOrganization(ctx, domain.Organization{ID: "org_suite", Name: "Suite Org"})
+	}
+	if org != nil && createdUser != nil {
+		_, _ = memStore.CreateOrgMember(ctx, domain.OrgMember{OrganizationID: org.ID, UserID: createdUser.ID, Role: string(domain.RoleAdmin)})
+		_, _ = memStore.CreateProject(ctx, domain.Project{ID: domain.DefaultProjectID, OrganizationID: org.ID, Name: "Default Project"})
+	}
+
 	token, _ := generateSessionToken()
 	session := domain.Session{
 		Token:     token,
@@ -26,7 +36,7 @@ func getAdminAuthCookie(t *testing.T, memStore store.Store) *http.Cookie {
 		ExpiresAt: time.Now().Add(24 * time.Hour),
 		CreatedAt: time.Now(),
 	}
-	if err := memStore.CreateSession(context.Background(), session); err != nil {
+	if err := memStore.CreateSession(ctx, session); err != nil {
 		t.Fatalf("failed to create admin session: %v", err)
 	}
 
@@ -51,6 +61,7 @@ func TestHandlers_ComprehensiveSuite(t *testing.T) {
 	t.Run("UpdateAndDeleteFlag", func(t *testing.T) {
 		initialFlag := domain.FeatureFlag{
 			ID:          "flag_update_test",
+			ProjectID:   domain.DefaultProjectID,
 			Key:         "ai-smart-search",
 			Name:        "AI Smart Search",
 			Type:        "boolean",
@@ -62,6 +73,7 @@ func TestHandlers_ComprehensiveSuite(t *testing.T) {
 
 		updatePayload := domain.FeatureFlag{
 			ID:          "flag_update_test",
+			ProjectID:   domain.DefaultProjectID,
 			Key:         "ai-smart-search",
 			Name:        "AI Smart Search Updated",
 			Description: "Updated description",
@@ -98,10 +110,11 @@ func TestHandlers_ComprehensiveSuite(t *testing.T) {
 	// 2. handleBenchmark & handleGetAuditLogs
 	t.Run("BenchmarkAndAuditLogs", func(t *testing.T) {
 		benchFlag := domain.FeatureFlag{
-			ID:   "flag_bench_test",
-			Key:  "rate-limiter-v2",
-			Name: "Rate Limiter",
-			Type: "boolean",
+			ID:        "flag_bench_test",
+			ProjectID: domain.DefaultProjectID,
+			Key:       "rate-limiter-v2",
+			Name:      "Rate Limiter",
+			Type:      "boolean",
 			Environments: map[domain.Environment]domain.EnvironmentConfig{
 				domain.EnvProduction: {Enabled: true, Strategy: domain.StrategyBoolean},
 			},
@@ -335,10 +348,11 @@ func TestHandlers_ComprehensiveSuite(t *testing.T) {
 	// 10. Canary Scheduling & Rollback
 	t.Run("CanarySchedulingAndRollback", func(t *testing.T) {
 		_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
-			ID:   "flag_canary_api_test",
-			Key:  "canary-api-flag",
-			Name: "Canary API Flag",
-			Type: "boolean",
+			ID:        "flag_canary_api_test",
+			ProjectID: domain.DefaultProjectID,
+			Key:       "canary-api-flag",
+			Name:      "Canary API Flag",
+			Type:      "boolean",
 			Environments: map[domain.Environment]domain.EnvironmentConfig{
 				domain.EnvProduction: {
 					Enabled:    true,

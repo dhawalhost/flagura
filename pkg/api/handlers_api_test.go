@@ -17,10 +17,11 @@ import (
 func TestObservabilityEndpoints(t *testing.T) {
 	memStore := store.NewMemoryStore()
 	_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
-		ID:   "flag_obs",
-		Key:  "obs-feature",
-		Name: "Observability Flag",
-		Type: "boolean",
+		ID:        "flag_obs",
+		ProjectID: store.DefaultProjectID,
+		Key:       "obs-feature",
+		Name:      "Observability Flag",
+		Type:      "boolean",
 		Environments: map[domain.Environment]domain.EnvironmentConfig{
 			domain.EnvProduction: {Enabled: true, Strategy: domain.StrategyBoolean},
 		},
@@ -76,10 +77,11 @@ func TestObservabilityEndpoints(t *testing.T) {
 func TestWebhookKillSwitch(t *testing.T) {
 	memStore := store.NewMemoryStore()
 	_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
-		ID:   "flag_webhook_test",
-		Key:  "webhook-target",
-		Name: "Webhook Target",
-		Type: "boolean",
+		ID:        "flag_webhook_test",
+		ProjectID: store.DefaultProjectID,
+		Key:       "webhook-target",
+		Name:      "Webhook Target",
+		Type:      "boolean",
 		Environments: map[domain.Environment]domain.EnvironmentConfig{
 			domain.EnvProduction: {Enabled: true, Strategy: domain.StrategyBoolean},
 		},
@@ -136,10 +138,11 @@ func TestWebhookKillSwitch(t *testing.T) {
 func TestPromoteEnvironment(t *testing.T) {
 	memStore := store.NewMemoryStore()
 	_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
-		ID:   "flag_promote_test",
-		Key:  "promote-target",
-		Name: "Promote Target",
-		Type: "boolean",
+		ID:        "flag_promote_test",
+		ProjectID: store.DefaultProjectID,
+		Key:       "promote-target",
+		Name:      "Promote Target",
+		Type:      "boolean",
 		Environments: map[domain.Environment]domain.EnvironmentConfig{
 			domain.EnvStaging: {
 				Enabled:    true,

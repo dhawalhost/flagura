@@ -18,11 +18,12 @@ import (
 )
 
 var (
-	version  = "v1.4.0"
-	endpoint string
-	apiKey   string
-	env      string
-	jsonOut  bool
+	version   = "v1.4.0"
+	endpoint  string
+	apiKey    string
+	env       string
+	projectID string
+	jsonOut   bool
 )
 
 func main() {
@@ -37,6 +38,7 @@ func main() {
 		defaultEndpoint = "http://localhost:3000"
 	}
 	defaultApiKey := os.Getenv("FLAGURA_API_KEY")
+	defaultProject := os.Getenv("FLAGURA_PROJECT_ID")
 
 	cmd := os.Args[1]
 
@@ -45,6 +47,7 @@ func main() {
 	fs.StringVar(&endpoint, "endpoint", defaultEndpoint, "Flagura control plane URL")
 	fs.StringVar(&apiKey, "api-key", defaultApiKey, "API key for authentication")
 	fs.StringVar(&env, "env", "production", "Target environment (production, staging, development)")
+	fs.StringVar(&projectID, "project", defaultProject, "Project ID scope (env: FLAGURA_PROJECT_ID)")
 	fs.BoolVar(&jsonOut, "json", false, "Output results as formatted JSON")
 
 	switch cmd {
@@ -243,6 +246,9 @@ func makeRequest(method, path string, body interface{}) (*http.Response, []byte,
 	req.Header.Set("Content-Type", "application/json")
 	if apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	if projectID != "" {
+		req.Header.Set("X-Project-ID", projectID)
 	}
 
 	resp, err := getHttpClient().Do(req)

@@ -80,11 +80,24 @@ func (s *Server) resolveProjectID(r *http.Request) string {
 	if c, err := r.Cookie(domain.CookieProjectName); err == nil && c.Value != "" {
 		return c.Value
 	}
-	return domain.DefaultProjectID
+	if u := UserFromContext(r.Context()); u != nil {
+		if orgs, err := s.store.ListUserOrganizations(r.Context(), u.ID); err == nil && len(orgs) > 0 {
+			for _, org := range orgs {
+				if projs, err := s.store.ListProjects(r.Context(), org.ID); err == nil && len(projs) > 0 {
+					return projs[0].ID
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func (s *Server) handleGetFlags(w http.ResponseWriter, r *http.Request) {
 	projectID := s.resolveProjectID(r)
+	if projectID == "" {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectRequired, "project_id is required via X-Project-ID header, project_id query parameter, or active session", http.StatusBadRequest, domain.ErrInvalidInput))
+		return
+	}
 	flags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil {
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
@@ -127,6 +140,10 @@ func (s *Server) handleCreateFlag(w http.ResponseWriter, r *http.Request) {
 	if flag.ProjectID == "" {
 		flag.ProjectID = s.resolveProjectID(r)
 	}
+	if flag.ProjectID == "" {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectRequired, "project_id is required to create a feature flag", http.StatusBadRequest, domain.ErrInvalidInput))
+		return
+	}
 
 	actor := s.getActorFromRequest(r, "developer@flagura.dev")
 
@@ -159,6 +176,10 @@ func (s *Server) handleUpdateFlag(w http.ResponseWriter, r *http.Request) {
 	}
 	if flag.ProjectID == "" {
 		flag.ProjectID = s.resolveProjectID(r)
+	}
+	if flag.ProjectID == "" {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectRequired, "project_id is required to update a feature flag", http.StatusBadRequest, domain.ErrInvalidInput))
+		return
 	}
 
 	actor := s.getActorFromRequest(r, "developer@flagura.dev")
