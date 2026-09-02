@@ -1,7 +1,7 @@
 package views
 
 templ AuthPage(showLanding ...bool) {
-	@Layout("Authentication — Flagura Enterprise Console") {
+	@Layout("Authentication — Flagura") {
 		<div class="min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-10 relative bg-[#FAFAFA]" x-data="authPageComponent()" x-init="initAuth()">
 			<div class="relative z-10 w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
 				
@@ -13,7 +13,7 @@ templ AuthPage(showLanding ...bool) {
 						</div>
 						<div>
 							<span class="text-xl font-extrabold tracking-tight text-slate-900 font-display">Flagura</span>
-							<span class="block text-[10px] font-mono text-indigo-600 font-bold tracking-wider">ENTERPRISE CONSOLE v2.0</span>
+							<span class="block text-[10px] font-mono text-indigo-600 font-bold tracking-wider">FEATURE MANAGEMENT CONSOLE</span>
 						</div>
 					</a>
 
@@ -84,21 +84,6 @@ templ AuthPage(showLanding ...bool) {
 							<p class="text-xs text-slate-500 font-sans" x-text="getSubtitleText()">
 								Access your team feature flags, rollouts, and environments
 							</p>
-						</div>
-
-						<!-- Fast Demo Credentials Quick-Fill Pill -->
-						<div x-show="mode === 'signin'" class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-mono">
-							<div class="flex items-center gap-1.5 text-slate-600">
-								<i data-lucide="zap" class="w-3.5 h-3.5 text-amber-500"></i>
-								<span class="text-[11px]">Demo: <strong class="text-slate-900">{"dhawal@flagura.dev"}</strong></span>
-							</div>
-							<button
-								type="button"
-								@click="fillDemoCredentials()"
-								class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-indigo-600 hover:text-indigo-700 text-[11px] font-bold transition shadow-2xs cursor-pointer"
-							>
-								Auto-Fill
-							</button>
 						</div>
 
 						<!-- Mode Tabs: Sign In / Create Account -->

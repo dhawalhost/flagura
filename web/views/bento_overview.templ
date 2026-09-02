@@ -8,7 +8,7 @@ import (
 templ BentoOverview(flags []domain.FeatureFlag, audits []domain.AuditLogEntry, driverName string) {
 	<div class="space-y-6" x-show="activeView === 'overview'" x-cloak x-data="bentoEnterpriseDashboardComponent()">
 
-		<!-- Top Enterprise KPI Metric Cards -->
+		<!-- Top Overview KPI Metric Cards -->
 		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 			<!-- Total Flags Card -->
 			<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-2">
@@ -83,7 +83,7 @@ templ BentoOverview(flags []domain.FeatureFlag, audits []domain.AuditLogEntry, d
 			</div>
 		</div>
 
-		<!-- Main 2-Column Enterprise Layout -->
+		<!-- Main 2-Column Dashboard Layout -->
 		<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 			
 			<!-- Left 7 Cols: Quick Feature Flags Directory -->

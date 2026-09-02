@@ -1028,11 +1028,6 @@ templ Layout(title string) {
 							return this.mode === 'signin' || this.mode === 'signup';
 						},
 
-						fillDemoCredentials() {
-							this.loginForm.email = 'dhawal@flagura.dev';
-							this.loginForm.passphrase = 'password123';
-						},
-
 						initAuth() {
 							const urlParams = new URLSearchParams(window.location.search);
 							const modeParam = urlParams.get('mode');
