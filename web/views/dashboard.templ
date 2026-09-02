@@ -6,7 +6,7 @@ import (
 
 templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, changeRequests []domain.ChangeRequest, driverName string, orgs []domain.Organization, projects []domain.Project, activeProjectID string) {
 	@Layout("Developer Console") {
-		<div class="min-h-screen flex bg-slate-50/60">
+		<div class="min-h-screen flex bg-[#FAFAFA] text-slate-900 relative">
 			<!-- Docked Left Sidebar -->
 			@Sidebar(user, flags, auditLogs, orgs, projects, activeProjectID)
 
@@ -15,12 +15,12 @@ templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domai
 				<!-- Docked Top Header Bar -->
 				@HeaderBar(user, flags, "production")
 
-				<!-- Spacious Workspace Canvas -->
-				<main class="flex-1 p-6 sm:p-8 lg:p-10 max-w-7xl mx-auto w-full space-y-8">
-					<!-- VIEW 1: Overview Dashboard -->
+				<!-- Wide-Canvas Fluid Workspace -->
+				<main class="flex-1 p-5 sm:p-7 lg:p-8 max-w-[1680px] mx-auto w-full space-y-8">
+					<!-- VIEW 1: Overview Dashboard (Asymmetric Bento Cockpit) -->
 					@BentoOverview(flags, auditLogs, driverName)
 
-					<!-- VIEW 2: Flags & Rollouts Matrix -->
+					<!-- VIEW 2: Flags & Rollouts Matrix (Split-Pane Master-Detail Inspector) -->
 					@FlagMatrix(flags)
 
 					<!-- VIEW 3: Dedicated Analytics & Telemetry -->

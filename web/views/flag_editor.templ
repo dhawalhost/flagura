@@ -3,42 +3,42 @@ package views
 templ FlagEditorModal() {
 	<div class="space-y-8" x-show="activeView === 'editor'" x-cloak x-data="flagEditorComponent()">
 		<!-- Top Header Card -->
-		<div class="console-card p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+		<div class="glass-panel p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 shadow-xs">
 			<div class="flex items-center gap-3.5">
 				<button
 					@click="activeView = previousView || 'overview'"
-					class="p-2 text-slate-600 hover:text-slate-900 transition-colors rounded-xl hover:bg-slate-100 border border-slate-200 shadow-2xs flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+					class="p-2 text-slate-500 hover:text-slate-900 transition-colors rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-2xs flex items-center gap-1.5 text-xs font-semibold cursor-pointer font-mono"
 					title="Return to previous view"
 				>
 					<i data-lucide="arrow-left" class="h-4 w-4"></i>
 					<span class="hidden sm:inline">Back</span>
 				</button>
-				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 border border-blue-200 text-blue-600">
+				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 shadow-2xs">
 					<i data-lucide="sliders" class="h-5 w-5"></i>
 				</div>
 				<div>
 					<div class="flex items-center gap-2">
 						<h2
-							class="text-lg font-bold text-slate-900 font-display"
+							class="text-base font-bold text-slate-900 font-display"
 							x-text="isEditing ? ('Edit Flag: ' + form.key) : 'Create New Feature Flag'"
 						></h2>
 						<span
-							class="rounded-md bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[10px] font-mono text-blue-700 font-bold uppercase"
+							class="rounded-md bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-[10px] font-mono text-indigo-700 font-bold uppercase"
 							x-text="form.type"
 						></span>
 					</div>
-					<p class="text-xs text-slate-600 mt-1">
-						Configure sub-millisecond evaluation rules, serving strategies, and multivariate weights.
+					<p class="text-xs text-slate-500 mt-0.5 font-sans">
+						Configure in-process evaluation rules, rollout strategies, and attribute matchers.
 					</p>
 				</div>
 			</div>
 
-			<div class="flex items-center gap-2.5 self-end sm:self-auto">
+			<div class="flex items-center gap-2.5 self-end sm:self-auto font-mono">
 				<template x-if="isEditing">
 					<button
 						type="button"
 						@click="promoteEnvironment('staging', 'production')"
-						class="px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-semibold text-xs transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+						class="px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-semibold text-xs transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
 						title="Copy all staging rules & rollout percentage directly to production"
 					>
 						<i data-lucide="git-merge" class="h-3.5 w-3.5 text-amber-600"></i>
@@ -48,17 +48,17 @@ templ FlagEditorModal() {
 				<button
 					type="button"
 					@click="activeView = previousView || 'overview'"
-					class="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 shadow-2xs cursor-pointer transition-all"
+					class="px-4 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 shadow-2xs cursor-pointer transition-all"
 				>
 					Cancel
 				</button>
 				<button
 					type="button"
 					@click="saveFlag()"
-					class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-all shadow-md shadow-blue-600/25 flex items-center gap-1.5 cursor-pointer"
+					class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-sm hover:shadow flex items-center gap-1.5 cursor-pointer hover:scale-[1.02]"
 					:disabled="saving"
 				>
-					<i data-lucide="save" class="h-4 w-4"></i>
+					<i data-lucide="save" class="h-4 w-4 text-white"></i>
 					<span x-text="saving ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Flag')"></span>
 				</button>
 			</div>
@@ -67,14 +67,14 @@ templ FlagEditorModal() {
 		<!-- Main Form Container -->
 		<form
 			@submit.prevent="saveFlag()"
-			class="console-card p-6 sm:p-8 space-y-7"
+			class="glass-panel p-6 sm:p-8 space-y-7 bg-white border border-slate-200 shadow-xs"
 		>
 			<!-- General Metadata Section -->
 			<div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
 				<!-- Key -->
 				<div>
-					<label class="text-xs font-semibold text-slate-700 mb-1.5 block">
-						Flag Key <span class="text-rose-500">*</span>
+					<label class="text-xs font-semibold text-slate-700 mb-1.5 block font-mono">
+						Flag Key <span class="text-red-500">*</span>
 					</label>
 					<input
 						type="text"
@@ -82,30 +82,30 @@ templ FlagEditorModal() {
 						:disabled="isEditing"
 						placeholder="e.g. ai-smart-search"
 						x-model="form.key"
-						class="input-clean w-full font-mono text-xs disabled:opacity-60"
+						class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono disabled:opacity-50 shadow-2xs"
 					/>
 				</div>
 
 				<!-- Display Name -->
 				<div>
-					<label class="text-xs font-semibold text-slate-700 mb-1.5 block">
-						Display Name <span class="text-rose-500">*</span>
+					<label class="text-xs font-semibold text-slate-700 mb-1.5 block font-mono">
+						Display Name <span class="text-red-500">*</span>
 					</label>
 					<input
 						type="text"
 						required
 						placeholder="e.g. AI Smart Search & Query Rewrite"
 						x-model="form.name"
-						class="input-clean w-full text-xs"
+						class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors shadow-2xs"
 					/>
 				</div>
 
 				<!-- Type -->
 				<div>
-					<label class="text-xs font-semibold text-slate-700 mb-1.5 block">Flag Type</label>
+					<label class="text-xs font-semibold text-slate-700 mb-1.5 block font-mono">Flag Type</label>
 					<select
 						x-model="form.type"
-						class="input-clean w-full font-mono text-xs"
+						class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 transition-colors font-mono shadow-2xs"
 					>
 						<option value="boolean">Boolean (True / False)</option>
 						<option value="multivariate">Multivariate (A/B/n Variants)</option>
@@ -117,55 +117,55 @@ templ FlagEditorModal() {
 			<!-- Description & Tags -->
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
 				<div>
-					<label class="text-xs font-semibold text-slate-700 mb-1.5 block">Description</label>
+					<label class="text-xs font-semibold text-slate-700 mb-1.5 block font-mono">Description</label>
 					<input
 						type="text"
 						placeholder="Brief description of feature and rollout plan"
 						x-model="form.description"
-						class="input-clean w-full text-xs"
+						class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors font-sans shadow-2xs"
 					/>
 				</div>
 
 				<div>
-					<label class="text-xs font-semibold text-slate-700 mb-1.5 block">
+					<label class="text-xs font-semibold text-slate-700 mb-1.5 block font-mono">
 						Tags <span class="text-slate-400 font-normal">(comma-separated)</span>
 					</label>
 					<input
 						type="text"
 						placeholder="frontend, checkout, experimental"
 						x-model="form.tagsInput"
-						class="input-clean w-full font-mono text-xs"
+						class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono shadow-2xs"
 					/>
 				</div>
 			</div>
 
 			<!-- Environment Tabs & Specific Configuration -->
-			<div class="rounded-2xl border border-slate-200 bg-slate-50 p-6 space-y-6 shadow-2xs">
+			<div class="rounded-2xl border border-slate-200 bg-slate-50/50 p-6 space-y-6 shadow-2xs">
 				<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
 					<div class="flex items-center gap-3">
-						<span class="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Configure Scope:</span>
-						<div class="flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-2xs">
+						<span class="text-xs font-bold text-slate-600 uppercase tracking-wider font-mono">Configure Scope:</span>
+						<div class="flex items-center rounded-xl border border-slate-200 bg-white p-1 font-mono shadow-2xs">
 							<button
 								type="button"
 								@click="envTab = 'production'"
-								class="px-4 py-1 text-xs font-mono capitalize rounded-lg transition-all cursor-pointer"
-								:class="envTab === 'production' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+								class="px-4 py-1.5 text-xs capitalize rounded-lg transition-all cursor-pointer font-bold"
+								:class="envTab === 'production' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
 							>
 								production
 							</button>
 							<button
 								type="button"
 								@click="envTab = 'staging'"
-								class="px-4 py-1 text-xs font-mono capitalize rounded-lg transition-all cursor-pointer"
-								:class="envTab === 'staging' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+								class="px-4 py-1.5 text-xs capitalize rounded-lg transition-all cursor-pointer font-bold"
+								:class="envTab === 'staging' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
 							>
 								staging
 							</button>
 							<button
 								type="button"
 								@click="envTab = 'development'"
-								class="px-4 py-1 text-xs font-mono capitalize rounded-lg transition-all cursor-pointer"
-								:class="envTab === 'development' ? 'bg-slate-900 text-white font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+								class="px-4 py-1.5 text-xs capitalize rounded-lg transition-all cursor-pointer font-bold"
+								:class="envTab === 'development' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
 							>
 								development
 							</button>
@@ -175,7 +175,7 @@ templ FlagEditorModal() {
 					<button
 						type="button"
 						@click="syncEnvConfigToAll()"
-						class="flex items-center gap-1.5 text-xs text-blue-600 hover:underline font-mono font-medium cursor-pointer"
+						class="flex items-center gap-1.5 text-xs text-indigo-600 hover:underline font-mono font-medium cursor-pointer"
 						title="Mirror current tab settings to other environments"
 					>
 						<i data-lucide="copy" class="h-3.5 w-3.5"></i>
@@ -188,22 +188,22 @@ templ FlagEditorModal() {
 					<div class="rounded-xl border border-slate-200 bg-white p-5 flex items-center justify-between shadow-2xs">
 						<div>
 							<div class="text-sm font-bold text-slate-900">Master Kill Switch</div>
-							<div class="text-xs text-slate-500 mt-0.5">Circuit breaker for <span class="uppercase font-mono font-semibold" x-text="envTab"></span></div>
+							<div class="text-xs text-slate-500 mt-0.5">Circuit breaker for <span class="uppercase font-mono font-bold text-indigo-600" x-text="envTab"></span></div>
 						</div>
 						<button
 							type="button"
 							@click="form.environments[envTab].enabled = !form.environments[envTab].enabled"
 							class="px-3.5 py-2 text-xs font-mono font-bold uppercase rounded-xl transition-all shadow-2xs cursor-pointer"
-							:class="form.environments[envTab].enabled ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'bg-rose-50 border border-rose-200 text-rose-600'"
+							:class="form.environments[envTab].enabled ? 'bg-emerald-50 border border-emerald-300 text-emerald-700 hover:bg-emerald-100' : 'bg-red-50 border border-red-300 text-red-700 hover:bg-red-100'"
 							x-text="form.environments[envTab].enabled ? 'ACTIVE (ON)' : 'DISABLED (OFF)'"
 						></button>
 					</div>
 
 					<div class="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
-						<label class="text-xs font-semibold text-slate-700 mb-1.5 block">Serving Strategy</label>
+						<label class="text-xs font-semibold text-slate-700 mb-1.5 block font-mono">Serving Strategy</label>
 						<select
 							x-model="form.environments[envTab].strategy"
-							class="input-clean w-full font-mono text-xs"
+							class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
 						>
 							<option value="boolean">Boolean (100% On for all users)</option>
 							<option value="percentage">Sticky Percentage Rollout (FNV-1a Hash)</option>
@@ -215,15 +215,15 @@ templ FlagEditorModal() {
 
 				<!-- Strategy: Percentage Rollout -->
 				<template x-if="form.environments[envTab].strategy === 'percentage' || form.environments[envTab].strategy === 'rules'">
-					<div class="rounded-xl border border-slate-200 bg-white p-6 space-y-3.5 shadow-2xs">
+					<div class="rounded-xl border border-slate-200 bg-white p-6 space-y-3.5 shadow-2xs font-mono">
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
-								<i data-lucide="percent" class="h-4 w-4 text-blue-600"></i>
+								<i data-lucide="percent" class="h-4 w-4 text-sky-600"></i>
 								<span class="text-sm font-semibold text-slate-900">
 									Sticky Percentage Rollout
 								</span>
 							</div>
-							<span class="font-mono text-sm font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200" x-text="form.environments[envTab].percentage + '% Traffic'"></span>
+							<span class="font-mono text-sm font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-200" x-text="form.environments[envTab].percentage + '% Traffic'"></span>
 						</div>
 						<input
 							type="range"
@@ -231,17 +231,17 @@ templ FlagEditorModal() {
 							max="100"
 							step="5"
 							x-model="form.environments[envTab].percentage"
-							class="w-full accent-blue-600 cursor-pointer"
+							class="w-full accent-indigo-600 cursor-pointer bg-slate-200"
 						/>
 						<div class="flex justify-between text-xs text-slate-500 font-mono">
 							<span>0% (All off)</span>
 							<span>25% Canary</span>
 							<span>50% Split</span>
 							<span>75% Majority</span>
-							<span>100% (All on)</span>
+							<span>100% (Global)</span>
 						</div>
-						<p class="text-xs text-slate-500">
-							⚡ Deterministic FNV-1a sticky hashing ensures that users enabled at <span x-text="form.environments[envTab].percentage + '%'"></span> remain enabled when the percentage expands.
+						<p class="text-xs text-slate-500 font-sans">
+							⚡ Deterministic FNV-1a sticky hashing ensures that users enabled at <span class="font-mono text-indigo-600 font-bold" x-text="form.environments[envTab].percentage + '%'"></span> remain enabled when the percentage expands.
 						</p>
 					</div>
 				</template>
@@ -250,31 +250,31 @@ templ FlagEditorModal() {
 				<div class="space-y-3.5 pt-2">
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
-							<i data-lucide="users" class="h-4 w-4 text-blue-600"></i>
-							<div class="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono" x-text="'Targeting Rules (' + (form.environments[envTab].rules ? form.environments[envTab].rules.length : 0) + ')'"></div>
+							<i data-lucide="users" class="h-4 w-4 text-indigo-600"></i>
+							<div class="text-xs font-bold text-slate-600 uppercase tracking-wider font-mono" x-text="'Targeting Rules (' + (form.environments[envTab].rules ? form.environments[envTab].rules.length : 0) + ')'"></div>
 						</div>
 						<button
 							type="button"
 							@click="addRule()"
-							class="text-xs text-blue-600 hover:underline font-mono font-medium flex items-center gap-1 cursor-pointer"
+							class="text-xs text-indigo-600 hover:underline font-mono font-medium flex items-center gap-1 cursor-pointer"
 						>
 							<i data-lucide="plus" class="h-3.5 w-3.5"></i>
 							<span>Add Condition Rule</span>
 						</button>
 					</div>
 
-					<div class="space-y-2.5">
+					<div class="space-y-2.5 font-mono">
 						<template x-for="(rule, idx) in form.environments[envTab].rules" :key="rule.id || idx">
-							<div class="p-3.5 bg-white rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-center">
+							<div class="p-3.5 bg-white rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-center shadow-2xs">
 								<input 
 									type="text" 
 									x-model="rule.name" 
 									placeholder="Rule Name"
-									class="input-clean text-xs"
+									class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 transition-colors"
 								/>
 								<select 
 									x-model="rule.attribute" 
-									class="input-clean text-xs font-mono"
+									class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 transition-colors"
 								>
 									<option value="email">Email</option>
 									<option value="user_id">User ID</option>
@@ -285,7 +285,7 @@ templ FlagEditorModal() {
 								</select>
 								<select 
 									x-model="rule.operator" 
-									class="input-clean text-xs font-mono"
+									class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 transition-colors"
 								>
 									<option value="equals">equals</option>
 									<option value="not_equals">not_equals</option>
@@ -303,12 +303,12 @@ templ FlagEditorModal() {
 										type="text" 
 										x-model="rule.valuesInput" 
 										placeholder="@flagura.dev"
-										class="input-clean text-xs font-mono flex-1"
+										class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 transition-colors flex-1"
 									/>
 									<button 
 										type="button"
 										@click="removeRule(idx)" 
-										class="p-2 text-rose-500 hover:text-rose-700 cursor-pointer"
+										class="p-2 text-red-600 hover:text-red-700 cursor-pointer"
 									>
 										<i data-lucide="trash-2" class="w-4 h-4"></i>
 									</button>

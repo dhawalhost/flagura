@@ -6,152 +6,123 @@ import (
 )
 
 templ HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string) {
-	<header class="bg-white/95 backdrop-blur-md px-6 sm:px-8 py-3.5 border-b border-slate-200 sticky top-0 z-30 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+	<header class="bg-white/95 backdrop-blur-md px-6 sm:px-8 py-3.5 border-b border-slate-200/90 sticky top-0 z-30 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
 		<!-- Left: View Title & Environment Pill -->
 		<div class="flex items-center gap-3">
 			<button 
 				@click="isMobileSidebarOpen = !isMobileSidebarOpen"
-				class="lg:hidden p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 cursor-pointer"
+				class="lg:hidden p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 cursor-pointer"
 			>
 				<i data-lucide="menu" class="w-4 h-4"></i>
 			</button>
 
-			<div class="flex items-center gap-2">
+			<div class="flex items-center gap-2.5">
 				<h2 class="text-sm font-bold text-slate-900 font-display" x-text="getViewTitle()">
 					Overview
 				</h2>
-				<span class="text-slate-300">/</span>
+				<span class="text-slate-300 font-mono">/</span>
 				
 				<!-- Environment Selector Dropdown -->
 				<div class="relative" x-data="{ envOpen: false }">
 					<button 
 						@click="envOpen = !envOpen" 
-						class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold transition border shadow-2xs cursor-pointer"
+						class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono font-bold transition border cursor-pointer"
 						:class="{
 							'bg-emerald-50 text-emerald-700 border-emerald-200': currentEnv === 'production',
 							'bg-amber-50 text-amber-700 border-amber-200': currentEnv === 'staging',
-							'bg-blue-50 text-blue-700 border-blue-200': currentEnv === 'development'
+							'bg-sky-50 text-sky-700 border-sky-200': currentEnv === 'development'
 						}"
 					>
 						<span class="w-1.5 h-1.5 rounded-full" :class="{
 							'bg-emerald-500 animate-pulse': currentEnv === 'production',
 							'bg-amber-500': currentEnv === 'staging',
-							'bg-blue-500': currentEnv === 'development'
+							'bg-sky-500': currentEnv === 'development'
 						}"></span>
-						<span class="uppercase" x-text="currentEnv"></span>
+						<span class="uppercase font-mono font-bold" x-text="currentEnv"></span>
 						<i data-lucide="chevron-down" class="w-3 h-3 opacity-60"></i>
 					</button>
 
 					<div 
 						x-show="envOpen" 
-						@click.outside="envOpen = false"
-						class="absolute left-0 mt-2 w-40 bg-white p-1.5 z-50 shadow-xl border border-slate-200 rounded-xl space-y-0.5"
+						@click.outside="envOpen = false" 
+						class="absolute left-0 mt-2 w-44 bg-white p-1.5 z-50 shadow-xl border border-slate-200 rounded-2xl space-y-1"
 						style="display: none;"
 						x-transition
 					>
 						<button 
 							@click="currentEnv = 'production'; envOpen = false; showToast('Switched to Production');"
-							class="w-full text-left px-3 py-1.5 rounded-lg text-xs font-mono flex items-center justify-between hover:bg-emerald-50 text-slate-800 cursor-pointer"
+							class="w-full text-left px-3 py-2 rounded-xl text-xs font-mono flex items-center justify-between hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 cursor-pointer transition-colors"
 						>
 							<span>Production</span>
 							<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
 						</button>
 						<button 
 							@click="currentEnv = 'staging'; envOpen = false; showToast('Switched to Staging');"
-							class="w-full text-left px-3 py-1.5 rounded-lg text-xs font-mono flex items-center justify-between hover:bg-amber-50 text-slate-800 cursor-pointer"
+							class="w-full text-left px-3 py-2 rounded-xl text-xs font-mono flex items-center justify-between hover:bg-amber-50 hover:text-amber-700 text-slate-700 cursor-pointer transition-colors"
 						>
 							<span>Staging</span>
 							<span class="w-2 h-2 rounded-full bg-amber-500"></span>
 						</button>
 						<button 
 							@click="currentEnv = 'development'; envOpen = false; showToast('Switched to Development');"
-							class="w-full text-left px-3 py-1.5 rounded-lg text-xs font-mono flex items-center justify-between hover:bg-blue-50 text-slate-800 cursor-pointer"
+							class="w-full text-left px-3 py-2 rounded-xl text-xs font-mono flex items-center justify-between hover:bg-sky-50 hover:text-sky-700 text-slate-700 cursor-pointer transition-colors"
 						>
 							<span>Development</span>
-							<span class="w-2 h-2 rounded-full bg-blue-500"></span>
+							<span class="w-2 h-2 rounded-full bg-sky-500"></span>
 						</button>
 					</div>
+				</div>
+
+				<!-- Live Real-Time SSE Indicator -->
+				<div class="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-600">
+					<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+					<span class="text-emerald-700 font-semibold">SSE LIVE</span>
+					<span class="text-slate-400">&lt;5ms</span>
 				</div>
 			</div>
 		</div>
 
 		<!-- Center: Fast Search -->
-		<div class="flex-1 max-w-md mx-auto w-full relative">
+		<div class="flex-1 max-w-md mx-auto w-full relative font-mono">
 			<i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
 			<input 
 				type="text" 
 				x-model="searchQuery"
 				placeholder="Search flags, tags, or keys... (Press / to focus)" 
-				class="input-clean w-full pl-9 pr-8 text-xs font-mono"
+				class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-9 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors"
 				@keydown.window.prevent.slash="if (document.activeElement.tagName !== 'INPUT') { $el.focus(); }"
 			/>
-			<kbd class="hidden sm:inline-block absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[9px] font-mono text-slate-400 bg-slate-100 border border-slate-200 rounded">
+			<kbd class="hidden sm:inline-block absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[9px] font-mono text-slate-400 bg-white border border-slate-200 rounded shadow-xs">
 				/
 			</kbd>
 		</div>
 
 		<!-- Right: Action Bar -->
-		<div class="flex items-center justify-end gap-2.5">
+		<div class="flex items-center justify-end gap-2.5 font-mono">
 			<!-- Latency Benchmark Quick Button -->
 			<button 
 				@click="activeView = 'benchmark'"
-				class="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-mono font-semibold flex items-center gap-1.5 border border-slate-200 transition shadow-2xs cursor-pointer"
+				class="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition shadow-xs cursor-pointer"
 				title="Run Live Latency Benchmark"
 			>
-				<i data-lucide="activity" class="w-3.5 h-3.5 text-blue-600"></i>
+				<i data-lucide="activity" class="w-3.5 h-3.5 text-indigo-600"></i>
 				<span class="hidden sm:inline">Benchmark</span>
 			</button>
-
-			<!-- Wallpaper Switcher Dropdown -->
-			<div class="relative" x-data="{ wpOpen: false }">
-				<button 
-					@click="wpOpen = !wpOpen" 
-					class="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs transition cursor-pointer"
-					title="Change Atmosphere Wallpaper"
-				>
-					<i data-lucide="image" class="w-4 h-4"></i>
-				</button>
-
-				<div 
-					x-show="wpOpen" 
-					@click.outside="wpOpen = false"
-					class="absolute right-0 mt-2 w-64 bg-white p-3 z-50 shadow-2xl border border-slate-200 rounded-2xl space-y-2"
-					style="display: none;"
-					x-transition
-				>
-					<div class="text-[10px] font-mono uppercase font-bold text-slate-500 px-1">Atmosphere Wallpapers</div>
-					<div class="space-y-1">
-						<template x-for="wp in wallpapers" :key="wp.id">
-							<button 
-								@click="selectedWallpaper = wp.url; wpOpen = false; showToast('Applied wallpaper: ' + wp.name);"
-								class="w-full text-left p-2 rounded-lg text-xs flex items-center gap-2 hover:bg-slate-50 transition cursor-pointer"
-								:class="selectedWallpaper === wp.url ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700'"
-							>
-								<img :src="wp.url" class="w-6 h-6 rounded-md object-cover border border-slate-200" />
-								<div class="flex-1 truncate">
-									<div class="text-xs truncate" x-text="wp.name"></div>
-								</div>
-								<i data-lucide="check" class="w-3.5 h-3.5 text-blue-600" x-show="selectedWallpaper === wp.url"></i>
-							</button>
-						</template>
-					</div>
-				</div>
-			</div>
 
 			<!-- Real Authenticated User Profile Menu -->
 			<div class="relative" x-data="{ userOpen: false }">
 				<button 
 					@click="userOpen = !userOpen"
-					class="flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-2xs transition cursor-pointer"
+					class="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 shadow-xs transition cursor-pointer"
 				>
-					<div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">
+					<div class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">
 						if user != nil && user.Name != "" {
 							<span>{ string([]rune(user.Name)[0]) }</span>
 						} else {
 							<span>U</span>
 						}
 					</div>
-					<span class="text-xs font-semibold text-slate-800 hidden sm:inline">
+					<span class="text-xs font-semibold text-slate-700 hidden sm:inline">
 						if user != nil && user.Name != "" {
 							{ user.Name }
 						} else {
@@ -163,12 +134,12 @@ templ HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string
 
 				<div 
 					x-show="userOpen" 
-					@click.outside="userOpen = false"
-					class="absolute right-0 mt-2 w-60 bg-white p-2.5 z-50 shadow-2xl border border-slate-200 rounded-2xl space-y-1.5"
+					@click.outside="userOpen = false" 
+					class="absolute right-0 mt-2 w-64 bg-white p-3 z-50 shadow-xl border border-slate-200 rounded-2xl space-y-2"
 					style="display: none;"
 					x-transition
 				>
-					<div class="p-2 border-b border-slate-100 mb-1">
+					<div class="p-2 border-b border-slate-100 mb-1 space-y-1">
 						<div class="text-xs font-bold text-slate-900">
 							if user != nil && user.Name != "" {
 								{ user.Name }
@@ -183,7 +154,7 @@ templ HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string
 								user@flagura.dev
 							}
 						</div>
-						<div class="inline-block mt-1.5 px-2 py-0.5 rounded text-[9px] font-mono uppercase bg-blue-50 text-blue-700 border border-blue-200 font-bold">
+						<div class="inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-mono uppercase bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold">
 							if user != nil {
 								{ fmt.Sprintf("Role: %s", user.Role) }
 							} else {
@@ -194,7 +165,7 @@ templ HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string
 
 					<a 
 						href="/"
-						class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-50 text-slate-700 flex items-center gap-2 cursor-pointer transition"
+						class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-50 text-slate-700 flex items-center gap-2 cursor-pointer transition font-sans"
 					>
 						<i data-lucide="external-link" class="w-3.5 h-3.5 text-slate-400"></i>
 						<span>Landing Page</span>
@@ -205,9 +176,9 @@ templ HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string
 					<!-- Real Logout Button -->
 					<button 
 						@click="logout()"
-						class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-rose-50 text-rose-600 flex items-center gap-2 cursor-pointer transition font-semibold"
+						class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-red-50 text-red-600 flex items-center gap-2 cursor-pointer transition font-semibold font-sans"
 					>
-						<i data-lucide="log-out" class="w-3.5 h-3.5 text-rose-600"></i>
+						<i data-lucide="log-out" class="w-3.5 h-3.5 text-red-600"></i>
 						<span>Sign Out</span>
 					</button>
 				</div>
@@ -216,9 +187,9 @@ templ HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string
 			<!-- Create Flag Button -->
 			<button 
 				@click="openNewFlagEditor()"
-				class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-all shadow-md shadow-blue-600/25 flex items-center gap-1.5 cursor-pointer"
+				class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-sm hover:shadow flex items-center gap-1.5 cursor-pointer hover:scale-[1.02]"
 			>
-				<i data-lucide="plus" class="w-3.5 h-3.5"></i>
+				<i data-lucide="plus" class="w-3.5 h-3.5 text-white"></i>
 				<span class="hidden sm:inline">New Flag</span>
 			</button>
 		</div>

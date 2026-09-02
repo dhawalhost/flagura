@@ -45,7 +45,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"min-h-screen flex bg-slate-50/60\"><!-- Docked Left Sidebar -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"min-h-screen flex bg-[#FAFAFA] text-slate-900 relative\"><!-- Docked Left Sidebar -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -61,7 +61,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<!-- Spacious Workspace Canvas --><main class=\"flex-1 p-6 sm:p-8 lg:p-10 max-w-7xl mx-auto w-full space-y-8\"><!-- VIEW 1: Overview Dashboard -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<!-- Wide-Canvas Fluid Workspace --><main class=\"flex-1 p-5 sm:p-7 lg:p-8 max-w-[1680px] mx-auto w-full space-y-8\"><!-- VIEW 1: Overview Dashboard (Asymmetric Bento Cockpit) -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -69,7 +69,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<!-- VIEW 2: Flags & Rollouts Matrix -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<!-- VIEW 2: Flags & Rollouts Matrix (Split-Pane Master-Detail Inspector) -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

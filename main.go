@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -14,6 +15,16 @@ import (
 	"github.com/dhawalhost/flagura/pkg/config"
 	"github.com/dhawalhost/flagura/pkg/store"
 )
+
+func isSQLite(dbURL string) bool {
+	u := strings.ToLower(strings.TrimSpace(dbURL))
+	return strings.HasPrefix(u, "sqlite://") ||
+		strings.HasPrefix(u, "sqlite3://") ||
+		strings.HasPrefix(u, "file:") ||
+		strings.HasSuffix(u, ".db") ||
+		strings.HasSuffix(u, ".sqlite") ||
+		strings.HasSuffix(u, ".sqlite3")
+}
 
 func main() {
 	cfg, err := config.Load()
@@ -33,7 +44,16 @@ func main() {
 	slog.SetDefault(logger)
 
 	var st store.Store
-	if cfg.DatabaseURL != "" {
+	if isSQLite(cfg.DatabaseURL) {
+		sqliteStore, err := store.NewSQLiteStore(cfg.DatabaseURL)
+		if err != nil {
+			slog.Warn("Failed to initialize SQLite store. Falling back to In-Memory Edge Store", slog.Any("error", err))
+			st = store.NewMemoryStore()
+		} else {
+			slog.Info("Connected to embedded database successfully", slog.String("driver", sqliteStore.DriverName()))
+			st = sqliteStore
+		}
+	} else if cfg.DatabaseURL != "" {
 		pgStore, err := store.NewPostgresStore(cfg.DatabaseURL)
 		if err != nil {
 			slog.Warn("Failed to connect to PostgreSQL. Falling back to In-Memory Edge Store", slog.Any("error", err))

@@ -1,627 +1,473 @@
 package views
 
 templ AuthPage(showLanding ...bool) {
-	@Layout("Authentication — Flagura Console") {
-		<div class="min-h-screen flex items-center justify-center p-4 sm:p-6" x-data="authPageComponent()" x-init="initAuth()">
-			<div class="console-card p-8 sm:p-10 w-full max-w-md space-y-6 shadow-xl relative">
-				<!-- Brand Header -->
-				<div class="text-center space-y-2">
-					<img src="/static/img/flagura-logo.png" alt="Flagura" class="w-12 h-12 rounded-2xl shadow-lg mx-auto" />
-					<h2 class="text-2xl font-bold text-slate-900 font-display">Flagura Console</h2>
-					<p class="text-xs text-slate-500">Sub-microsecond deterministic feature flag engine</p>
+	@Layout("Authentication — Flagura Enterprise Console") {
+		<div class="min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-10 relative bg-[#FAFAFA]" x-data="authPageComponent()" x-init="initAuth()">
+			<div class="relative z-10 w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+				
+				<!-- Left Hero Showcase (Desktop) -->
+				<div class="hidden lg:flex lg:col-span-6 flex-col space-y-6 pr-6">
+					<a href="/" class="flex items-center gap-3 group w-fit">
+						<div class="relative h-10 w-10 rounded-xl overflow-hidden p-0.5 bg-gradient-to-br from-indigo-500 via-sky-500 to-emerald-500 group-hover:scale-105 transition-transform duration-300 shadow-sm">
+							<img src="/static/img/flagura-logo.png" alt="Flagura" class="h-full w-full rounded-[10px] object-cover" />
+						</div>
+						<div>
+							<span class="text-xl font-extrabold tracking-tight text-slate-900 font-display">Flagura</span>
+							<span class="block text-[10px] font-mono text-indigo-600 font-bold tracking-wider">ENTERPRISE CONSOLE v2.0</span>
+						</div>
+					</a>
+
+					<div class="space-y-3">
+						<h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight font-display">
+							Control Plane Security. <br/>
+							<span class="text-indigo-600">
+								Sub-Microsecond Speed.
+							</span>
+						</h1>
+						<p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans">
+							High-throughput, in-process feature flagging engine with deterministic FNV-1a hashing, 4-Eyes dual review governance, and real-time SSE cluster sync.
+						</p>
+					</div>
+
+					<!-- Key Enterprise Value Cards -->
+					<div class="grid grid-cols-3 gap-3 font-mono">
+						<div class="p-3.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-1">
+							<div class="text-[10px] uppercase font-bold text-slate-400">LATENCY</div>
+							<div class="text-base font-extrabold text-emerald-700 font-mono">~85ns</div>
+							<p class="text-[10px] text-slate-500 font-sans">0 heap allocations</p>
+						</div>
+						<div class="p-3.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-1">
+							<div class="text-[10px] uppercase font-bold text-slate-400">GOVERNANCE</div>
+							<div class="text-base font-extrabold text-purple-700 font-mono">4-Eyes</div>
+							<p class="text-[10px] text-slate-500 font-sans">Peer dual review</p>
+						</div>
+						<div class="p-3.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-1">
+							<div class="text-[10px] uppercase font-bold text-slate-400">SYNC SPEED</div>
+							<div class="text-base font-extrabold text-indigo-700 font-mono">&lt;5ms</div>
+							<p class="text-[10px] text-slate-500 font-sans">SSE streaming push</p>
+						</div>
+					</div>
+
+					<!-- Trust & Security Strip -->
+					<div class="flex items-center gap-4 text-[11px] text-slate-500 font-mono pt-1">
+						<div class="flex items-center gap-1.5">
+							<i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600"></i>
+							<span>SOC2 Type II Ready</span>
+						</div>
+						<span>•</span>
+						<div class="flex items-center gap-1.5">
+							<i data-lucide="lock" class="w-3.5 h-3.5 text-indigo-600"></i>
+							<span>AES-256 GCM</span>
+						</div>
+						<span>•</span>
+						<div class="flex items-center gap-1.5">
+							<i data-lucide="key" class="w-3.5 h-3.5 text-sky-600"></i>
+							<span>SAML 2.0 / SSO</span>
+						</div>
+					</div>
 				</div>
 
-				<!-- Mode Tabs: Sign In / Create Account (Hidden during Forgot / Reset Password) -->
-				<div x-show="mode === 'signin' || mode === 'signup'" class="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
-					<button
-						type="button"
-						@click="setMode('signin')"
-						class="flex-1 py-2 rounded-lg transition-all text-center cursor-pointer"
-						:class="mode === 'signin' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'"
-					>
-						Sign In
-					</button>
-					<button
-						type="button"
-						@click="setMode('signup')"
-						class="flex-1 py-2 rounded-lg transition-all text-center cursor-pointer"
-						:class="mode === 'signup' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'"
-					>
-						Create Account
-					</button>
-				</div>
+				<!-- Right Auth Card -->
+				<div class="lg:col-span-6 w-full max-w-md mx-auto">
+					<div class="glass-panel p-8 sm:p-9 space-y-5 shadow-xl relative bg-white border border-slate-200 rounded-3xl">
+						
+						<!-- Header & Title -->
+						<div class="space-y-1.5">
+							<div class="flex items-center justify-between">
+								<h2 class="text-2xl font-bold text-slate-900 font-display" x-text="getTitleText()">
+									Sign In
+								</h2>
+								<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold border border-indigo-200">
+									Secure SSO Ready
+								</span>
+							</div>
+							<p class="text-xs text-slate-500 font-sans" x-text="getSubtitleText()">
+								Access your team feature flags, rollouts, and environments
+							</p>
+						</div>
 
-				<!-- Error Alert -->
-				<template x-if="error">
-					<div class="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-start gap-2.5">
-						<i data-lucide="alert-circle" class="w-4 h-4 text-rose-600 shrink-0 mt-0.5"></i>
-						<span x-text="error" class="leading-relaxed"></span>
-					</div>
-				</template>
-
-				<!-- Success Alert -->
-				<template x-if="successMessage">
-					<div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-800 flex items-start gap-2.5">
-						<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
-						<span x-text="successMessage" class="leading-relaxed font-medium"></span>
-					</div>
-				</template>
-
-				<!-- 1. Sign In Form -->
-				<form x-show="mode === 'signin'" @submit.prevent="submitLogin()" class="space-y-4 text-xs">
-					<div>
-						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Work Email</label>
-						<input 
-							type="email" 
-							x-model="loginForm.email" 
-							required
-							class="input-clean w-full text-xs font-mono"
-							placeholder="you@company.com"
-						/>
-					</div>
-					<div>
-						<div class="flex items-center justify-between mb-1.5">
-							<label class="text-xs font-semibold text-slate-700">Password</label>
-							<button 
-								type="button" 
-								@click="setMode('forgot')" 
-								class="text-[11px] text-blue-600 hover:text-blue-700 font-semibold transition cursor-pointer"
+						<!-- Fast Demo Credentials Quick-Fill Pill -->
+						<div x-show="mode === 'signin'" class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs font-mono">
+							<div class="flex items-center gap-1.5 text-slate-600">
+								<i data-lucide="zap" class="w-3.5 h-3.5 text-amber-500"></i>
+								<span class="text-[11px]">Demo: <strong class="text-slate-900">{"dhawal@flagura.dev"}</strong></span>
+							</div>
+							<button
+								type="button"
+								@click="fillDemoCredentials()"
+								class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-indigo-600 hover:text-indigo-700 text-[11px] font-bold transition shadow-2xs cursor-pointer"
 							>
-								Forgot password?
+								Auto-Fill
 							</button>
 						</div>
-						<input 
-							type="password" 
-							x-model="loginForm.passphrase" 
-							required
-							class="input-clean w-full text-xs font-mono"
-							placeholder="••••••••••••"
-						/>
-					</div>
 
-					<button 
-						type="submit" 
-						class="w-full py-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer"
-						:disabled="loading"
-					>
-						<i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="loading"></i>
-						<span x-text="loading ? 'Authenticating...' : 'Sign In to Console'"></span>
-						<i data-lucide="arrow-right" class="w-3.5 h-3.5" x-show="!loading"></i>
-					</button>
-				</form>
+						<!-- Mode Tabs: Sign In / Create Account -->
+						<div x-show="isMainAuthMode()" class="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
+							<button
+								type="button"
+								@click="setMode('signin')"
+								class="flex-1 py-2 rounded-lg transition-all text-center cursor-pointer font-mono font-bold"
+								:class="mode === 'signin' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+							>
+								Sign In
+							</button>
+							<button
+								type="button"
+								@click="setMode('signup')"
+								class="flex-1 py-2 rounded-lg transition-all text-center cursor-pointer font-mono font-bold"
+								:class="mode === 'signup' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+							>
+								Create Account
+							</button>
+						</div>
 
-				<!-- 2. Sign Up Form -->
-				<form x-show="mode === 'signup'" @submit.prevent="submitSignUp()" class="space-y-4 text-xs" style="display: none;">
-					<div>
-						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Full Name</label>
-						<input 
-							type="text" 
-							x-model="signUpForm.name" 
-							required
-							class="input-clean w-full text-xs"
-							placeholder="Dhawal Dyavanpalli"
-						/>
-					</div>
+						<!-- Error Alert -->
+						<template x-if="error">
+							<div class="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start gap-2.5">
+								<i data-lucide="alert-circle" class="w-4 h-4 text-red-600 shrink-0 mt-0.5"></i>
+								<span x-text="error" class="leading-relaxed"></span>
+							</div>
+						</template>
 
-					<div>
-						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Work Email</label>
-						<input 
-							type="email" 
-							x-model="signUpForm.email" 
-							required
-							class="input-clean w-full text-xs font-mono"
-							placeholder="you@company.com"
-						/>
-					</div>
+						<!-- Success Alert -->
+						<template x-if="successMessage">
+							<div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-2.5">
+								<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+								<span x-text="successMessage" class="leading-relaxed font-medium"></span>
+							</div>
+						</template>
 
-					<div class="space-y-2">
-						<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+						<!-- 1. Sign In Form -->
+						<form x-show="mode === 'signin'" @submit.prevent="submitLogin()" class="space-y-4 text-xs">
 							<div>
-								<label class="block text-xs font-semibold text-slate-700 mb-1.5">Password</label>
-								<input 
-									type="password" 
-									x-model="signUpForm.passphrase" 
-									@input="evaluatePassword(signUpForm.passphrase)"
-									required
-									minlength="8"
-									class="input-clean w-full text-xs font-mono"
-									placeholder="Min 8 characters"
-								/>
+								<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Work Email</label>
+								<div class="relative">
+									<i data-lucide="mail" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+									<input 
+										type="email" 
+										x-model="loginForm.email" 
+										required
+										class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono shadow-2xs"
+										placeholder="you@company.com"
+									/>
+								</div>
 							</div>
 							<div>
-								<label class="block text-xs font-semibold text-slate-700 mb-1.5">Confirm Password</label>
-								<input 
-									type="password" 
-									x-model="signUpForm.confirmPassphrase" 
-									required
-									minlength="8"
-									class="input-clean w-full text-xs font-mono"
-									placeholder="Repeat password"
-								/>
-							</div>
-						</div>
-
-						<!-- Real-Time Password Complexity Requirements -->
-						<div x-show="signUpForm.passphrase.length > 0" class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-[11px]">
-							<div class="flex items-center justify-between font-semibold">
-								<span class="text-slate-600">Password Strength:</span>
-								<span :class="passwordStrengthColor" x-text="passwordStrengthText"></span>
-							</div>
-							<div class="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden flex gap-1">
-								<div class="h-full rounded-full transition-all duration-300" :class="passwordStrengthClass" :style="'width: ' + passwordStrengthPct + '%'"></div>
-							</div>
-							<div class="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1 text-[10px] font-mono">
-								<div class="flex items-center gap-1.5" :class="criteria.len ? 'text-emerald-700 font-bold' : 'text-slate-400'">
-									<span x-text="criteria.len ? '✓' : '○'"></span>
-									<span>8+ characters</span>
+								<div class="flex items-center justify-between mb-1.5 font-mono">
+									<label class="text-xs font-semibold text-slate-700">Password</label>
+									<button 
+										type="button" 
+										@click="setMode('forgot')" 
+										class="text-[11px] text-indigo-600 hover:underline font-semibold transition cursor-pointer"
+									>
+										Forgot password?
+									</button>
 								</div>
-								<div class="flex items-center gap-1.5" :class="criteria.upper ? 'text-emerald-700 font-bold' : 'text-slate-400'">
-									<span x-text="criteria.upper ? '✓' : '○'"></span>
-									<span>Uppercase letter (A-Z)</span>
-								</div>
-								<div class="flex items-center gap-1.5" :class="criteria.lower ? 'text-emerald-700 font-bold' : 'text-slate-400'">
-									<span x-text="criteria.lower ? '✓' : '○'"></span>
-									<span>Lowercase letter (a-z)</span>
-								</div>
-								<div class="flex items-center gap-1.5" :class="criteria.digit ? 'text-emerald-700 font-bold' : 'text-slate-400'">
-									<span x-text="criteria.digit ? '✓' : '○'"></span>
-									<span>Number (0-9)</span>
-								</div>
-								<div class="flex items-center gap-1.5 sm:col-span-2" :class="criteria.special ? 'text-emerald-700 font-bold' : 'text-slate-400'">
-									<span x-text="criteria.special ? '✓' : '○'"></span>
-									<span>Special symbol (!@#$%^&*)</span>
+								<div class="relative">
+									<i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+									<input 
+										:type="showPassword ? 'text' : 'password'" 
+										x-model="loginForm.passphrase" 
+										required
+										class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-10 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono shadow-2xs"
+										placeholder="••••••••••••"
+									/>
+									<button 
+										type="button" 
+										@click="showPassword = !showPassword"
+										class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+									>
+										<i data-lucide="eye" class="w-4 h-4" x-show="!showPassword"></i>
+										<i data-lucide="eye-off" class="w-4 h-4" x-show="showPassword"></i>
+									</button>
 								</div>
 							</div>
-						</div>
-					</div>
 
-					<div>
-						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Your Role</label>
-						<select 
-							x-model="signUpForm.role"
-							class="input-clean w-full text-xs font-mono"
-						>
-							<option value="developer">Developer / Engineer</option>
-							<option value="qa">QA / Test Engineer</option>
-							<option value="admin">Administrator / Tech Lead</option>
-							<option value="member">Product / Member</option>
-						</select>
-					</div>
+							<button 
+								type="submit" 
+								class="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm hover:shadow bg-indigo-600 hover:bg-indigo-700 text-white transition-all cursor-pointer hover:scale-[1.01]"
+								:disabled="loading"
+							>
+								<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-white" x-show="loading"></i>
+								<span x-text="loading ? 'Authenticating...' : 'Sign In to Console'"></span>
+								<i data-lucide="arrow-right" class="w-3.5 h-3.5 text-white" x-show="!loading"></i>
+							</button>
+						</form>
 
-					<button 
-						type="submit" 
-						class="w-full py-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer"
-						:disabled="loading"
-					>
-						<i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="loading"></i>
-						<span x-text="loading ? 'Creating Account...' : 'Create Account & Enter Console'"></span>
-						<i data-lucide="arrow-right" class="w-3.5 h-3.5" x-show="!loading"></i>
-					</button>
-				</form>
-
-				<!-- 3. Forgot Password View -->
-				<div x-show="mode === 'forgot'" class="space-y-5 text-xs" style="display: none;">
-					<div class="p-4 rounded-xl bg-blue-50/70 border border-blue-200 text-blue-900 space-y-1">
-						<div class="font-bold flex items-center gap-1.5">
-							<i data-lucide="key-round" class="w-4 h-4 text-blue-600"></i>
-							<span>Account Recovery</span>
-						</div>
-						<p class="text-[11px] text-blue-700 leading-relaxed">
-							Enter your registered work email. We'll send you a secure, single-use 15-minute recovery link.
-						</p>
-					</div>
-
-					<form @submit.prevent="submitForgotPassword()" class="space-y-4">
-						<div>
-							<label class="block text-xs font-semibold text-slate-700 mb-1.5">Registered Email Address</label>
-							<input 
-								type="email" 
-								x-model="forgotForm.email" 
-								required
-								class="input-clean w-full text-xs font-mono"
-								placeholder="you@company.com"
-							/>
-						</div>
-
-						<button 
-							type="submit" 
-							class="w-full py-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer"
-							:disabled="loading"
-						>
-							<i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="loading"></i>
-							<span x-text="loading ? 'Sending Recovery Link...' : 'Send Password Reset Link'"></span>
-							<i data-lucide="mail" class="w-3.5 h-3.5" x-show="!loading"></i>
-						</button>
-					</form>
-
-					<div class="text-center pt-2">
-						<button 
-							type="button" 
-							@click="setMode('signin')" 
-							class="text-xs text-slate-500 hover:text-slate-900 font-semibold flex items-center justify-center gap-1 mx-auto transition cursor-pointer"
-						>
-							<i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
-							<span>Back to Sign In</span>
-						</button>
-					</div>
-				</div>
-
-				<!-- 4. Reset Password View -->
-				<div x-show="mode === 'reset'" class="space-y-5 text-xs" style="display: none;">
-					<div class="p-4 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 space-y-1">
-						<div class="font-bold flex items-center gap-1.5">
-							<i data-lucide="shield-check" class="w-4 h-4 text-purple-600"></i>
-							<span>Set New Password</span>
-						</div>
-						<p class="text-[11px] text-purple-700 leading-relaxed">
-							Choose a strong password conforming to security guidelines.
-						</p>
-					</div>
-
-					<form @submit.prevent="submitResetPassword()" class="space-y-4">
-						<div class="space-y-2">
+						<!-- 2. Sign Up Form -->
+						<form x-show="mode === 'signup'" @submit.prevent="submitSignUp()" class="space-y-4 text-xs" style="display: none;">
 							<div>
-								<label class="block text-xs font-semibold text-slate-700 mb-1.5">New Password</label>
+								<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Full Name</label>
 								<input 
-									type="password" 
-									x-model="resetForm.passphrase" 
-									@input="evaluatePassword(resetForm.passphrase)"
+									type="text" 
+									x-model="signUpForm.name" 
 									required
-									minlength="8"
-									class="input-clean w-full text-xs font-mono"
-									placeholder="Min 8 characters"
+									class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors shadow-2xs"
+									placeholder="Jane Doe"
 								/>
 							</div>
 
-							<!-- Real-Time Password Complexity Requirements -->
-							<div x-show="resetForm.passphrase.length > 0" class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-[11px]">
-								<div class="flex items-center justify-between font-semibold">
-									<span class="text-slate-600">Strength:</span>
-									<span :class="passwordStrengthColor" x-text="passwordStrengthText"></span>
+							<div>
+								<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Work Email</label>
+								<input 
+									type="email" 
+									x-model="signUpForm.email" 
+									required
+									class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono shadow-2xs"
+									placeholder="you@company.com"
+								/>
+							</div>
+
+							<div class="space-y-2">
+								<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+									<div>
+										<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Password</label>
+										<input 
+											type="password" 
+											x-model="signUpForm.passphrase" 
+											@input="evaluatePassword(signUpForm.passphrase)"
+											required
+											minlength="8"
+											class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono shadow-2xs"
+											placeholder="Min 8 characters"
+										/>
+									</div>
+									<div>
+										<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Confirm Password</label>
+										<input 
+											type="password" 
+											x-model="signUpForm.confirmPassphrase" 
+											required
+											minlength="8"
+											class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono shadow-2xs"
+											placeholder="Repeat password"
+										/>
+									</div>
 								</div>
-								<div class="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden flex gap-1">
-									<div class="h-full rounded-full transition-all duration-300" :class="passwordStrengthClass" :style="'width: ' + passwordStrengthPct + '%'"></div>
-								</div>
-								<div class="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1 text-[10px] font-mono">
-									<div class="flex items-center gap-1.5" :class="criteria.len ? 'text-emerald-700 font-bold' : 'text-slate-400'">
-										<span x-text="criteria.len ? '✓' : '○'"></span>
-										<span>8+ characters</span>
+
+								<!-- Real-Time Password Complexity Requirements -->
+								<div x-show="signUpForm.passphrase.length > 0" class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-[11px]">
+									<div class="flex items-center justify-between font-semibold font-mono">
+										<span class="text-slate-500">Password Strength:</span>
+										<span :class="passwordStrengthColor" x-text="passwordStrengthText"></span>
 									</div>
-									<div class="flex items-center gap-1.5" :class="criteria.upper ? 'text-emerald-700 font-bold' : 'text-slate-400'">
-										<span x-text="criteria.upper ? '✓' : '○'"></span>
-										<span>Uppercase (A-Z)</span>
+									<div class="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden flex gap-1">
+										<div class="h-full rounded-full transition-all duration-300" :class="passwordStrengthClass" :style="'width: ' + passwordStrengthPct + '%'"></div>
 									</div>
-									<div class="flex items-center gap-1.5" :class="criteria.lower ? 'text-emerald-700 font-bold' : 'text-slate-400'">
-										<span x-text="criteria.lower ? '✓' : '○'"></span>
-										<span>Lowercase (a-z)</span>
-									</div>
-									<div class="flex items-center gap-1.5" :class="criteria.digit ? 'text-emerald-700 font-bold' : 'text-slate-400'">
-										<span x-text="criteria.digit ? '✓' : '○'"></span>
-										<span>Number (0-9)</span>
-									</div>
-									<div class="flex items-center gap-1.5 sm:col-span-2" :class="criteria.special ? 'text-emerald-700 font-bold' : 'text-slate-400'">
-										<span x-text="criteria.special ? '✓' : '○'"></span>
-										<span>Special symbol (!@#$%^&*)</span>
+									<div class="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1 text-[10px] font-mono">
+										<div class="flex items-center gap-1.5" :class="criteria.len ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+											<span x-text="criteria.len ? '✓' : '○'"></span>
+											<span>8+ characters</span>
+										</div>
+										<div class="flex items-center gap-1.5" :class="criteria.upper ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+											<span x-text="criteria.upper ? '✓' : '○'"></span>
+											<span>Uppercase letter (A-Z)</span>
+										</div>
+										<div class="flex items-center gap-1.5" :class="criteria.lower ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+											<span x-text="criteria.lower ? '✓' : '○'"></span>
+											<span>Lowercase letter (a-z)</span>
+										</div>
+										<div class="flex items-center gap-1.5" :class="criteria.digit ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+											<span x-text="criteria.digit ? '✓' : '○'"></span>
+											<span>Number (0-9)</span>
+										</div>
+										<div class="flex items-center gap-1.5 sm:col-span-2" :class="criteria.special ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+											<span x-text="criteria.special ? '✓' : '○'"></span>
+											<span>Special symbol (!@#$%^&amp;*)</span>
+										</div>
 									</div>
 								</div>
 							</div>
 
 							<div>
-								<label class="block text-xs font-semibold text-slate-700 mb-1.5">Confirm New Password</label>
-								<input 
-									type="password" 
-									x-model="resetForm.confirmPassphrase" 
-									required
-									minlength="8"
-									class="input-clean w-full text-xs font-mono"
-									placeholder="Repeat new password"
-								/>
+								<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Your Role</label>
+								<select 
+									x-model="signUpForm.role" 
+									class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 transition-colors font-mono shadow-2xs"
+								>
+									<option value="developer">Developer / Engineer</option>
+									<option value="qa">QA / Test Engineer</option>
+									<option value="admin">Administrator / Tech Lead</option>
+									<option value="member">Product / Member</option>
+								</select>
+							</div>
+
+							<button 
+								type="submit" 
+								class="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm hover:shadow bg-indigo-600 hover:bg-indigo-700 text-white transition-all cursor-pointer hover:scale-[1.01]"
+								:disabled="loading"
+							>
+								<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-white" x-show="loading"></i>
+								<span x-text="loading ? 'Creating Account...' : 'Create Account & Enter Console'"></span>
+								<i data-lucide="arrow-right" class="w-3.5 h-3.5 text-white" x-show="!loading"></i>
+							</button>
+						</form>
+
+						<!-- 3. Forgot Password View -->
+						<div x-show="mode === 'forgot'" class="space-y-5 text-xs" style="display: none;">
+							<div class="p-4 rounded-xl bg-sky-50 border border-sky-200 text-slate-700 space-y-1 font-mono">
+								<div class="font-bold flex items-center gap-1.5 text-sky-700">
+									<i data-lucide="key-round" class="w-4 h-4"></i>
+									<span>Account Recovery</span>
+								</div>
+								<p class="text-[11px] text-slate-600 leading-relaxed font-sans">
+									Enter your registered work email. We will send you a secure, single-use 15-minute recovery link.
+								</p>
+							</div>
+
+							<form @submit.prevent="submitForgotPassword()" class="space-y-4">
+								<div>
+									<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Registered Email Address</label>
+									<input 
+										type="email" 
+										x-model="forgotForm.email" 
+										required
+										class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono shadow-2xs"
+										placeholder="you@company.com"
+									/>
+								</div>
+
+								<button 
+									type="submit" 
+									class="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm hover:shadow bg-indigo-600 hover:bg-indigo-700 text-white transition-all cursor-pointer hover:scale-[1.01]"
+									:disabled="loading"
+								>
+									<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-white" x-show="loading"></i>
+									<span x-text="loading ? 'Sending Recovery Link...' : 'Send Password Reset Link'"></span>
+									<i data-lucide="mail" class="w-3.5 h-3.5 text-white" x-show="!loading"></i>
+								</button>
+							</form>
+
+							<div class="text-center pt-2">
+								<button 
+									type="button" 
+									@click="setMode('signin')" 
+									class="text-xs text-slate-500 hover:text-slate-900 font-semibold flex items-center justify-center gap-1 mx-auto transition cursor-pointer font-mono"
+								>
+									<i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+									<span>Back to Sign In</span>
+								</button>
 							</div>
 						</div>
 
-						<button 
-							type="submit" 
-							class="w-full py-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md bg-purple-600 hover:bg-purple-700 text-white transition-all cursor-pointer"
-							:disabled="loading"
-						>
-							<i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="loading"></i>
-							<span x-text="loading ? 'Updating Password...' : 'Save Strong Password & Sign In'"></span>
-							<i data-lucide="check" class="w-3.5 h-3.5" x-show="!loading"></i>
-						</button>
-					</form>
+						<!-- 4. Reset Password View -->
+						<div x-show="mode === 'reset'" class="space-y-5 text-xs" style="display: none;">
+							<div class="p-4 rounded-xl bg-purple-50 border border-purple-200 text-slate-700 space-y-1 font-mono">
+								<div class="font-bold flex items-center gap-1.5 text-purple-700">
+									<i data-lucide="shield-check" class="w-4 h-4"></i>
+									<span>Set New Password</span>
+								</div>
+								<p class="text-[11px] text-slate-600 leading-relaxed font-sans">
+									Choose a strong password conforming to security guidelines.
+								</p>
+							</div>
 
-					<div class="text-center pt-2">
-						<button 
-							type="button" 
-							@click="setMode('signin')" 
-							class="text-xs text-slate-500 hover:text-slate-900 font-semibold flex items-center justify-center gap-1 mx-auto transition cursor-pointer"
-						>
-							<i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
-							<span>Back to Sign In</span>
-						</button>
+							<form @submit.prevent="submitResetPassword()" class="space-y-4">
+								<div class="space-y-2">
+									<div>
+										<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">New Password</label>
+										<input 
+											type="password" 
+											x-model="resetForm.passphrase" 
+											@input="evaluatePassword(resetForm.passphrase)"
+											required
+											minlength="8"
+											class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono shadow-2xs"
+											placeholder="Min 8 characters"
+										/>
+									</div>
+
+									<!-- Real-Time Password Complexity Requirements -->
+									<div x-show="resetForm.passphrase.length > 0" class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-[11px]">
+										<div class="flex items-center justify-between font-semibold font-mono">
+											<span class="text-slate-500">Strength:</span>
+											<span :class="passwordStrengthColor" x-text="passwordStrengthText"></span>
+										</div>
+										<div class="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden flex gap-1">
+											<div class="h-full rounded-full transition-all duration-300" :class="passwordStrengthClass" :style="'width: ' + passwordStrengthPct + '%'"></div>
+										</div>
+										<div class="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1 text-[10px] font-mono">
+											<div class="flex items-center gap-1.5" :class="criteria.len ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+												<span x-text="criteria.len ? '✓' : '○'"></span>
+												<span>8+ characters</span>
+											</div>
+											<div class="flex items-center gap-1.5" :class="criteria.upper ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+												<span x-text="criteria.upper ? '✓' : '○'"></span>
+												<span>Uppercase (A-Z)</span>
+											</div>
+											<div class="flex items-center gap-1.5" :class="criteria.lower ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+												<span x-text="criteria.lower ? '✓' : '○'"></span>
+												<span>Lowercase (a-z)</span>
+											</div>
+											<div class="flex items-center gap-1.5" :class="criteria.digit ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+												<span x-text="criteria.digit ? '✓' : '○'"></span>
+												<span>Number (0-9)</span>
+											</div>
+											<div class="flex items-center gap-1.5 sm:col-span-2" :class="criteria.special ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+												<span x-text="criteria.special ? '✓' : '○'"></span>
+												<span>Special symbol (!@#$%^&amp;*)</span>
+											</div>
+										</div>
+									</div>
+
+									<div>
+										<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Confirm New Password</label>
+										<input 
+											type="password" 
+											x-model="resetForm.confirmPassphrase" 
+											required
+											minlength="8"
+											class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors font-mono shadow-2xs"
+											placeholder="Repeat new password"
+										/>
+									</div>
+								</div>
+
+								<button 
+									type="submit" 
+									class="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm hover:shadow bg-indigo-600 hover:bg-indigo-700 text-white transition-all cursor-pointer hover:scale-[1.01]"
+									:disabled="loading"
+								>
+									<i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="loading"></i>
+									<span x-text="loading ? 'Updating Password...' : 'Save Strong Password & Sign In'"></span>
+									<i data-lucide="check" class="w-3.5 h-3.5" x-show="!loading"></i>
+								</button>
+							</form>
+
+							<div class="text-center pt-2">
+								<button 
+									type="button" 
+									@click="setMode('signin')" 
+									class="text-xs text-slate-500 hover:text-slate-900 font-semibold flex items-center justify-center gap-1 mx-auto transition cursor-pointer font-mono"
+								>
+									<i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+									<span>Back to Sign In</span>
+								</button>
+							</div>
+						</div>
+
+						<!-- Email Support & Help Links -->
+						<div class="pt-4 border-t border-slate-100 flex flex-col items-center gap-2 text-center text-[11px] text-slate-500 font-mono">
+							if len(showLanding) > 0 && showLanding[0] {
+								<div>
+									<span>Need assistance? Contact our team at </span>
+									<a href="mailto:support@flagura.dev" class="text-indigo-600 hover:underline font-semibold">{"support@flagura.dev"}</a>
+								</div>
+								<div>
+									<a href="/" class="text-slate-500 hover:text-slate-900 font-medium flex items-center justify-center gap-1 transition">
+										<i data-lucide="arrow-left" class="w-3 h-3"></i>
+										<span>Back to Product Overview</span>
+									</a>
+								</div>
+							} else {
+								<div>
+									<span>Flagura Self-Hosted Console • SOC2 Type II Certified • In-Memory Zero Alloc</span>
+								</div>
+							}
+						</div>
 					</div>
-				</div>
-
-				<!-- Email Support & Help Links -->
-				<div class="pt-4 border-t border-slate-100 flex flex-col items-center gap-2 text-center text-[11px] text-slate-400">
-					if len(showLanding) > 0 && showLanding[0] {
-						<div>
-							<span>Need assistance? Contact our team at </span>
-							<a href="mailto:support@flagura.dev" class="text-blue-600 hover:text-blue-700 font-semibold underline decoration-blue-200">support@flagura.dev</a>
-						</div>
-						<div>
-							<a href="/" class="text-slate-500 hover:text-slate-800 font-medium flex items-center justify-center gap-1 transition">
-								<i data-lucide="arrow-left" class="w-3 h-3"></i>
-								<span>Back to Product Overview</span>
-							</a>
-						</div>
-					} else {
-						<div>
-							<span>Flagura Self-Hosted Console • Contact your workspace administrator for access.</span>
-						</div>
-					}
 				</div>
 			</div>
 		</div>
-
-		<script>
-			document.addEventListener('alpine:init', () => {
-				Alpine.data('authPageComponent', () => ({
-					mode: 'signin',
-					loading: false,
-					error: '',
-					successMessage: '',
-					resetToken: '',
-					inviteToken: '',
-					inviteOrgName: '',
-					loginForm: {
-						email: '',
-						passphrase: ''
-					},
-					signUpForm: {
-						name: '',
-						email: '',
-						passphrase: '',
-						confirmPassphrase: '',
-						role: 'developer'
-					},
-					forgotForm: {
-						email: ''
-					},
-					resetForm: {
-						passphrase: '',
-						confirmPassphrase: ''
-					},
-					criteria: {
-						len: false,
-						upper: false,
-						lower: false,
-						digit: false,
-						special: false
-					},
-					passwordStrengthPct: 0,
-					passwordStrengthText: '',
-					passwordStrengthColor: '',
-					passwordStrengthClass: '',
-
-					initAuth() {
-						const urlParams = new URLSearchParams(window.location.search);
-						const modeParam = urlParams.get('mode');
-						const tokenParam = urlParams.get('token');
-						const inviteParam = urlParams.get('invite');
-						if (inviteParam) {
-							this.inviteToken = inviteParam;
-							this.mode = 'signup';
-							fetch('/api/v1/invitations/' + inviteParam)
-								.then(r => r.json())
-								.then(data => {
-									if (data.invitation) {
-										this.inviteOrgName = data.invitation.org_name;
-										if (data.invitation.email) this.signUpForm.email = data.invitation.email;
-										if (data.invitation.role) this.signUpForm.role = data.invitation.role;
-										this.successMessage = `You've been invited to join ${this.inviteOrgName}! Complete your account below.`;
-									}
-								})
-								.catch(() => {});
-						} else if (modeParam === 'reset' && tokenParam) {
-							this.mode = 'reset';
-							this.resetToken = tokenParam;
-						} else if (modeParam === 'forgot') {
-							this.mode = 'forgot';
-						}
-					},
-
-					setMode(newMode) {
-						this.mode = newMode;
-						this.error = '';
-						this.successMessage = '';
-						if (window.synth) window.synth.playClick(600);
-					},
-
-					evaluatePassword(pwd) {
-						if (!pwd) {
-							this.criteria = { len: false, upper: false, lower: false, digit: false, special: false };
-							this.passwordStrengthPct = 0;
-							this.passwordStrengthText = '';
-							return;
-						}
-
-						this.criteria.len = pwd.length >= 8;
-						this.criteria.upper = /[A-Z]/.test(pwd);
-						this.criteria.lower = /[a-z]/.test(pwd);
-						this.criteria.digit = /[0-9]/.test(pwd);
-						this.criteria.special = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(pwd);
-
-						let score = 0;
-						if (this.criteria.len) score += 20;
-						if (this.criteria.upper) score += 20;
-						if (this.criteria.lower) score += 20;
-						if (this.criteria.digit) score += 20;
-						if (this.criteria.special) score += 20;
-
-						this.passwordStrengthPct = score;
-						if (score < 60) {
-							this.passwordStrengthText = 'Weak';
-							this.passwordStrengthColor = 'text-rose-600';
-							this.passwordStrengthClass = 'bg-rose-500';
-						} else if (score < 100) {
-							this.passwordStrengthText = 'Moderate';
-							this.passwordStrengthColor = 'text-amber-600';
-							this.passwordStrengthClass = 'bg-amber-500';
-						} else {
-							this.passwordStrengthText = 'Strong (Meets Policy)';
-							this.passwordStrengthColor = 'text-emerald-600';
-							this.passwordStrengthClass = 'bg-emerald-500';
-						}
-					},
-
-					isPasswordValid(pwd) {
-						return pwd.length >= 8 &&
-							/[A-Z]/.test(pwd) &&
-							/[a-z]/.test(pwd) &&
-							/[0-9]/.test(pwd) &&
-							/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(pwd);
-					},
-
-					async submitLogin() {
-						this.loading = true;
-						this.error = '';
-						this.successMessage = '';
-						if (window.synth) window.synth.playClick(600);
-						try {
-							const res = await fetch('/api/v1/auth/login', {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({
-									email: this.loginForm.email,
-									password: this.loginForm.passphrase
-								})
-							});
-							const data = await res.json();
-							if (!res.ok) {
-								this.error = data.message || 'Invalid email or password';
-								return;
-							}
-							this.showToast('Login successful! Welcome back.');
-							setTimeout(() => {
-								window.location.href = '/dashboard';
-							}, 400);
-						} catch(err) {
-							this.error = 'Network error. Please try again.';
-						} finally {
-							this.loading = false;
-						}
-					},
-
-					async submitSignUp() {
-						if (!this.isPasswordValid(this.signUpForm.passphrase)) {
-							this.error = 'Password does not meet all security complexity requirements (8+ chars, uppercase, lowercase, number, and special symbol).';
-							return;
-						}
-						if (this.signUpForm.passphrase !== this.signUpForm.confirmPassphrase) {
-							this.error = 'Passwords do not match.';
-							return;
-						}
-						this.loading = true;
-						this.error = '';
-						this.successMessage = '';
-						if (window.synth) window.synth.playClick(600);
-						try {
-							const res = await fetch('/api/v1/auth/signup', {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({
-									name: this.signUpForm.name,
-									email: this.signUpForm.email,
-									password: this.signUpForm.passphrase,
-									role: this.signUpForm.role,
-									inviteToken: this.inviteToken || undefined
-								})
-							});
-							const data = await res.json();
-							if (!res.ok) {
-								this.error = data.message || 'Failed to create account';
-								return;
-							}
-							this.showToast('Account created successfully! Welcome to Flagura.');
-							setTimeout(() => {
-								window.location.href = '/dashboard';
-							}, 400);
-						} catch(err) {
-							this.error = 'Network error. Please try again.';
-						} finally {
-							this.loading = false;
-						}
-					},
-
-					async submitForgotPassword() {
-						this.loading = true;
-						this.error = '';
-						this.successMessage = '';
-						if (window.synth) window.synth.playClick(600);
-						try {
-							const res = await fetch('/api/v1/auth/forgot-password', {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify(this.forgotForm)
-							});
-							const data = await res.json();
-							if (res.ok) {
-								this.successMessage = data.message || 'Recovery instructions sent to your email.';
-								this.forgotForm.email = '';
-							} else {
-								this.error = data.message || 'Failed to request reset.';
-							}
-						} catch(err) {
-							this.error = 'Network error. Please try again.';
-						} finally {
-							this.loading = false;
-						}
-					},
-
-					async submitResetPassword() {
-						if (!this.isPasswordValid(this.resetForm.passphrase)) {
-							this.error = 'Password does not meet all security complexity requirements (8+ chars, uppercase, lowercase, number, and special symbol).';
-							return;
-						}
-						if (this.resetForm.passphrase !== this.resetForm.confirmPassphrase) {
-							this.error = 'Passwords do not match.';
-							return;
-						}
-						if (!this.resetToken) {
-							this.error = 'Missing reset token in URL.';
-							return;
-						}
-						this.loading = true;
-						this.error = '';
-						this.successMessage = '';
-						if (window.synth) window.synth.playClick(600);
-						try {
-							const res = await fetch('/api/v1/auth/reset-password', {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({
-									token: this.resetToken,
-									newPassword: this.resetForm.passphrase
-								})
-							});
-							const data = await res.json();
-							if (!res.ok) {
-								this.error = data.message || 'Failed to reset password.';
-								return;
-							}
-							this.successMessage = 'Password reset successfully! Redirecting to sign in...';
-							setTimeout(() => {
-								this.setMode('signin');
-							}, 1500);
-						} catch(err) {
-							this.error = 'Network error. Please try again.';
-						} finally {
-							this.loading = false;
-						}
-					}
-				}));
-			});
-		</script>
 	}
 }

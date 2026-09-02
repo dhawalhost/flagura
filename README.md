@@ -5,13 +5,13 @@
 ![Flagura Banner](https://img.shields.io/badge/Flagura-Feature%20Control%20Plane-2563eb?style=for-the-badge&logo=go&logoColor=white)
 [![Go Report Card](https://goreportcard.com/badge/github.com/dhawalhost/flagura)](https://goreportcard.com/report/github.com/dhawalhost/flagura)
 ![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go&logoColor=white)
-![Evaluation](https://img.shields.io/badge/In--Process%20Evaluation-~100ns-emerald?style=flat&logo=speedtest&logoColor=white)
+![Evaluation](https://img.shields.io/badge/In--Process%20Evaluation-~85ns-emerald?style=flat&logo=speedtest&logoColor=white)
 ![Build & Tests](<https://img.shields.io/badge/Tests-Passing%20(100%25)-emerald?style=flat&logo=githubactions&logoColor=white>)
 ![OpenFeature](https://img.shields.io/badge/OpenFeature-Native-7c3aed?style=flat&logo=openfeature&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
-**Developer-first, self-hosted feature management built for local evaluation and OpenFeature standard.**  
-_Deterministic in-memory evaluation (~100ns), OpenFeature Go/JS/Python/Rust providers, tenant-isolated streaming sync, authenticated kill-switches, and 4-Eyes change governance._
+**Persisted in PostgreSQL. Evaluated in CPU Cache.**  
+_Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes governance, and zero PII leakage — without the per-MAU billing trap._
 
 [Live Demo & Console](#-quickstart) • [Architecture](#-architecture) • [OpenFeature](#-openfeature-go-provider) • [API Reference](#-rest-api-reference) • [Go SDK](sdks/go) • [Deployment](#-deployment-options) • [Runbooks](docs/runbooks/README.md)
 
@@ -22,39 +22,44 @@ _Deterministic in-memory evaluation (~100ns), OpenFeature Go/JS/Python/Rust prov
 ## 📖 Overview
 
 **Flagura** is an open-source, developer-first feature management platform engineered around a fundamental separation of concerns:
-- **Control Plane**: Governs environments, organizations, projects, API keys, RBAC, 4-Eyes change requests, and immutable audit trails backed by PostgreSQL.
-- **Data Plane (SDKs)**: Evaluates rules and percentage rollouts locally in-process using **deterministic 64-bit FNV-1a hashing** and cached targeting matchers, executing in **nanoseconds (~90ns – 220ns)** with zero network hops on application critical paths.
+
+- **Control Plane (Durable ACID Persistence)**: Governs environments, organizations, projects, API keys, RBAC, 4-Eyes change requests, and immutable audit trails backed by PostgreSQL or SQLite.
+- **Data Plane (In-Memory SDKs)**: Evaluates targeting rules and percentage rollouts locally in-process using **deterministic 64-bit FNV-1a sticky hashing**, executing in **nanoseconds (~85ns)** with zero network hops, zero database I/O, and zero customer PII egress.
 
 ---
 
-## ⚡ Core Architectural Pillars
+## ⚡ Core Architectural Pillars & Wedges
 
-- **⚡ Local-First In-Process Evaluation:** Connected SDKs evaluate flags locally in-memory with deterministic sticky bucketing and zero database I/O on evaluation hot paths.
+- **⚡ Local-First In-Process Evaluation:** Connected SDKs evaluate flags in-memory with deterministic sticky bucketing and zero database I/O on evaluation hot paths.
+- **🧹 Zero Flag Debt & Active Hygiene:** Automated detection of 100% rolled-out flags, longevity tracking, and safe deprecation workflows to eliminate dead code rot.
+- **🛡️ 4-Eyes Change Governance:** Configurable environment protection requiring peer review and dual authorization before production flag mutations are applied.
+- **🔒 Zero Customer PII Egress:** Targeting rules are compiled and distributed to SDKs; customer emails, IDs, and IP addresses never leave process memory (GDPR/HIPAA ready).
+- **💰 Predictable Infrastructure (No MAU Penalties):** Single 15MB Go binary with embedded SQLite or PostgreSQL. Evaluate millions of flags at flat cost without punitive monthly active user (MAU) billing tiers.
 - **🌐 OpenFeature Native:** Built-in standard OpenFeature providers for Go, TypeScript, Python, and Rust—switch or adopt Flagura with zero proprietary code lock-in.
 - **🏢 Strict Multi-Tenant Isolation:** Complete organization and project-level separation across storage, API credentials, and real-time SSE streaming channels.
-- **🛡️ 4-Eyes Change Governance:** Configurable environment protection requiring peer review and dual authorization before production flag mutations are applied.
 - **🔄 Versioned Configuration Synchronization:** Monotonic `config_version` stream protocol with real-time SSE push updates, cold-start disk snapshots, and automatic gap reconciliation.
-- **🎯 Deterministic Sticky Bucketing:** FNV-1a 64-bit hashing ensures consistent user assignment across distributed nodes without centralized state lookups.
 - **🚨 Authenticated Webhook Kill-Switch:** Secure automated circuit breakers (`X-Webhook-Secret` or Bearer token) for APM alerts (Datadog/Sentry) to shut down failing features instantly.
-- **💎 Self-Hosted Privacy & Sovereignty:** 100% private deployment within your own infrastructure (single Go binary, Docker, or PostgreSQL).
 
 ---
 
 ## ⚖️ Capability Matrix
 
-| Feature / Capability             | ⚡ Flagura (`v1.7.0`)                 | OpenFeature Native | Self-Hosted Support |
-| :------------------------------- | :---------------------------------- | :----------------: | :-----------------: |
-| **Local In-Process Evaluation**  | ✅ Sub-microsecond (~100ns)         | ✅ Yes             | ✅ Yes              |
-| **Standard OpenFeature SDKs**    | ✅ Go, TypeScript, Python, Rust     | ✅ Yes             | ✅ Yes              |
-| **Multi-Tenant Organizations**   | ✅ Isolated Projects & Keys         | N/A                | ✅ Yes              |
-| **Real-Time Streaming Sync**    | ✅ Project-Scoped SSE Channels      | ✅ Yes             | ✅ Yes              |
-| **Offline Snapshot Resilience**  | ✅ Local Cold-Start Cache           | ✅ Yes             | ✅ Yes              |
-| **4-Eyes Change Governance**     | ✅ Peer Approval Pipeline           | N/A                | ✅ Yes              |
-| **Config Version Reconciliation**| ✅ Monotonic `config_version`       | N/A                | ✅ Yes              |
-| **Automated Webhook Kill-Switch**| ✅ Token-Authenticated              | N/A                | ✅ Yes              |
-| **A/B Experiment Statistics**    | ✅ Two-Tailed Z-Score & P-Values    | ✅ Yes             | ✅ Yes              |
-| **Native Prometheus Metrics**    | ✅ `/metrics` Standard Exporter     | N/A                | ✅ Yes              |
-| **Data Sovereignty & Privacy**   | ✅ 100% Private (Your Database)     | ✅ Yes             | ✅ Yes              |
+| Feature / Capability              | ⚡ Flagura (`v2.0`)                | OpenFeature Native | Self-Hosted Support |
+| :-------------------------------- | :--------------------------------- | :----------------: | :-----------------: |
+| **Local In-Process Evaluation**   | ✅ Sub-microsecond (~85ns)         |       ✅ Yes       |       ✅ Yes        |
+| **Durable ACID Persistence**      | ✅ PostgreSQL & SQLite Embedded    |        N/A         |       ✅ Yes        |
+| **Zero Flag Debt & Hygiene**      | ✅ Stale Flag Detection & Auditing |        N/A         |       ✅ Yes        |
+| **Zero Customer PII Egress**      | ✅ 100% In-Process Context (GDPR)  |       ✅ Yes       |       ✅ Yes        |
+| **Standard OpenFeature SDKs**     | ✅ Go, TypeScript, Python, Rust    |       ✅ Yes       |       ✅ Yes        |
+| **Flat Predictable Cost**         | ✅ No Per-MAU or Seat Penalties    |        N/A         |       ✅ Yes        |
+| **Multi-Tenant Organizations**    | ✅ Isolated Projects & Keys        |        N/A         |       ✅ Yes        |
+| **Real-Time Streaming Sync**      | ✅ Project-Scoped SSE Channels     |       ✅ Yes       |       ✅ Yes        |
+| **Offline Snapshot Resilience**   | ✅ Local Cold-Start Disk Cache     |       ✅ Yes       |       ✅ Yes        |
+| **4-Eyes Change Governance**      | ✅ Peer Approval Pipeline          |        N/A         |       ✅ Yes        |
+| **Config Version Reconciliation** | ✅ Monotonic `config_version`      |        N/A         |       ✅ Yes        |
+| **Automated Webhook Kill-Switch** | ✅ Token-Authenticated             |        N/A         |       ✅ Yes        |
+| **A/B Experiment Statistics**     | ✅ Two-Tailed Z-Score & P-Values   |       ✅ Yes       |       ✅ Yes        |
+| **Native Prometheus Metrics**     | ✅ `/metrics` Standard Exporter    |        N/A         |       ✅ Yes        |
 
 ---
 
@@ -643,19 +648,19 @@ docker run -p 3000:3000 --env-file .env flagura:latest
 
 See [`.env.example`](.env.example) for a fully annotated template:
 
-| Variable | Default | Purpose |
-| :--- | :--- | :--- |
-| `PORT` | `3000` | HTTP listening port |
-| `DATABASE_URL` | *(empty)* | PostgreSQL connection string (uses In-Memory Edge Store if empty) |
-| `FLAGURA_APP_URL` | `http://localhost:3000` | Base URL used for recovery links and redirects |
-| `ENABLE_LANDING_PAGE` | `false` | `false` redirects directly to `/auth`, `true` displays public product showcase |
-| `SMTP_HOST` | *(empty)* | SMTP hostname for password reset & welcome emails (uses terminal logger if empty) |
-| `SMTP_PORT` | `587` | SMTP port (`587` STARTTLS, `465` SMTPS) |
-| `SMTP_USERNAME` / `SMTP_PASSWORD` | *(empty)* | SMTP authentication credentials |
-| `SMTP_FROM` | `no-reply@localhost` | Sender address on all outbound transactional emails |
-| `FLAGURA_BRAND_NAME` | `Flagura` | Custom brand title rendered in email headers & greetings |
-| `FLAGURA_SUPPORT_EMAIL` | *(empty)* | Support address shown in footers (defaults to internal admin notice if empty) |
-| `FLAGURA_GOVERNANCE_EMAILS` | *(empty)* | Comma-separated reviewer emails (auto-resolves DB admins if empty) |
+| Variable                          | Default                 | Purpose                                                                           |
+| :-------------------------------- | :---------------------- | :-------------------------------------------------------------------------------- |
+| `PORT`                            | `3000`                  | HTTP listening port                                                               |
+| `DATABASE_URL`                    | _(empty)_               | PostgreSQL connection string (uses In-Memory Edge Store if empty)                 |
+| `FLAGURA_APP_URL`                 | `http://localhost:3000` | Base URL used for recovery links and redirects                                    |
+| `ENABLE_LANDING_PAGE`             | `false`                 | `false` redirects directly to `/auth`, `true` displays public product showcase    |
+| `SMTP_HOST`                       | _(empty)_               | SMTP hostname for password reset & welcome emails (uses terminal logger if empty) |
+| `SMTP_PORT`                       | `587`                   | SMTP port (`587` STARTTLS, `465` SMTPS)                                           |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | _(empty)_               | SMTP authentication credentials                                                   |
+| `SMTP_FROM`                       | `no-reply@localhost`    | Sender address on all outbound transactional emails                               |
+| `FLAGURA_BRAND_NAME`              | `Flagura`               | Custom brand title rendered in email headers & greetings                          |
+| `FLAGURA_SUPPORT_EMAIL`           | _(empty)_               | Support address shown in footers (defaults to internal admin notice if empty)     |
+| `FLAGURA_GOVERNANCE_EMAILS`       | _(empty)_               | Comma-separated reviewer emails (auto-resolves DB admins if empty)                |
 
 ---
 

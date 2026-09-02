@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -120,6 +121,14 @@ func (f FeatureFlag) ProdStrategy() string {
 
 func (f FeatureFlag) ProdRulesCount() int {
 	return len(f.ProdConfig().Rules)
+}
+
+func (f FeatureFlag) EnvironmentsJSON() string {
+	b, err := json.Marshal(f.Environments)
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
 }
 
 type EvaluationContext struct {
