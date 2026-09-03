@@ -60,13 +60,13 @@ templ ProjectModal(orgs []domain.Organization, projects []domain.Project, active
 							description: this.description.trim()
 						})
 					});
-					if (!res.ok) {
-						const txt = await res.text();
-						this.errorMessage = txt || 'Failed to create project';
-						this.submitting = false;
-						return;
-					}
-					window.location.reload();
+					const data = await res.json();
+					if (!res.ok) throw new Error(data.error || 'Failed to create project');
+					
+					this.successMessage = 'Project created successfully!';
+					setTimeout(() => {
+						window.location.reload();
+					}, 600);
 				} catch (err) {
 					this.errorMessage = err.message || 'Network error';
 					this.submitting = false;
@@ -90,13 +90,13 @@ templ ProjectModal(orgs []domain.Organization, projects []domain.Project, active
 							description: this.orgDescription.trim()
 						})
 					});
-					if (!res.ok) {
-						const txt = await res.text();
-						this.errorMessage = txt || 'Failed to create organization';
-						this.submitting = false;
-						return;
-					}
-					window.location.reload();
+					const data = await res.json();
+					if (!res.ok) throw new Error(data.error || 'Failed to create organization');
+					
+					this.successMessage = 'Workspace created successfully!';
+					setTimeout(() => {
+						window.location.reload();
+					}, 600);
 				} catch (err) {
 					this.errorMessage = err.message || 'Network error';
 					this.submitting = false;
@@ -120,13 +120,9 @@ templ ProjectModal(orgs []domain.Organization, projects []domain.Project, active
 							role: this.inviteRole
 						})
 					});
-					if (!res.ok) {
-						const txt = await res.text();
-						this.errorMessage = txt || 'Failed to create invitation';
-						this.submitting = false;
-						return;
-					}
 					const data = await res.json();
+					if (!res.ok) throw new Error(data.error || 'Failed to create invitation');
+					
 					this.inviteUrl = window.location.origin + data.invite_url;
 					this.successMessage = 'Invitation link created successfully!';
 					this.submitting = false;
@@ -159,7 +155,7 @@ templ ProjectModal(orgs []domain.Organization, projects []domain.Project, active
 			x-transition:leave-start="opacity-100"
 			x-transition:leave-end="opacity-0"
 			@click="open = false"
-			class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+			class="fixed inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity"
 		></div>
 
 		<div class="flex min-h-full items-center justify-center p-4">
@@ -172,70 +168,70 @@ templ ProjectModal(orgs []domain.Organization, projects []domain.Project, active
 				x-transition:leave-start="opacity-100 scale-100"
 				x-transition:leave-end="opacity-0 scale-95"
 				@click.outside="open = false"
-				class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
+				class="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden"
 			>
 				<!-- Modal Header -->
-				<div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+				<div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
 					<div class="flex items-center gap-2.5">
-						<div class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center">
+						<div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center justify-center">
 							<i data-lucide="layers" class="w-4 h-4"></i>
 						</div>
 						<div>
-							<h3 class="text-sm font-bold text-slate-900 font-display">Workspace & Project Manager</h3>
-							<p class="text-[11px] text-slate-500 font-mono">Manage scopes, team workspaces & access</p>
+							<h3 class="text-sm font-bold text-slate-900 font-display">Workspace &amp; Project Manager</h3>
+							<p class="text-[11px] text-slate-500 font-mono">Multi-tenant isolated environments</p>
 						</div>
 					</div>
 					<button 
-						@click="open = false"
-						class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+						@click="open = false" 
+						class="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
 					>
 						<i data-lucide="x" class="w-4 h-4"></i>
 					</button>
 				</div>
 
 				<!-- Navigation Tabs -->
-				<div class="flex border-b border-slate-100 px-6 pt-2 bg-slate-50/30 gap-4">
+				<div class="flex border-b border-slate-100 px-6 pt-2 bg-slate-50 gap-4 font-mono">
 					<button 
-						type="button"
-						@click="tab = 'project'; errorMessage = ''; successMessage = '';"
-						class="pb-2.5 text-xs font-mono font-semibold transition border-b-2"
-						:class="tab === 'project' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+						type="button" 
+						@click="tab = 'project'; errorMessage = ''; successMessage = '';" 
+						class="pb-2.5 text-xs font-semibold transition border-b-2 cursor-pointer"
+						:class="tab === 'project' ? 'border-indigo-600 text-indigo-700 font-bold' : 'border-transparent text-slate-500 hover:text-slate-900'"
 					>
 						New Project
 					</button>
 					<button 
-						type="button"
-						@click="tab = 'org'; errorMessage = ''; successMessage = '';"
-						class="pb-2.5 text-xs font-mono font-semibold transition border-b-2"
-						:class="tab === 'org' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+						type="button" 
+						@click="tab = 'org'; errorMessage = ''; successMessage = '';" 
+						class="pb-2.5 text-xs font-semibold transition border-b-2 cursor-pointer"
+						:class="tab === 'org' ? 'border-indigo-600 text-indigo-700 font-bold' : 'border-transparent text-slate-500 hover:text-slate-900'"
 					>
 						New Workspace
 					</button>
 					<button 
-						type="button"
-						@click="tab = 'invite'; errorMessage = ''; successMessage = '';"
-						class="pb-2.5 text-xs font-mono font-semibold transition border-b-2"
-						:class="tab === 'invite' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+						type="button" 
+						@click="tab = 'invite'; errorMessage = ''; successMessage = '';" 
+						class="pb-2.5 text-xs font-semibold transition border-b-2 cursor-pointer"
+						:class="tab === 'invite' ? 'border-purple-600 text-purple-700 font-bold' : 'border-transparent text-slate-500 hover:text-slate-900'"
 					>
 						Invite Member
 					</button>
 				</div>
 
 				<!-- Error / Success banners -->
-				<div class="px-6 pt-4 space-y-2">
-					<div x-show="errorMessage" class="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-mono" x-text="errorMessage"></div>
-					<div x-show="successMessage" class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-mono" x-text="successMessage"></div>
+				<div class="px-6 pt-4 space-y-2 font-mono">
+					<div x-show="errorMessage" class="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs" x-text="errorMessage"></div>
+					<div x-show="successMessage" class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs" x-text="successMessage"></div>
 				</div>
 
 				<!-- TAB 1: CREATE PROJECT -->
-				<form x-show="tab === 'project'" @submit.prevent="createProject()" class="p-6 space-y-4">
+				<form x-show="tab === 'project'" @submit.prevent="createProject()" class="p-6 space-y-4 font-mono">
 					<!-- Organization Select -->
 					<div>
-						<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Parent Workspace / Organization</label>
+						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Parent Workspace / Organization</label>
 						<select 
 							name="orgId"
 							x-model="orgId"
-							class="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition shadow-2xs"
+							class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-indigo-500 transition shadow-2xs"
 						>
 							for _, org := range orgs {
 								<option value={ org.ID }>{ org.Name } ({ org.Slug })</option>
@@ -245,36 +241,36 @@ templ ProjectModal(orgs []domain.Organization, projects []domain.Project, active
 
 					<!-- Project Name -->
 					<div>
-						<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Project Name</label>
+						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Project Name</label>
 						<input 
 							type="text" 
 							x-model="name" 
 							@input="autoSlug()"
-							placeholder="e.g. Payments Gateway v2"
-							class="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition shadow-2xs"
+							placeholder="e.g. Payments Gateway v2" 
+							class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-indigo-500 transition shadow-2xs"
 							required
 						/>
 					</div>
 
 					<!-- Project Slug -->
 					<div>
-						<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Project Key / Slug</label>
+						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Project Key / Slug</label>
 						<input 
 							type="text" 
 							x-model="slug" 
-							placeholder="e.g. payments-gateway-v2"
-							class="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition shadow-2xs"
+							placeholder="e.g. payments-gateway-v2" 
+							class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 text-indigo-700 focus:outline-none focus:border-indigo-500 transition shadow-2xs font-bold"
 						/>
 					</div>
 
 					<!-- Description -->
 					<div>
-						<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Description (Optional)</label>
+						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Description (Optional)</label>
 						<textarea 
 							x-model="description" 
 							rows="2" 
-							placeholder="Scope of flags for this project..."
-							class="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition shadow-2xs"
+							placeholder="Scope of flags for this project..." 
+							class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-indigo-500 transition shadow-2xs font-sans"
 						></textarea>
 					</div>
 
@@ -283,52 +279,52 @@ templ ProjectModal(orgs []domain.Organization, projects []domain.Project, active
 						<button 
 							type="button" 
 							@click="open = false" 
-							class="px-3.5 py-2 rounded-xl text-xs font-mono text-slate-600 hover:bg-slate-100 border border-slate-200 transition"
+							class="px-3.5 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100 border border-slate-200 transition cursor-pointer"
 						>
 							Cancel
 						</button>
 						<button 
 							type="submit" 
 							:disabled="submitting" 
-							class="px-4 py-2 rounded-xl text-xs font-mono font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20 transition flex items-center gap-1.5"
+							class="px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition flex items-center gap-1.5 cursor-pointer hover:scale-[1.02]"
 						>
-							<i data-lucide="plus" class="w-3.5 h-3.5"></i>
+							<i data-lucide="plus" class="w-3.5 h-3.5 text-white"></i>
 							<span x-text="submitting ? 'Creating...' : 'Create Project'"></span>
 						</button>
 					</div>
 				</form>
 
 				<!-- TAB 2: CREATE ORGANIZATION / WORKSPACE -->
-				<form x-show="tab === 'org'" @submit.prevent="createOrganization()" class="p-6 space-y-4">
+				<form x-show="tab === 'org'" @submit.prevent="createOrganization()" class="p-6 space-y-4 font-mono">
 					<div>
-						<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Workspace / Organization Name</label>
+						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Workspace / Organization Name</label>
 						<input 
 							type="text" 
 							x-model="orgName" 
 							@input="autoOrgSlug()"
 							placeholder="e.g. Acme Corporation" 
-							class="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition shadow-2xs"
+							class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-indigo-500 transition shadow-2xs"
 							required
 						/>
 					</div>
 
 					<div>
-						<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Workspace Slug</label>
+						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Workspace Slug</label>
 						<input 
 							type="text" 
 							x-model="orgSlug" 
 							placeholder="e.g. acme-corp" 
-							class="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition shadow-2xs"
+							class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 text-indigo-700 focus:outline-none focus:border-indigo-500 transition shadow-2xs font-bold"
 						/>
 					</div>
 
 					<div>
-						<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Description (Optional)</label>
+						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Description (Optional)</label>
 						<textarea 
 							x-model="orgDescription" 
 							rows="2" 
-							placeholder="Engineering division or company scope..."
-							class="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition shadow-2xs"
+							placeholder="Engineering division or company scope..." 
+							class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-indigo-500 transition shadow-2xs font-sans"
 						></textarea>
 					</div>
 
@@ -336,14 +332,14 @@ templ ProjectModal(orgs []domain.Organization, projects []domain.Project, active
 						<button 
 							type="button" 
 							@click="open = false" 
-							class="px-3.5 py-2 rounded-xl text-xs font-mono text-slate-600 hover:bg-slate-100 border border-slate-200 transition"
+							class="px-3.5 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100 border border-slate-200 transition cursor-pointer"
 						>
 							Cancel
 						</button>
 						<button 
 							type="submit" 
 							:disabled="submitting" 
-							class="px-4 py-2 rounded-xl text-xs font-mono font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20 transition flex items-center gap-1.5"
+							class="px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition flex items-center gap-1.5 cursor-pointer hover:scale-[1.02]"
 						>
 							<i data-lucide="building" class="w-3.5 h-3.5"></i>
 							<span x-text="submitting ? 'Creating...' : 'Create Workspace'"></span>
@@ -352,12 +348,12 @@ templ ProjectModal(orgs []domain.Organization, projects []domain.Project, active
 				</form>
 
 				<!-- TAB 3: INVITE TEAM MEMBER -->
-				<form x-show="tab === 'invite'" @submit.prevent="createInvitation()" class="p-6 space-y-4">
+				<form x-show="tab === 'invite'" @submit.prevent="createInvitation()" class="p-6 space-y-4 font-mono">
 					<div>
-						<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Select Workspace</label>
+						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Select Workspace</label>
 						<select 
-							x-model="orgId"
-							class="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition shadow-2xs"
+							x-model="orgId" 
+							class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-indigo-500 transition shadow-2xs"
 						>
 							for _, org := range orgs {
 								<option value={ org.ID }>{ org.Name } ({ org.Slug })</option>
@@ -366,42 +362,42 @@ templ ProjectModal(orgs []domain.Organization, projects []domain.Project, active
 					</div>
 
 					<div>
-						<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Colleague Email</label>
+						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Colleague Email</label>
 						<input 
 							type="email" 
 							x-model="inviteEmail" 
 							placeholder="colleague@company.com" 
-							class="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition shadow-2xs"
+							class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-indigo-500 transition shadow-2xs"
 							required
 						/>
 					</div>
 
 					<div>
-						<label class="block text-xs font-semibold text-slate-700 mb-1.5 font-mono">Role in Workspace</label>
+						<label class="block text-xs font-semibold text-slate-700 mb-1.5">Role in Workspace</label>
 						<select 
-							x-model="inviteRole"
-							class="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition shadow-2xs"
+							x-model="inviteRole" 
+							class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-indigo-500 transition shadow-2xs"
 						>
-							<option value="developer">Developer (Create & Manage Flags)</option>
-							<option value="admin">Admin (Full Access & Approvals)</option>
+							<option value="developer">Developer (Create &amp; Manage Flags)</option>
+							<option value="admin">Admin (Full Access &amp; Approvals)</option>
 							<option value="viewer">Viewer (Read-Only Evaluations)</option>
 						</select>
 					</div>
 
 					<!-- Generated Invite Link Box -->
-					<div x-show="inviteUrl" class="space-y-1.5 p-3 rounded-xl bg-blue-50/50 border border-blue-200">
-						<label class="block text-[11px] font-mono font-bold text-blue-900">Shareable Invitation Link</label>
+					<div x-show="inviteUrl" class="space-y-1.5 p-3 rounded-2xl bg-purple-50 border border-purple-200">
+						<label class="block text-[11px] font-bold text-purple-700">Shareable Invitation Link</label>
 						<div class="flex items-center gap-2">
 							<input 
 								type="text" 
 								readonly 
 								:value="inviteUrl" 
-								class="flex-1 px-2.5 py-1.5 text-xs font-mono bg-white rounded-lg border border-blue-200 text-slate-800 select-all"
+								class="flex-1 px-2.5 py-1.5 text-xs font-mono bg-white rounded-xl border border-purple-200 text-slate-900 select-all"
 							/>
 							<button 
 								type="button" 
 								@click="copyInviteLink()" 
-								class="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-mono font-semibold hover:bg-blue-700 transition shrink-0 flex items-center gap-1"
+								class="px-3.5 py-1.5 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 transition shrink-0 flex items-center gap-1 cursor-pointer"
 							>
 								<i data-lucide="copy" class="w-3.5 h-3.5"></i>
 								<span x-text="inviteCopied ? 'Copied!' : 'Copy'"></span>
@@ -413,14 +409,14 @@ templ ProjectModal(orgs []domain.Organization, projects []domain.Project, active
 						<button 
 							type="button" 
 							@click="open = false" 
-							class="px-3.5 py-2 rounded-xl text-xs font-mono text-slate-600 hover:bg-slate-100 border border-slate-200 transition"
+							class="px-3.5 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-100 border border-slate-200 transition cursor-pointer"
 						>
 							Close
 						</button>
 						<button 
 							type="submit" 
 							:disabled="submitting" 
-							class="px-4 py-2 rounded-xl text-xs font-mono font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20 transition flex items-center gap-1.5"
+							class="px-4 py-2.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-sm transition flex items-center gap-1.5 cursor-pointer hover:scale-[1.02]"
 						>
 							<i data-lucide="send" class="w-3.5 h-3.5"></i>
 							<span x-text="submitting ? 'Generating...' : 'Generate Invite Link'"></span>
@@ -431,4 +427,3 @@ templ ProjectModal(orgs []domain.Organization, projects []domain.Project, active
 		</div>
 	</div>
 }
-

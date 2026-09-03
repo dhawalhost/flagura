@@ -16,7 +16,7 @@ COPY . .
 RUN templ generate
 
 # Compile statically linked binary
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /bin/flagura main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /bin/flagura ./cmd/server
 
 # Production runtime image
 FROM alpine:3.19

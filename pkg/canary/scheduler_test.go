@@ -21,10 +21,11 @@ func TestCanaryStageAdvancementHarness(t *testing.T) {
 	memStore := store.NewMemoryStore()
 	flagKey := "search-v2-canary"
 	_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
-		ID:   "flag_canary_01",
-		Key:  flagKey,
-		Name: "Search V2 Canary",
-		Type: "boolean",
+		ID:        "flag_canary_01",
+		ProjectID: store.DefaultProjectID,
+		Key:       flagKey,
+		Name:      "Search V2 Canary",
+		Type:      "boolean",
 		Environments: map[domain.Environment]domain.EnvironmentConfig{
 			domain.EnvProduction: {
 				Enabled:    true,
@@ -133,10 +134,11 @@ func TestCanaryHealthRollbackTrigger(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			memStore := store.NewMemoryStore()
 			_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
-				ID:   "flag_canary_02",
-				Key:  tt.flagKey,
-				Name: "Checkout V3",
-				Type: "boolean",
+				ID:        "flag_canary_02",
+				ProjectID: store.DefaultProjectID,
+				Key:       tt.flagKey,
+				Name:      "Checkout V3",
+				Type:      "boolean",
 				Environments: map[domain.Environment]domain.EnvironmentConfig{
 					domain.EnvProduction: {
 						Enabled:    true,

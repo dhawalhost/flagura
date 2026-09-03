@@ -53,6 +53,7 @@ func (i *OrgInvitation) IsAccepted() bool {
 type Project struct {
 	ID             string    `json:"id"`
 	OrganizationID string    `json:"organization_id"`
+	ConfigVersion  uint64    `json:"config_version,omitempty"`
 	Name           string    `json:"name"`
 	Slug           string    `json:"slug"`
 	Description    string    `json:"description,omitempty"`

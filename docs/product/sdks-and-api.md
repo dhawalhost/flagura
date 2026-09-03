@@ -229,7 +229,58 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ---
 
-## 6. REST API Reference
+## 6. CNCF OpenFeature Standard Providers
+
+Flagura officially implements the **Cloud Native Computing Foundation (CNCF) OpenFeature** specification across multiple runtimes, ensuring complete portability without proprietary vendor lock-in.
+
+### Go OpenFeature Provider (`sdks/go/openfeature`)
+```go
+import (
+    of "github.com/open-feature/go-sdk/openfeature"
+    flaguraOF "github.com/dhawalhost/flagura/sdks/go/openfeature"
+)
+
+provider := flaguraOF.NewProvider(client)
+_ = of.SetProviderAndWait(provider)
+ofClient := of.NewClient("app-service")
+
+val, _ := ofClient.BooleanValue(ctx, "ai-smart-search", false, of.NewEvaluationContext("usr_123", nil))
+```
+
+### TypeScript / Node.js OpenFeature Provider (`sdks/js`)
+```typescript
+import { OpenFeature } from '@openfeature/server-sdk';
+import { FlaguraOpenFeatureProvider } from 'flagura-sdk';
+
+const provider = new FlaguraOpenFeatureProvider({
+  endpoint: 'http://localhost:3000',
+  apiKey: process.env.FLAGURA_KEY
+});
+await OpenFeature.setProviderAndWait(provider);
+const client = OpenFeature.getClient();
+
+const enabled = await client.getBooleanValue('ai-smart-search', false, { targetingKey: 'usr_123' });
+```
+
+### Python OpenFeature Provider (`sdks/python`)
+```python
+from openfeature import api
+from openfeature.evaluation_context import EvaluationContext
+from flagura.openfeature_provider import FlaguraOpenFeatureProvider
+
+api.set_provider(FlaguraOpenFeatureProvider(endpoint="http://localhost:3000", api_key="..."))
+client = api.get_client()
+
+ctx = EvaluationContext(targeting_key="usr_123")
+enabled = client.get_boolean_value("ai-smart-search", False, ctx)
+```
+
+👉 **[Deep-Dive OpenFeature Architecture Guide](../integrations/openfeature.md)**  
+👉 **[Runnable Cross-Language Code Examples (`examples/`)](../../examples/README.md)**
+
+---
+
+## 7. REST API Reference
 
 ### 1. Evaluate Flags with Execution Trace (`POST /api/v1/evaluate?trace=true`)
 ```bash

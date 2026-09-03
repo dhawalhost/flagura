@@ -119,7 +119,7 @@ func TestHandlers_ExtendedEdgeCases(t *testing.T) {
 			url:            "/api/v1/projects/active",
 			body:           map[string]string{},
 			cookie:         authCookie,
-			expectedStatus: http.StatusNotFound,
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:           "Switch Active Project - NonExistent",
@@ -394,7 +394,7 @@ func TestHandlers_ExtendedEdgeCases(t *testing.T) {
 			name:           "Get Flags - With Active Project Cookie",
 			method:         http.MethodGet,
 			url:            "/api/v1/flags",
-			cookie:         &http.Cookie{Name: "flagura_active_project", Value: proj.ID},
+			cookie:         &http.Cookie{Name: domain.CookieProjectName, Value: proj.ID},
 			headers:        map[string]string{"Authorization": "Bearer " + authCookie.Value},
 			expectedStatus: http.StatusOK,
 		},

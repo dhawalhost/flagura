@@ -107,7 +107,17 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.OrganizationID == "" {
-		req.OrganizationID = domain.DefaultOrgID
+		user := UserFromContext(r.Context())
+		if user != nil {
+			orgs, _ := s.store.ListUserOrganizations(r.Context(), user.ID)
+			if len(orgs) > 0 {
+				req.OrganizationID = orgs[0].ID
+			}
+		}
+	}
+	if req.OrganizationID == "" {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "organization_id is required to create a project", http.StatusBadRequest, domain.ErrInvalidInput))
+		return
 	}
 
 	proj := domain.NewProject(req.OrganizationID, req.Name, req.Slug, req.Description)
@@ -166,7 +176,8 @@ func (s *Server) handleSwitchActiveProject(w http.ResponseWriter, r *http.Reques
 	}
 
 	if pid == "" {
-		pid = domain.DefaultProjectID
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectRequired, "project_id is required", http.StatusBadRequest, domain.ErrInvalidInput))
+		return
 	}
 
 	// Verify project exists

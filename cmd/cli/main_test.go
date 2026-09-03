@@ -14,10 +14,11 @@ import (
 func TestCLIApiInteraction(t *testing.T) {
 	memStore := store.NewMemoryStore()
 	_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
-		ID:   "flag_cli_test",
-		Key:  "cli-feature",
-		Name: "CLI Feature Flag",
-		Type: "boolean",
+		ID:        "flag_cli_test",
+		ProjectID: store.DefaultProjectID,
+		Key:       "cli-feature",
+		Name:      "CLI Feature Flag",
+		Type:      "boolean",
 		Environments: map[domain.Environment]domain.EnvironmentConfig{
 			domain.EnvStaging: {
 				Enabled:    true,
@@ -43,6 +44,7 @@ func TestCLIApiInteraction(t *testing.T) {
 
 	endpoint = ts.URL
 	env = "production"
+	projectID = store.DefaultProjectID
 
 	// Test health request
 	resp, body, err := makeRequest("GET", "/healthz", nil)

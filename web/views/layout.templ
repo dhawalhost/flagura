@@ -8,10 +8,10 @@ templ Layout(title string) {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ title } — Flagura</title>
 			<link rel="icon" href="/static/img/flagura-logo-circle.svg"/>
-			<!-- Google Fonts -->
+			<!-- Google Fonts: Geist & Geist Mono -->
 			<link rel="preconnect" href="https://fonts.googleapis.com"/>
 			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-			<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+			<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 			<!-- Tailwind CSS CDN -->
 			<script src="https://cdn.tailwindcss.com"></script>
 			<script>
@@ -19,16 +19,15 @@ templ Layout(title string) {
 					theme: {
 						extend: {
 							fontFamily: {
-								sans: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
-								display: ['"Plus Jakarta Sans"', 'sans-serif'],
-								syne: ['"Syne"', 'sans-serif'],
-								mono: ['"JetBrains Mono"', 'monospace'],
+								sans: ['"Geist"', 'Inter', '-apple-system', 'sans-serif'],
+								display: ['"Geist"', 'sans-serif'],
+								mono: ['"Geist Mono"', 'monospace'],
 							}
 						}
 					}
 				}
 			</script>
-			<!-- App CSS from zip -->
+			<!-- App CSS -->
 			<link rel="stylesheet" href="/static/app.css"/>
 			<!-- Eliminate Alpine.js Flash of Unstyled / Uninitialized Content (FOUC) -->
 			<style>
@@ -46,33 +45,19 @@ templ Layout(title string) {
 			<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 		</head>
 		<body 
-			class="h-full antialiased text-slate-900 bg-slate-50 selection:bg-blue-600 selection:text-white"
+			class="h-full antialiased text-slate-900 bg-[#FAFAFA] selection:bg-indigo-100 selection:text-indigo-900 overflow-x-hidden font-sans"
 			x-data="globalApp()"
 		>
-			<!-- Ambient Atmosphere Backdrop -->
-			<div 
-				class="fixed inset-0 z-0 bg-cover bg-center bg-fixed transition-all duration-700 pointer-events-none opacity-40"
-				:style="'background-image: url(' + selectedWallpaper + ');'"
-			>
-				<div class="absolute inset-0 bg-slate-900/10 backdrop-blur-2xl"></div>
-			</div>
-
-			<!-- Three.js Canvas Layer -->
-			@ThreeCanvas()
-
-			<!-- Custom Magnetic Cursor -->
-			@CustomCursor()
-
 			<!-- Toast Notification Manager -->
 			<div class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none">
 				<template x-for="toast in toasts" :key="toast.id">
 					<div 
-						class="pointer-events-auto px-4 py-2.5 rounded-xl text-xs font-mono font-semibold flex items-center gap-2 shadow-lg border transition-all duration-300"
-						:class="toast.type === 'error' ? 'text-rose-700 bg-rose-50 border-rose-200' : 'text-slate-900 bg-white border-slate-200'"
+						class="pointer-events-auto px-4 py-2.5 rounded-xl text-xs font-mono font-semibold flex items-center gap-2.5 shadow-xl border backdrop-blur-xl transition-all duration-300"
+						:class="toast.type === 'error' ? 'text-red-700 bg-red-50 border-red-200' : 'text-slate-900 bg-white border-slate-200'"
 						x-transition
 					>
 						<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600" x-show="toast.type !== 'error'"></i>
-						<i data-lucide="alert-circle" class="w-4 h-4 text-rose-600" x-show="toast.type === 'error'"></i>
+						<i data-lucide="alert-circle" class="w-4 h-4 text-red-600" x-show="toast.type === 'error'"></i>
 						<span x-text="toast.message"></span>
 					</div>
 				</template>
@@ -217,25 +202,38 @@ templ Layout(title string) {
 						},
 						openNewFlagEditor() {
 							this.previousView = this.activeView;
-							this.$dispatch('populate-editor', { isEditing: false });
+							this.$dispatch('populate-editor', { isEditing: false, currentEnv: this.currentEnv });
 							this.activeView = 'editor';
 						},
 						openEditFlagEditor(key) {
 							this.previousView = this.activeView;
-							this.$dispatch('populate-editor', { isEditing: true, key });
+							this.$dispatch('populate-editor', { isEditing: true, key, currentEnv: this.currentEnv });
 							this.activeView = 'editor';
 						},
 						openEvaluatorForFlag(flagKey) {
 							this.$dispatch('select-evaluator-flag', flagKey);
 							this.activeView = 'evaluator';
 						},
-						async toggleFlagStatus(key, isEnabled) {
-							window.synth.playSwitch(isEnabled);
+						async toggleFlagEnvStatus(key, env, isEnabled) {
 							try {
 								const res = await fetch('/api/v1/flags/' + key + '/toggle', {
 									method: 'PATCH',
 									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify({ environment: this.currentEnv, enabled: isEnabled, actor: this.currentUser.email })
+									body: JSON.stringify({ environment: env, enabled: isEnabled, actor: this.currentUser ? this.currentUser.email : 'admin@flagura.dev' })
+								});
+								if (res.ok) {
+									this.showToast('Flag ' + key + ' [' + env + '] ' + (isEnabled ? 'ENABLED' : 'DISABLED'));
+								}
+							} catch(e) {
+								this.showToast('Toggle failed', 'error');
+							}
+						},
+						async toggleFlagStatus(key, isEnabled) {
+							try {
+								const res = await fetch('/api/v1/flags/' + key + '/toggle', {
+									method: 'PATCH',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({ environment: this.currentEnv, enabled: isEnabled, actor: this.currentUser ? this.currentUser.email : 'admin@flagura.dev' })
 								});
 								if (res.ok) {
 									this.showToast('Flag ' + key + ' ' + (isEnabled ? 'ENABLED' : 'DISABLED (Kill-Switch)'));
@@ -245,11 +243,10 @@ templ Layout(title string) {
 							}
 						},
 						updateRollout(key, pct) {
-							window.synth.playClick(440);
 							fetch('/api/v1/flags/' + key + '/rollout', {
 								method: 'PATCH',
 								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ environment: this.currentEnv, percentage: Number(pct), actor: this.currentUser.email })
+								body: JSON.stringify({ environment: this.currentEnv, percentage: Number(pct), actor: this.currentUser ? this.currentUser.email : 'admin@flagura.dev' })
 							}).then(() => {
 								this.showToast('Rollout for ' + key + ' set to ' + pct + '%');
 							});
@@ -258,6 +255,8 @@ templ Layout(title string) {
 							if (confirm('Permanently remove feature flag ' + key + '?')) {
 								const res = await fetch('/api/v1/flags/' + key, { method: 'DELETE' });
 								if (res.ok) {
+									const row = document.getElementById('flag-row-' + key);
+									if (row) row.remove();
 									const card = document.getElementById('flag-card-' + key);
 									if (card) card.remove();
 									this.showToast('Deleted flag ' + key);
@@ -274,7 +273,6 @@ templ Layout(title string) {
 							}
 						},
 						async logout() {
-							window.synth.playClick(400);
 							try {
 								await fetch('/api/v1/auth/logout', { method: 'POST' });
 								this.showToast('Logged out');
@@ -301,10 +299,76 @@ templ Layout(title string) {
 						}
 					}));
 
+					// Flag Matrix Enterprise Component
+					Alpine.data('flagMatrixEnterpriseComponent', () => ({
+						searchQuery: '',
+						envFilter: 'all',
+						selectedTag: 'all',
+						healthFilter: 'all',
+						selectedFlags: [],
+						toggleSelectAll(checked) {
+							if (checked) {
+								const rows = document.querySelectorAll('[id^="flag-row-"]');
+								this.selectedFlags = Array.from(rows).map(r => r.id.replace('flag-row-', ''));
+							} else {
+								this.selectedFlags = [];
+							}
+						},
+						async bulkToggleEnv(env, enabled) {
+							for (const key of this.selectedFlags) {
+								await this.toggleFlagEnvStatus(key, env, enabled);
+							}
+							this.showToast('Updated ' + this.selectedFlags.length + ' flags in ' + env);
+							setTimeout(() => window.location.reload(), 600);
+						},
+						async bulkDelete() {
+							if (confirm('Permanently delete ' + this.selectedFlags.length + ' selected flags?')) {
+								for (const key of this.selectedFlags) {
+									await fetch('/api/v1/flags/' + key, { method: 'DELETE' });
+								}
+								this.showToast('Deleted ' + this.selectedFlags.length + ' flags');
+								setTimeout(() => window.location.reload(), 500);
+							}
+						},
+						matchesEnterpriseFilter(key, name, tags, isProd, prodPct, healthStatus) {
+							if (this.envFilter === 'prod_enabled' && !isProd) return false;
+							if (this.envFilter === 'prod_disabled' && isProd) return false;
+							if (this.envFilter === 'canary' && (!isProd || prodPct >= 100)) return false;
+
+							if (this.selectedTag !== 'all' && !tags.includes(this.selectedTag)) return false;
+
+							// Health Status Filter: 'all', 'stale', 'dead', 'active'
+							if (this.healthFilter === 'stale' && healthStatus !== 'READY_FOR_CLEANUP') return false;
+							if (this.healthFilter === 'dead' && healthStatus !== 'DEAD_FLAG') return false;
+							if (this.healthFilter === 'active' && healthStatus !== 'ACTIVE') return false;
+
+							const q = (this.searchQuery || '').toLowerCase().trim();
+							if (!q) return true;
+							return key.toLowerCase().includes(q) || name.toLowerCase().includes(q) || tags.toLowerCase().includes(q);
+						}
+					}));
+
+					// Bento Enterprise Dashboard Component
+					Alpine.data('bentoEnterpriseDashboardComponent', () => ({
+						activeProdCount: 0,
+						staleCount: 0,
+						init() {
+							this.$nextTick(() => {
+								const onToggles = document.querySelectorAll('.bg-emerald-600');
+								this.activeProdCount = Math.max(0, onToggles.length - 2);
+
+								// Dynamically count flags ready for cleanup
+								const staleBadges = document.querySelectorAll('.bg-amber-50');
+								this.staleCount = staleBadges.length;
+							});
+						}
+					}));
+
 					// Flag Matrix View Component
 					Alpine.data('flagMatrixViewComponent', () => ({
 						statusFilter: 'all',
 						selectedTag: 'all',
+						searchQuery: '',
 						matchesFilter(key, name, tags, isEnabled, rulesCount, strategy) {
 							// Status filter
 							if (this.statusFilter === 'enabled' && !isEnabled) return false;
@@ -466,6 +530,8 @@ templ Layout(title string) {
 						isRunning: false,
 						metrics: null,
 						chart: null,
+						networkProbing: false,
+						networkResults: null,
 						init() {
 							this.$nextTick(() => {
 								if (!this.metrics) this.runStressTest();
@@ -473,7 +539,7 @@ templ Layout(title string) {
 						},
 						async runStressTest() {
 							this.isRunning = true;
-							window.synth.playClick(750);
+							if (window.synth) window.synth.playClick(750);
 							try {
 								const res = await fetch('/api/v1/benchmark', {
 									method: 'POST',
@@ -485,6 +551,42 @@ templ Layout(title string) {
 								this.$nextTick(() => this.renderHistogram(data.hashBuckets || []));
 							} finally {
 								this.isRunning = false;
+							}
+						},
+						async probeLiveNetwork() {
+							this.networkProbing = true;
+							if (window.synth) window.synth.playClick(620);
+							const samples = [];
+							const payload = JSON.stringify({
+								flags: ['*'],
+								context: { user_id: 'probe_user_' + Date.now(), environment: this.currentEnv }
+							});
+							try {
+								for (let i = 0; i < 5; i++) {
+									const start = performance.now();
+									await fetch('/api/v1/evaluate', {
+										method: 'POST',
+										headers: { 'Content-Type': 'application/json' },
+										body: payload
+									});
+									const end = performance.now();
+									samples.push(Math.max(0.1, end - start));
+									await new Promise(r => setTimeout(r, 40));
+								}
+								samples.sort((a, b) => a - b);
+								const sum = samples.reduce((acc, v) => acc + v, 0);
+								this.networkResults = {
+									samples: samples,
+									min: samples[0],
+									max: samples[samples.length - 1],
+									p50: samples[Math.floor(samples.length / 2)],
+									avg: sum / samples.length
+								};
+								this.showToast('Network probe complete: avg ' + this.networkResults.avg.toFixed(1) + 'ms');
+							} catch (e) {
+								this.showToast('Network probe failed', 'error');
+							} finally {
+								this.networkProbing = false;
 							}
 						},
 						renderHistogram(buckets) {
@@ -534,6 +636,7 @@ templ Layout(title string) {
 					// SDK View Component
 					Alpine.data('sdkViewComponent', () => ({
 						sdkTab: 'apikeys',
+						openfeatureLang: 'go',
 						copied: false,
 						apiKeys: [],
 						showKeyModal: false,
@@ -591,6 +694,15 @@ templ Layout(title string) {
 							setTimeout(() => this.keyCopied = false, 2000);
 						},
 						getSdkSnippet() {
+							if (this.sdkTab === 'openfeature') {
+								if (this.openfeatureLang === 'go') {
+									return `package main\n\nimport (\n    "context"\n    "fmt"\n    flagura "github.com/dhawalhost/flagura/sdks/go"\n    flaguraOF "github.com/dhawalhost/flagura/sdks/go/openfeature"\n    of "github.com/open-feature/go-sdk/openfeature"\n)\n\nfunc main() {\n    // 1. Initialize Flagura in-process evaluation client\n    client := flagura.NewClient("${window.location.origin}", "flg_live_your_api_key",\n        flagura.WithLocalEvaluation(true),\n    )\n    defer client.Close()\n\n    // 2. Register Flagura as the OpenFeature global provider\n    of.SetProvider(flaguraOF.NewProvider(client))\n    ofClient := of.NewClient("backend-service")\n\n    // 3. Evaluate using standard OpenFeature APIs\n    ctx := of.NewEvaluationContext("usr_dhawal_01", map[string]interface{}{\n        "email": "dhawal@flagura.dev",\n        "tier":  "enterprise",\n    })\n    enabled, _ := ofClient.BooleanValue(context.Background(), "ai-smart-search", false, ctx)\n    fmt.Printf("OpenFeature enabled: %v\\n", enabled)\n}`;
+								} else if (this.openfeatureLang === 'ts') {
+									return `import { FlaguraClient } from '@flagura/sdk';\nimport { FlaguraOpenFeatureProvider } from '@flagura/sdk/openfeature';\nimport { OpenFeature } from '@openfeature/server-sdk';\n\n// 1. Initialize Flagura Client\nconst client = new FlaguraClient({\n  endpoint: '${window.location.origin}',\n  apiKey: 'flg_live_your_api_key'\n});\n\n// 2. Bind Flagura as the OpenFeature Provider\nawait OpenFeature.setProviderAndWait(new FlaguraOpenFeatureProvider(client));\nconst ofClient = OpenFeature.getClient('billing-service');\n\n// 3. Evaluate with standard OpenFeature context\nconst enabled = await ofClient.getBooleanValue('ai-smart-search', false, {\n  targetingKey: 'usr_dhawal_01',\n  email: 'dhawal@flagura.dev',\n  tier: 'enterprise'\n});\nconsole.log({ enabled });`;
+								} else if (this.openfeatureLang === 'python') {
+									return `from openfeature import api\nfrom openfeature.evaluation_context import EvaluationContext\nfrom flagura import FlaguraClient\nfrom flagura.openfeature_provider import FlaguraOpenFeatureProvider\n\n# 1. Initialize client & register OpenFeature provider\nclient = FlaguraClient("${window.location.origin}", api_key="flg_live_your_api_key")\napi.set_provider(FlaguraOpenFeatureProvider(client=client))\nof_client = api.get_client("api-service")\n\n# 2. Evaluate with OpenFeature standard API\ncontext = EvaluationContext(targeting_key="usr_dhawal_01", attributes={"email": "dhawal@flagura.dev", "tier": "enterprise"})\nenabled = of_client.get_boolean_value("ai-smart-search", False, context)\nprint("OpenFeature enabled:", enabled)\nclient.close()`;
+								}
+							}
 							if (this.sdkTab === 'go') {
 								return `package main\n\nimport (\n    "context"\n    "fmt"\n    flagura "github.com/dhawalhost/flagura/sdks/go"\n)\n\nfunc main() {\n    // Project scope and environment are automatically resolved from your API key\n    client := flagura.NewClient("${window.location.origin}", "flg_live_your_api_key",\n        flagura.WithLocalEvaluation(true),\n    )\n    defer client.Close()\n\n    res, _ := client.Evaluate(context.Background(), "ai-smart-search", flagura.Context{\n        UserID: "usr_dhawal_01",\n        Email:  "dhawal@flagura.dev",\n    })\n    fmt.Printf("Enabled: %v | Latency: %v ns\\n", res.Enabled, res.EvaluationLatencyNs)\n}`;
 							} else if (this.sdkTab === 'ts') {
@@ -633,6 +745,9 @@ templ Layout(title string) {
 							window.addEventListener('populate-editor', async (e) => {
 								const d = e.detail;
 								this.isEditing = d.isEditing;
+								if (d.currentEnv) {
+									this.envTab = d.currentEnv;
+								}
 								if (d.isEditing && d.key) {
 									try {
 										const res = await fetch('/api/v1/flags');
@@ -760,6 +875,385 @@ templ Layout(title string) {
 								this.showToast('Network error saving flag: ' + e.message, 'error');
 							} finally {
 								this.saving = false;
+							}
+						}
+					}));
+
+					// Landing Page Component
+					Alpine.data('landingPageComponent', () => ({
+						consoleMode: 'switchboard',
+						heroUserId: 'sarah@example.com',
+						heroRolloutPct: 50,
+						heroBucket: 42,
+						isHeroActive: true,
+						sdkLanguage: 'go',
+						codeCopied: false,
+						benchRunning: false,
+						isRunningBenchmark: false,
+						benchCount: 100000,
+						benchmarkIters: 100000,
+						benchDurationMs: '',
+						benchmarkTimeMs: '',
+						benchOpsPerSec: '',
+						benchmarkThroughput: '',
+						soundOn: true,
+						init() {
+							this.updateHeroBucket();
+							this.runBrowserBenchmark(true);
+							this.$nextTick(() => {
+								if (window.lucide) window.lucide.createIcons();
+							});
+						},
+						toggleSound() {
+							this.soundOn = !this.soundOn;
+							if (window.synth) {
+								window.synth.enabled = this.soundOn;
+								if (this.soundOn) window.synth.playClick(600);
+							}
+						},
+						scrollToSection(id) {
+							if (window.synth) window.synth.playClick(520);
+							const el = document.getElementById(id);
+							if (el) el.scrollIntoView({ behavior: 'smooth' });
+						},
+						updateHeroBucket() {
+							const rawUser = this.heroUserId || 'guest';
+							let hash = 2166136261;
+							const str = rawUser + ':ai-smart-search';
+							for (let i = 0; i < str.length; i++) {
+								hash ^= str.charCodeAt(i);
+								hash = Math.imul(hash, 16777619);
+							}
+							const bucket = Math.abs(hash % 100);
+							this.heroBucket = bucket;
+							this.isHeroActive = this.heroBucket < this.heroRolloutPct;
+							this.$nextTick(() => {
+								if (window.lucide) window.lucide.createIcons();
+							});
+						},
+						randomizeUser() {
+							if (window.synth) window.synth.playClick(680);
+							const users = ['customer_alex_44', 'emma@company.com', 'david_pro_user', 'sarah_shopper_99', 'mike_enterprise', 'priya_dev_01', 'lucas_cloud_88'];
+							this.heroUserId = users[Math.floor(Math.random() * users.length)];
+							this.updateHeroBucket();
+						},
+						copySnippet() {
+							if (window.synth) window.synth.playClick(880);
+							let code = '';
+							if (this.sdkLanguage === 'go') {
+								code = 'package main\n\nimport (\n    "context"\n    "fmt"\n    flagura "github.com/dhawalhost/flagura/sdks/go"\n)\n\nfunc main() {\n    client := flagura.NewClient("https://api.flagura.dev", "flg_live_secret", flagura.WithLocalEvaluation(true))\n    defer client.Close()\n    res, _ := client.Evaluate(context.Background(), "ai-smart-search", flagura.Context{UserID: "usr_alex_42", Email: "alex@company.com"})\n    fmt.Printf("Enabled: %v | Latency: %v ns\\n", res.Enabled, res.EvaluationLatencyNs)\n}';
+							} else if (this.sdkLanguage === 'ts') {
+								code = 'import { FlaguraClient } from \'@flagura/sdk\';\n\nconst client = new FlaguraClient({ endpoint: \'https://api.flagura.dev\', apiKey: \'flg_live_secret\' });\nconst { enabled, variant } = await client.evaluate(\'ai-smart-search\', { user_id: \'usr_alex_42\', email: \'alex@company.com\' });\nconsole.log({ enabled, variant });';
+							} else if (this.sdkLanguage === 'python') {
+								code = 'from flagura import FlaguraClient, EvaluationContext\n\nclient = FlaguraClient("https://api.flagura.dev", api_key="flg_live_secret")\nres = client.evaluate("ai-smart-search", EvaluationContext(user_id="usr_alex_42", email="alex@company.com"))\nprint(res.enabled, res.variant)';
+							} else if (this.sdkLanguage === 'rust') {
+								code = 'use flagura::{FlaguraClient, EvaluationContext};\n\n#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n    let client = FlaguraClient::new("https://api.flagura.dev").with_api_key("flg_live_secret");\n    let ctx = EvaluationContext::new("usr_alex_42").with_email("alex@company.com");\n    if client.is_enabled("ai-smart-search", &ctx).await {\n        println!("✨ AI Smart Search is active!");\n    }\n    Ok(())\n}';
+							} else {
+								code = 'curl -X POST https://api.flagura.dev/api/v1/evaluate -H "Content-Type: application/json" -H "Authorization: Bearer flg_live_secret" -d \'{"flags":["ai-smart-search"],"context":{"user_id":"usr_alex_42","email":"alex@company.com"}}\'';
+							}
+							navigator.clipboard.writeText(code);
+							this.codeCopied = true;
+							this.showToast('Code snippet copied to clipboard');
+							setTimeout(() => this.codeCopied = false, 2000);
+						},
+						async runBrowserBenchmark(isSilent = false) {
+							this.benchRunning = true;
+							this.isRunningBenchmark = true;
+							if (!isSilent && window.synth) window.synth.playClick(440);
+							if (!isSilent) await new Promise(r => setTimeout(r, 60));
+							const iterations = 100000;
+							const start = performance.now();
+							let hash = 2166136261;
+							for (let i = 0; i < iterations; i++) {
+								hash ^= (i & 0xff);
+								hash = Math.imul(hash, 16777619);
+							}
+							const end = performance.now();
+							const duration = Math.max(0.1, end - start);
+							const durStr = duration.toFixed(2);
+							const opsSec = Math.round((iterations / (duration / 1000)));
+							const opsStr = opsSec.toLocaleString() + ' ops/sec';
+
+							this.benchDurationMs = durStr;
+							this.benchmarkTimeMs = durStr;
+							this.benchCount = iterations;
+							this.benchmarkIters = iterations;
+							this.benchOpsPerSec = opsStr;
+							this.benchmarkThroughput = opsStr;
+							this.benchRunning = false;
+							this.isRunningBenchmark = false;
+							if (!isSilent) {
+								if (window.synth) window.synth.playClick(880);
+								this.showToast('Measured 100,000 evaluations in ' + durStr + 'ms (' + opsStr + ')');
+							}
+						}
+					}));
+
+					// Auth Page Component
+					Alpine.data('authPageComponent', () => ({
+						mode: 'signin',
+						loading: false,
+						showPassword: false,
+						error: '',
+						successMessage: '',
+						resetToken: '',
+						inviteToken: '',
+						inviteOrgName: '',
+						loginForm: {
+							email: '',
+							passphrase: ''
+						},
+						signUpForm: {
+							name: '',
+							email: '',
+							passphrase: '',
+							confirmPassphrase: '',
+							role: 'developer'
+						},
+						forgotForm: {
+							email: ''
+						},
+						resetForm: {
+							passphrase: '',
+							confirmPassphrase: ''
+						},
+						criteria: {
+							len: false,
+							upper: false,
+							lower: false,
+							digit: false,
+							special: false
+						},
+						passwordStrengthPct: 0,
+						passwordStrengthText: '',
+						passwordStrengthColor: '',
+						passwordStrengthClass: '',
+
+						getTitleText() {
+							if (this.mode === 'signup') return 'Create Account';
+							if (this.mode === 'forgot') return 'Reset Password';
+							if (this.mode === 'reset') return 'Set Password';
+							return 'Sign In';
+						},
+
+						getSubtitleText() {
+							if (this.mode === 'signup') return 'Get started with multi-tenant flag management';
+							if (this.mode === 'forgot') return 'We will send you a secure recovery link';
+							if (this.mode === 'reset') return 'Choose a strong password to continue';
+							return 'Access your team feature flags, rollouts, and environments';
+						},
+
+						isMainAuthMode() {
+							return this.mode === 'signin' || this.mode === 'signup';
+						},
+
+						initAuth() {
+							const urlParams = new URLSearchParams(window.location.search);
+							const modeParam = urlParams.get('mode');
+							const tokenParam = urlParams.get('token');
+							const inviteParam = urlParams.get('invite');
+							if (inviteParam) {
+								this.inviteToken = inviteParam;
+								this.mode = 'signup';
+								fetch('/api/v1/invitations/' + inviteParam)
+									.then(r => r.json())
+									.then(data => {
+										if (data.invitation) {
+											this.inviteOrgName = data.invitation.org_name;
+											if (data.invitation.email) this.signUpForm.email = data.invitation.email;
+											if (data.invitation.role) this.signUpForm.role = data.invitation.role;
+											this.successMessage = "You have been invited to join " + this.inviteOrgName + "! Complete your account below.";
+										}
+									})
+									.catch(() => {});
+							} else if (modeParam === 'reset' && tokenParam) {
+								this.mode = 'reset';
+								this.resetToken = tokenParam;
+							} else if (modeParam === 'forgot') {
+								this.mode = 'forgot';
+							}
+						},
+
+						setMode(newMode) {
+							this.mode = newMode;
+							this.error = '';
+							this.successMessage = '';
+						},
+
+						evaluatePassword(pwd) {
+							if (!pwd) {
+								this.criteria = { len: false, upper: false, lower: false, digit: false, special: false };
+								this.passwordStrengthPct = 0;
+								this.passwordStrengthText = '';
+								return;
+							}
+
+							this.criteria.len = pwd.length >= 8;
+							this.criteria.upper = /[A-Z]/.test(pwd);
+							this.criteria.lower = /[a-z]/.test(pwd);
+							this.criteria.digit = /[0-9]/.test(pwd);
+							this.criteria.special = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?\x60~]/.test(pwd);
+
+							let score = 0;
+							if (this.criteria.len) score += 20;
+							if (this.criteria.upper) score += 20;
+							if (this.criteria.lower) score += 20;
+							if (this.criteria.digit) score += 20;
+							if (this.criteria.special) score += 20;
+
+							this.passwordStrengthPct = score;
+							if (score < 60) {
+								this.passwordStrengthText = 'Weak';
+								this.passwordStrengthColor = 'text-red-600';
+								this.passwordStrengthClass = 'bg-red-500';
+							} else if (score < 100) {
+								this.passwordStrengthText = 'Moderate';
+								this.passwordStrengthColor = 'text-amber-600';
+								this.passwordStrengthClass = 'bg-amber-500';
+							} else {
+								this.passwordStrengthText = 'Strong (Meets Policy)';
+								this.passwordStrengthColor = 'text-emerald-700';
+								this.passwordStrengthClass = 'bg-emerald-600';
+							}
+						},
+
+						isPasswordValid(pwd) {
+							return pwd.length >= 8 &&
+								/[A-Z]/.test(pwd) &&
+								/[a-z]/.test(pwd) &&
+								/[0-9]/.test(pwd) &&
+								/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?\x60~]/.test(pwd);
+						},
+
+						async submitLogin() {
+							this.loading = true;
+							this.error = '';
+							this.successMessage = '';
+							try {
+								const res = await fetch('/api/v1/auth/login', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({
+										email: this.loginForm.email,
+										password: this.loginForm.passphrase
+									})
+								});
+								const data = await res.json();
+								if (!res.ok) {
+									this.error = data.message || 'Invalid email or password';
+									return;
+								}
+								setTimeout(() => {
+									window.location.href = '/dashboard';
+								}, 400);
+							} catch(err) {
+								this.error = 'Network error. Please try again.';
+							} finally {
+								this.loading = false;
+							}
+						},
+
+						async submitSignUp() {
+							if (!this.isPasswordValid(this.signUpForm.passphrase)) {
+								this.error = 'Password does not meet all security complexity requirements (8+ chars, uppercase, lowercase, number, and special symbol).';
+								return;
+							}
+							if (this.signUpForm.passphrase !== this.signUpForm.confirmPassphrase) {
+								this.error = 'Passwords do not match.';
+								return;
+							}
+							this.loading = true;
+							this.error = '';
+							this.successMessage = '';
+							try {
+								const res = await fetch('/api/v1/auth/signup', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({
+										name: this.signUpForm.name,
+										email: this.signUpForm.email,
+										password: this.signUpForm.passphrase,
+										role: this.signUpForm.role,
+										inviteToken: this.inviteToken || undefined
+									})
+								});
+								const data = await res.json();
+								if (!res.ok) {
+									this.error = data.message || 'Failed to create account';
+									return;
+								}
+								setTimeout(() => {
+									window.location.href = '/dashboard';
+								}, 400);
+							} catch(err) {
+								this.error = 'Network error. Please try again.';
+							} finally {
+								this.loading = false;
+							}
+						},
+
+						async submitForgotPassword() {
+							this.loading = true;
+							this.error = '';
+							this.successMessage = '';
+							try {
+								const res = await fetch('/api/v1/auth/forgot-password', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify(this.forgotForm)
+								});
+								const data = await res.json();
+								if (res.ok) {
+									this.successMessage = data.message || 'Recovery instructions sent to your email.';
+									this.forgotForm.email = '';
+								} else {
+									this.error = data.message || 'Failed to request reset.';
+								}
+							} catch(err) {
+								this.error = 'Network error. Please try again.';
+							} finally {
+								this.loading = false;
+							}
+						},
+
+						async submitResetPassword() {
+							if (!this.isPasswordValid(this.resetForm.passphrase)) {
+								this.error = 'Password does not meet all security complexity requirements (8+ chars, uppercase, lowercase, number, and special symbol).';
+								return;
+							}
+							if (this.resetForm.passphrase !== this.resetForm.confirmPassphrase) {
+								this.error = 'Passwords do not match.';
+								return;
+							}
+							if (!this.resetToken) {
+								this.error = 'Missing reset token in URL.';
+								return;
+							}
+							this.loading = true;
+							this.error = '';
+							this.successMessage = '';
+							try {
+								const res = await fetch('/api/v1/auth/reset-password', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({
+										token: this.resetToken,
+										newPassword: this.resetForm.passphrase
+									})
+								});
+								const data = await res.json();
+								if (!res.ok) {
+									this.error = data.message || 'Failed to reset password.';
+									return;
+								}
+								this.successMessage = 'Password reset successfully! Redirecting to sign in...';
+								setTimeout(() => {
+									this.setMode('signin');
+								}, 1500);
+							} catch(err) {
+								this.error = 'Network error. Please try again.';
+							} finally {
+								this.loading = false;
 							}
 						}
 					}));

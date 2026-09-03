@@ -158,6 +158,7 @@ func TestRBACAndActorVerification(t *testing.T) {
 
 	// Developer can create flags and actor is attributed to authenticated email
 	flagPayload := domain.FeatureFlag{
+		ProjectID:   "proj_default",
 		Key:         "guardrail_test_flag",
 		Name:        "Guardrail Test Flag",
 		Description: "Testing security guardrails",
@@ -170,6 +171,7 @@ func TestRBACAndActorVerification(t *testing.T) {
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/flags", bytes.NewReader(body))
 	reqCreate.Header.Set("Content-Type", "application/json")
 	reqCreate.Header.Set("Authorization", "Bearer "+devToken)
+	reqCreate.Header.Set("X-Project-ID", "proj_default")
 	reqCreate.Header.Set("X-Actor", "spoofed_hacker@evil.com") // Spoofed header should be ignored
 	wCreate := httptest.NewRecorder()
 	server.ServeHTTP(wCreate, reqCreate)

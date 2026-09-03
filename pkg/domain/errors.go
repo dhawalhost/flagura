@@ -51,6 +51,7 @@ const (
 	ErrCodeProjectNotFound     ErrorCode = 2003 // Project not found
 	ErrCodeProjectConflict     ErrorCode = 2004 // Project slug already exists
 	ErrCodeProjectAccessDenied ErrorCode = 2005 // User not authorized for this project
+	ErrCodeProjectRequired     ErrorCode = 2006 // Project ID parameter or header required
 
 	// -------------------------------------------------------------
 	// 3000s: Feature Flags & Evaluation Engine Layer

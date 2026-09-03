@@ -2,13 +2,13 @@
 
 When choosing a feature flagging and release management engine, engineering teams evaluate **latency, infrastructure resource footprint, governance controls, experimentation fidelity, deployment complexity, and cost**.
 
-This document provides an objective architectural comparison of Flagura (`v1.4.0`) against major open-source and commercial enterprise solutions (LaunchDarkly, Unleash, Flagsmith, and GrowthBook).
+This document provides an objective architectural comparison of Flagura (`v1.5.0`) against major open-source and commercial enterprise solutions (LaunchDarkly, Unleash, Flagsmith, and GrowthBook).
 
 ---
 
 ## 📊 Comprehensive Comparison Matrix
 
-| Feature / Capability | ⚡ Flagura (`v1.4.0`) | LaunchDarkly | Unleash | Flagsmith | GrowthBook |
+| Feature / Capability | ⚡ Flagura (`v1.5.0`) | LaunchDarkly | Unleash | Flagsmith | GrowthBook |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Core Architecture** | **Go (Native Binary)** | Cloud SaaS / Daemon | Node.js / TypeScript | Python (Django) | TypeScript / Next.js |
 | **P50 In-Memory Evaluation Latency** | **`~13 ns – 220 ns`** | ~25 µs (SDK) / ~35ms | ~25 µs | ~50 µs | ~30 µs |

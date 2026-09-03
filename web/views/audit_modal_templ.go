@@ -34,7 +34,7 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-8\" x-show=\"activeView === 'audit'\" x-cloak x-data=\"auditViewComponent()\"><!-- Top Header Card --><div class=\"console-card p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4\"><div class=\"flex items-center gap-3.5\"><button @click=\"activeView = 'overview'\" class=\"p-2 text-slate-600 hover:text-slate-900 transition-colors rounded-xl hover:bg-slate-100 border border-slate-200 shadow-2xs flex items-center gap-1.5 text-xs font-semibold cursor-pointer\" title=\"Return to overview\"><i data-lucide=\"arrow-left\" class=\"h-4 w-4\"></i> <span class=\"hidden sm:inline\">Back</span></button><div class=\"flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 border border-amber-200 text-amber-600\"><i data-lucide=\"shield-check\" class=\"h-5 w-5\"></i></div><div><div class=\"flex items-center gap-2\"><h2 class=\"text-lg font-bold text-slate-900 font-display\">System Audit Trail & History</h2><span class=\"rounded-md bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-mono text-amber-700 font-bold uppercase\">Immutable Log</span></div><p class=\"text-xs text-slate-600 mt-1\">Cryptographically verifiable audit log of all flag creation, kill-switch circuit breaks, and rollout traffic adjustments.</p></div></div><div class=\"flex items-center gap-2 self-end sm:self-auto\"><button @click=\"fetchLogs()\" class=\"px-4 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all\" :disabled=\"loading\"><i data-lucide=\"rotate-ccw\" class=\"h-3.5 w-3.5\" :class=\"loading ? 'animate-spin' : ''\"></i> <span>Refresh Trail</span></button></div></div><!-- Logs Container --><div class=\"console-card p-6 sm:p-7 space-y-4 font-mono text-xs\"><div class=\"flex items-center justify-between border-b border-slate-100 pb-4 mb-2\"><span class=\"text-xs font-bold text-slate-500 uppercase tracking-wider font-mono\">Event Timeline</span> <span class=\"text-xs text-slate-500\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-8\" x-show=\"activeView === 'audit'\" x-cloak x-data=\"auditViewComponent()\"><!-- Top Header Card --><div class=\"glass-panel p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 shadow-xs\"><div class=\"flex items-center gap-3.5\"><button @click=\"activeView = 'overview'\" class=\"p-2 text-slate-500 hover:text-slate-900 transition-colors rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-2xs flex items-center gap-1.5 text-xs font-semibold cursor-pointer font-mono\" title=\"Return to overview\"><i data-lucide=\"arrow-left\" class=\"h-4 w-4\"></i> <span class=\"hidden sm:inline\">Back</span></button><div class=\"flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 border border-amber-200 text-amber-600 shadow-2xs\"><i data-lucide=\"shield-check\" class=\"h-5 w-5\"></i></div><div><div class=\"flex items-center gap-2\"><h2 class=\"text-base font-bold text-slate-900 font-display\">System Audit Trail &amp; History</h2><span class=\"rounded-md bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-mono text-amber-700 font-bold uppercase\">Immutable Log</span></div><p class=\"text-xs text-slate-500 mt-0.5 font-sans\">Cryptographically verifiable audit log of all flag creation, kill-switch circuit breaks, and rollout traffic adjustments.</p></div></div><div class=\"flex items-center gap-2 self-end sm:self-auto font-mono\"><button @click=\"fetchLogs()\" class=\"px-4 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all\" :disabled=\"loading\"><i data-lucide=\"rotate-ccw\" class=\"h-3.5 w-3.5\" :class=\"loading ? 'animate-spin' : ''\"></i> <span>Refresh Trail</span></button></div></div><!-- Logs Container --><div class=\"glass-panel p-6 sm:p-7 space-y-4 font-mono text-xs bg-white border border-slate-200 shadow-xs\"><div class=\"flex items-center justify-between border-b border-slate-100 pb-4 mb-2\"><span class=\"text-xs font-bold text-slate-600 uppercase tracking-wider font-mono\">Event Timeline</span> <span class=\"text-xs text-slate-500\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -52,16 +52,16 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		for _, log := range auditLogs {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2\"><div class=\"flex items-center justify-between\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2\"><div class=\"flex items-center justify-between\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var3 = []any{templ.KV("bg-rose-50 text-rose-700 border border-rose-200", log.Action == "KILL_SWITCH_TOGGLED"), templ.KV("bg-blue-50 text-blue-700 border border-blue-200", log.Action != "KILL_SWITCH_TOGGLED")}
+			var templ_7745c5c3_Var3 = []any{templ.KV("bg-red-50 text-red-700 border-red-200", log.Action == "KILL_SWITCH_TOGGLED"), templ.KV("bg-indigo-50 text-indigo-700 border-indigo-200", log.Action != "KILL_SWITCH_TOGGLED")}
 			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var3...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<span class=\"px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase\" class=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<span class=\"px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase border\" class=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -126,7 +126,7 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</p><div class=\"flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-200/60\"><span>Actor: <strong class=\"text-slate-900\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</p><div class=\"flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-200\"><span>Actor: <strong class=\"text-slate-900\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -139,14 +139,14 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</strong></span> <span class=\"uppercase text-purple-700 font-bold bg-white px-2 py-0.5 rounded border border-slate-200\">Env: ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</strong></span> <span class=\"uppercase text-purple-700 font-bold bg-purple-50 px-2 py-0.5 rounded border border-purple-200\">Env: ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(string(log.Environment))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 72, Col: 140}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 72, Col: 145}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {

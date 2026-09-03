@@ -12,26 +12,36 @@ import (
 )
 
 type streamClient struct {
-	send chan []byte
+	projectID   string
+	environment string
+	send        chan []byte
 }
 
-// StreamHub coordinates real-time SSE streaming connections to clients.
+type streamBroadcastMsg struct {
+	projectID   string
+	environment string
+	data        []byte
+}
+
+// StreamHub coordinates real-time SSE streaming connections isolated by tenant project and environment.
 type StreamHub struct {
 	mu         sync.RWMutex
 	clients    map[*streamClient]bool
+	subs       map[string]map[*streamClient]bool // key: projectID or projectID:env
 	register   chan *streamClient
 	unregister chan *streamClient
-	broadcast  chan []byte
+	broadcast  chan streamBroadcastMsg
 	stopCh     chan struct{}
 }
 
-// NewStreamHub creates a new SSE StreamHub.
+// NewStreamHub creates a new tenant-aware SSE StreamHub.
 func NewStreamHub() *StreamHub {
 	return &StreamHub{
 		clients:    make(map[*streamClient]bool),
+		subs:       make(map[string]map[*streamClient]bool),
 		register:   make(chan *streamClient),
 		unregister: make(chan *streamClient),
-		broadcast:  make(chan []byte, 100),
+		broadcast:  make(chan streamBroadcastMsg, 100),
 		stopCh:     make(chan struct{}),
 	}
 }
@@ -43,21 +53,54 @@ func (h *StreamHub) Run() {
 		case client := <-h.register:
 			h.mu.Lock()
 			h.clients[client] = true
+			keyProj := client.projectID
+			if h.subs[keyProj] == nil {
+				h.subs[keyProj] = make(map[*streamClient]bool)
+			}
+			h.subs[keyProj][client] = true
+
+			if client.environment != "" {
+				keyEnv := client.projectID + ":" + client.environment
+				if h.subs[keyEnv] == nil {
+					h.subs[keyEnv] = make(map[*streamClient]bool)
+				}
+				h.subs[keyEnv][client] = true
+			}
 			h.mu.Unlock()
 
 		case client := <-h.unregister:
 			h.mu.Lock()
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
+				if sub, ok := h.subs[client.projectID]; ok {
+					delete(sub, client)
+				}
+				if client.environment != "" {
+					if sub, ok := h.subs[client.projectID+":"+client.environment]; ok {
+						delete(sub, client)
+					}
+				}
 				close(client.send)
 			}
 			h.mu.Unlock()
 
-		case message := <-h.broadcast:
+		case msg := <-h.broadcast:
 			h.mu.RLock()
-			for client := range h.clients {
+			targets := make(map[*streamClient]bool)
+
+			// Deliver to all subscribers of this project
+			if sub, ok := h.subs[msg.projectID]; ok {
+				for c := range sub {
+					// If client specified environment, match it
+					if c.environment == "" || msg.environment == "" || c.environment == msg.environment {
+						targets[c] = true
+					}
+				}
+			}
+
+			for client := range targets {
 				select {
-				case client.send <- message:
+				case client.send <- msg.data:
 				default:
 					// Drop or slow client
 				}
@@ -70,9 +113,34 @@ func (h *StreamHub) Run() {
 				delete(h.clients, client)
 				close(client.send)
 			}
+			h.subs = make(map[string]map[*streamClient]bool)
 			h.mu.Unlock()
 			return
 		}
+	}
+}
+
+// BroadcastProjectFlags serializes and delivers flag updates strictly to authorized subscribers of projectID.
+func (h *StreamHub) BroadcastProjectFlags(projectID string, env domain.Environment, configVersion uint64, flags []domain.FeatureFlag) {
+	if projectID == "" {
+		projectID = domain.DefaultProjectID
+	}
+	payload, err := json.Marshal(map[string]interface{}{
+		"event":          "flags_update",
+		"project_id":     projectID,
+		"environment":    string(env),
+		"config_version": configVersion,
+		"timestamp":      time.Now().UTC().UnixMilli(),
+		"flags":          flags,
+	})
+	if err != nil {
+		return
+	}
+
+	msg := fmt.Sprintf("event: flags_update\ndata: %s\n\n", string(payload))
+	select {
+	case h.broadcast <- streamBroadcastMsg{projectID: projectID, environment: string(env), data: []byte(msg)}:
+	default:
 	}
 }
 
@@ -84,27 +152,14 @@ func (h *StreamHub) Broadcast(event string, payload interface{}) {
 	}
 	msg := fmt.Sprintf("event: %s\ndata: %s\n\n", event, string(data))
 	select {
-	case h.broadcast <- []byte(msg):
+	case h.broadcast <- streamBroadcastMsg{projectID: domain.DefaultProjectID, data: []byte(msg)}:
 	default:
 	}
 }
 
-// BroadcastFlags serializes and broadcasts updated flags to all connected SSE clients.
+// BroadcastFlags is a backward-compatible wrapper that broadcasts to the default project.
 func (h *StreamHub) BroadcastFlags(flags []domain.FeatureFlag) {
-	payload, err := json.Marshal(map[string]interface{}{
-		"event":     "flags_update",
-		"timestamp": time.Now().UTC().UnixMilli(),
-		"flags":     flags,
-	})
-	if err != nil {
-		return
-	}
-
-	msg := fmt.Sprintf("event: flags_update\ndata: %s\n\n", string(payload))
-	select {
-	case h.broadcast <- []byte(msg):
-	default:
-	}
+	h.BroadcastProjectFlags(domain.DefaultProjectID, "", 1, flags)
 }
 
 // Close stops the StreamHub.
@@ -138,24 +193,39 @@ func (s *Server) handleFlagsStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	// Send initial flags snapshot immediately on connection
 	ctx := r.Context()
 	projectID := s.resolveProjectID(r)
+	if projectID == "" {
+		http.Error(w, "project_id is required via X-Project-ID header, project_id query parameter, or API key", http.StatusBadRequest)
+		return
+	}
+	envParam := r.URL.Query().Get("environment")
+
 	flags, err := s.store.ListFlagsByProject(ctx, projectID)
 	if err == nil {
+		var maxVersion uint64 = 1
+		for _, f := range flags {
+			if f.ConfigVersion > maxVersion {
+				maxVersion = f.ConfigVersion
+			}
+		}
 		initPayload, _ := json.Marshal(map[string]interface{}{
-			"event":     "flags_init",
-			"timestamp": time.Now().UTC().UnixMilli(),
-			"flags":     flags,
+			"event":          "flags_init",
+			"project_id":     projectID,
+			"environment":    envParam,
+			"config_version": maxVersion,
+			"timestamp":      time.Now().UTC().UnixMilli(),
+			"flags":          flags,
 		})
 		_, _ = fmt.Fprintf(w, "event: flags_init\ndata: %s\n\n", string(initPayload))
 		flusher.Flush()
 	}
 
 	client := &streamClient{
-		send: make(chan []byte, 20),
+		projectID:   projectID,
+		environment: envParam,
+		send:        make(chan []byte, 20),
 	}
 
 	s.streamHub.register <- client
@@ -192,12 +262,21 @@ func (s *Server) handleFlagsStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) broadcastCurrentFlags(ctx context.Context) {
+func (s *Server) broadcastCurrentFlags(ctx context.Context, projectID string, env domain.Environment) {
 	if s.streamHub == nil {
 		return
 	}
-	flags, err := s.store.ListFlags(ctx)
+	if projectID == "" {
+		projectID = domain.DefaultProjectID
+	}
+	flags, err := s.store.ListFlagsByProject(ctx, projectID)
 	if err == nil {
-		s.streamHub.BroadcastFlags(flags)
+		var maxVersion uint64 = 1
+		for _, f := range flags {
+			if f.ConfigVersion > maxVersion {
+				maxVersion = f.ConfigVersion
+			}
+		}
+		s.streamHub.BroadcastProjectFlags(projectID, env, maxVersion, flags)
 	}
 }

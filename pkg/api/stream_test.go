@@ -25,11 +25,12 @@ func TestSSEStreamingEndpoint(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL+"/api/v1/flags/stream", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL+"/api/v1/flags/stream?project_id=proj_default", nil)
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
 	}
 	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("X-Project-ID", "proj_default")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

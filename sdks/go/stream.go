@@ -93,10 +93,25 @@ func (c *Client) connectSSE(ctx context.Context) error {
 				continue
 			}
 
-			var event StreamEvent
-			if err := json.Unmarshal([]byte(data), &event); err == nil {
-				if len(event.Flags) > 0 {
-					c.updateLocalFlags(event.Flags, event.Changed)
+			var raw map[string]interface{}
+			if err := json.Unmarshal([]byte(data), &raw); err == nil {
+				if flagsRaw, ok := raw["flags"]; ok {
+					flagsBytes, _ := json.Marshal(flagsRaw)
+					// Try slice of FeatureFlag
+					var flagList []FeatureFlag
+					if err := json.Unmarshal(flagsBytes, &flagList); err == nil && len(flagList) > 0 {
+						flagMap := make(map[string]FeatureFlag, len(flagList))
+						for _, f := range flagList {
+							flagMap[f.Key] = f
+						}
+						c.updateLocalFlags(flagMap, nil)
+					} else {
+						// Try map of FeatureFlag
+						var flagMap map[string]FeatureFlag
+						if err := json.Unmarshal(flagsBytes, &flagMap); err == nil && len(flagMap) > 0 {
+							c.updateLocalFlags(flagMap, nil)
+						}
+					}
 				}
 			}
 		}

@@ -56,7 +56,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":      "ok",
 		"service":     "flagura-engine",
-		"version":     "1.1.0",
+		"version":     "1.5.0",
 		"engine":      "Flagura-FastPath-Deterministic",
 		"driver":      s.store.DriverName(),
 		"timestamp":   time.Now().UTC(),
@@ -80,11 +80,24 @@ func (s *Server) resolveProjectID(r *http.Request) string {
 	if c, err := r.Cookie(domain.CookieProjectName); err == nil && c.Value != "" {
 		return c.Value
 	}
-	return domain.DefaultProjectID
+	if u := UserFromContext(r.Context()); u != nil {
+		if orgs, err := s.store.ListUserOrganizations(r.Context(), u.ID); err == nil && len(orgs) > 0 {
+			for _, org := range orgs {
+				if projs, err := s.store.ListProjects(r.Context(), org.ID); err == nil && len(projs) > 0 {
+					return projs[0].ID
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func (s *Server) handleGetFlags(w http.ResponseWriter, r *http.Request) {
 	projectID := s.resolveProjectID(r)
+	if projectID == "" {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectRequired, "project_id is required via X-Project-ID header, project_id query parameter, or active session", http.StatusBadRequest, domain.ErrInvalidInput))
+		return
+	}
 	flags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil {
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
@@ -127,6 +140,10 @@ func (s *Server) handleCreateFlag(w http.ResponseWriter, r *http.Request) {
 	if flag.ProjectID == "" {
 		flag.ProjectID = s.resolveProjectID(r)
 	}
+	if flag.ProjectID == "" {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectRequired, "project_id is required to create a feature flag", http.StatusBadRequest, domain.ErrInvalidInput))
+		return
+	}
 
 	actor := s.getActorFromRequest(r, "developer@flagura.dev")
 
@@ -136,7 +153,7 @@ func (s *Server) handleCreateFlag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.broadcastCurrentFlags(r.Context())
+	s.broadcastCurrentFlags(r.Context(), flag.ProjectID, "")
 
 	s.writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"flag":  flag,
@@ -160,6 +177,10 @@ func (s *Server) handleUpdateFlag(w http.ResponseWriter, r *http.Request) {
 	if flag.ProjectID == "" {
 		flag.ProjectID = s.resolveProjectID(r)
 	}
+	if flag.ProjectID == "" {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectRequired, "project_id is required to update a feature flag", http.StatusBadRequest, domain.ErrInvalidInput))
+		return
+	}
 
 	actor := s.getActorFromRequest(r, "developer@flagura.dev")
 
@@ -169,7 +190,7 @@ func (s *Server) handleUpdateFlag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.broadcastCurrentFlags(r.Context())
+	s.broadcastCurrentFlags(r.Context(), flag.ProjectID, "")
 
 	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"flag":  flag,
@@ -182,6 +203,7 @@ func (s *Server) handleDeleteFlag(w http.ResponseWriter, r *http.Request) {
 	id = strings.Split(id, "/")[0]
 
 	actor := s.getActorFromRequest(r, "admin@flagura.dev")
+	projectID := s.resolveProjectID(r)
 
 	log, err := s.store.DeleteFlag(r.Context(), id, actor)
 	if err != nil {
@@ -189,7 +211,7 @@ func (s *Server) handleDeleteFlag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.broadcastCurrentFlags(r.Context())
+	s.broadcastCurrentFlags(r.Context(), projectID, "")
 
 	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
@@ -235,7 +257,7 @@ func (s *Server) handleToggleFlag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.broadcastCurrentFlags(r.Context())
+	s.broadcastCurrentFlags(r.Context(), flag.ProjectID, req.Environment)
 
 	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"flag_key":    flag.Key,
@@ -284,7 +306,7 @@ func (s *Server) handleUpdateRollout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.broadcastCurrentFlags(r.Context())
+	s.broadcastCurrentFlags(r.Context(), flag.ProjectID, req.Environment)
 
 	s.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"flag_key":    flag.Key,
@@ -371,6 +393,17 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
+		apiKey := s.getAPIKeyFromRequest(r)
+		user, _ := s.getUserFromRequest(r)
+		if apiKey == nil && user == nil {
+			s.writeError(w, r, domain.NewAppError(
+				domain.ErrCodeUnauthorized,
+				"Bulk evaluation without specific flag keys requires an authenticated API key or session credential",
+				http.StatusUnauthorized,
+				domain.ErrUnauthorized,
+			))
+			return
+		}
 		for _, flag := range allFlags {
 			if includeTrace {
 				res, trace := engine.EvaluateFlagWithTrace(flag, req.Context)
@@ -461,12 +494,13 @@ func (s *Server) handleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleReset(w http.ResponseWriter, r *http.Request) {
+	projectID := s.resolveProjectID(r)
 	if err := s.store.Reset(r.Context()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	s.broadcastCurrentFlags(r.Context())
-	flags, _ := s.store.ListFlags(r.Context())
+	s.broadcastCurrentFlags(r.Context(), projectID, "")
+	flags, _ := s.store.ListFlagsByProject(r.Context(), projectID)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message":     "Database reset to default seed flags",
@@ -551,7 +585,7 @@ func (s *Server) handleWebhookKillSwitch(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	s.broadcastCurrentFlags(r.Context())
+	s.broadcastCurrentFlags(r.Context(), flag.ProjectID, env)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -585,10 +619,14 @@ func (s *Server) handlePromoteEnvironment(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	flag, err := s.store.GetFlag(r.Context(), key)
+	projectID := s.resolveProjectID(r)
+	flag, err := s.store.GetFlagByProject(r.Context(), projectID, key)
 	if err != nil {
-		http.Error(w, "flag not found: "+err.Error(), http.StatusNotFound)
-		return
+		flag, err = s.store.GetFlag(r.Context(), key)
+		if err != nil {
+			http.Error(w, "flag not found: "+err.Error(), http.StatusNotFound)
+			return
+		}
 	}
 
 	srcConfig, ok := flag.Environments[fromEnv]
@@ -644,7 +682,7 @@ func (s *Server) handlePromoteEnvironment(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	s.broadcastCurrentFlags(r.Context())
+	s.broadcastCurrentFlags(r.Context(), flag.ProjectID, toEnv)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

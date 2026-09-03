@@ -13,7 +13,7 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
-func BentoOverview(flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, driverName string) templ.Component {
+func BentoOverview(flags []domain.FeatureFlag, audits []domain.AuditLogEntry, driverName string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -34,279 +34,173 @@ func BentoOverview(flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry,
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-8\" x-show=\"activeView === 'overview'\"><!-- Top KPI Metrics (4 Cards) --><div class=\"grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5\"><!-- KPI 1: Active Fleet Flags --><div class=\"console-card p-6 flex flex-col justify-between\"><div class=\"flex items-center justify-between\"><span class=\"text-xs font-bold text-slate-500 uppercase tracking-wider font-mono\">Fleet Flags</span><div class=\"h-9 w-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-200\"><i data-lucide=\"sliders\" class=\"h-4 w-4\"></i></div></div><div class=\"mt-5\"><div class=\"flex items-baseline gap-2\"><span class=\"text-3xl font-extrabold text-slate-900 font-mono tracking-tight\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-6\" x-show=\"activeView === 'overview'\" x-cloak x-data=\"bentoEnterpriseDashboardComponent()\"><!-- Top Overview KPI Metric Cards --><div class=\"grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4\"><!-- Total Flags Card --><div class=\"bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-2\"><div class=\"flex items-center justify-between text-slate-500 font-mono text-xs\"><span class=\"font-semibold uppercase tracking-wider text-[10px]\">Total Feature Flags</span><div class=\"p-1.5 rounded-lg bg-indigo-50 text-indigo-600\"><i data-lucide=\"flag\" class=\"w-4 h-4\"></i></div></div><div class=\"flex items-baseline gap-2\"><span class=\"text-2xl font-extrabold text-slate-900 font-mono\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", len(flags)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 22, Col: 115}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 22, Col: 99}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</span> <span class=\"text-xs text-slate-500 font-mono\">/ ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</span> <span class=\"text-xs text-slate-500 font-mono\">managed flags</span></div><div class=\"text-[11px] text-slate-500 font-sans flex items-center gap-1.5 pt-1 border-t border-slate-100\"><span class=\"text-indigo-600 font-bold font-mono\">100% Sync</span> <span>across all environments</span></div></div><!-- Production Active Card --><div class=\"bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-2\"><div class=\"flex items-center justify-between text-slate-500 font-mono text-xs\"><span class=\"font-semibold uppercase tracking-wider text-[10px]\">Active in Production</span><div class=\"p-1.5 rounded-lg bg-emerald-50 text-emerald-600\"><i data-lucide=\"check-circle-2\" class=\"w-4 h-4\"></i></div></div><div class=\"flex items-baseline gap-2\"><span class=\"text-2xl font-extrabold text-emerald-700 font-mono\" x-text=\"activeProdCount\"></span> <span class=\"text-xs text-slate-500 font-mono\">circuits live</span></div><div class=\"text-[11px] text-slate-500 font-sans flex items-center gap-1.5 pt-1 border-t border-slate-100\"><span class=\"inline-block w-2 h-2 rounded-full bg-emerald-500\"></span> <span>Non-blocking evaluated</span></div></div><!-- Stale Flags Cleanup Card --><div class=\"bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-2\"><div class=\"flex items-center justify-between text-slate-500 font-mono text-xs\"><span class=\"font-semibold uppercase tracking-wider text-[10px]\">Stale Flags (Cleanup)</span><div class=\"p-1.5 rounded-lg bg-amber-50 text-amber-600\"><i data-lucide=\"sparkles\" class=\"w-4 h-4\"></i></div></div><div class=\"flex items-baseline gap-2\"><span class=\"text-2xl font-extrabold text-amber-700 font-mono\" x-text=\"staleCount\"></span> <span class=\"text-xs text-slate-500 font-mono\">100% launched</span></div><div class=\"text-[11px] text-slate-500 font-sans flex items-center gap-1.5 pt-1 border-t border-slate-100\"><span class=\"text-amber-700 font-semibold\">Action:</span> <span>Ready to archive safely</span></div></div><!-- Evaluation Speed / Latency --><div class=\"bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-2\"><div class=\"flex items-center justify-between text-slate-500 font-mono text-xs\"><span class=\"font-semibold uppercase tracking-wider text-[10px]\">Avg In-Process Latency</span><div class=\"p-1.5 rounded-lg bg-sky-50 text-sky-600\"><i data-lucide=\"zap\" class=\"w-4 h-4\"></i></div></div><div class=\"flex items-baseline gap-2\"><span class=\"text-2xl font-extrabold text-slate-900 font-mono\">85ns</span> <span class=\"text-xs text-emerald-700 font-mono font-bold\">0 bytes alloc</span></div><div class=\"text-[11px] text-slate-500 font-sans flex items-center gap-1.5 pt-1 border-t border-slate-100\"><span class=\"text-indigo-600 font-bold font-mono\">FNV-1a</span> <span>64-bit deterministic hash</span></div></div></div><!-- Main 2-Column Dashboard Layout --><div class=\"grid grid-cols-1 lg:grid-cols-12 gap-6\"><!-- Left 7 Cols: Quick Feature Flags Directory --><div class=\"lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col overflow-hidden\"><div class=\"p-4 border-b border-slate-100 flex items-center justify-between\"><div class=\"flex items-center gap-2\"><i data-lucide=\"layers\" class=\"w-4 h-4 text-indigo-600\"></i><h3 class=\"text-xs font-bold uppercase tracking-wider text-slate-800 font-mono\">Production Flags Matrix</h3></div><button @click=\"activeView = 'flags'\" class=\"text-xs font-semibold text-indigo-600 hover:text-indigo-700 font-mono flex items-center gap-1 cursor-pointer\"><span>View Full Matrix</span> <i data-lucide=\"arrow-right\" class=\"w-3.5 h-3.5\"></i></button></div><div class=\"overflow-x-auto flex-1\"><table class=\"w-full text-left text-xs\"><thead class=\"bg-slate-50 border-b border-slate-200 text-slate-500 font-mono text-[10px] uppercase\"><tr><th class=\"py-2.5 px-4\">Flag Key</th><th class=\"py-2.5 px-3\">Production Status</th><th class=\"py-2.5 px-3\">Type</th><th class=\"py-2.5 px-4 text-right\">Quick Toggle</th></tr></thead> <tbody class=\"divide-y divide-slate-100 font-mono\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var3 string
-		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", len(flags)))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 23, Col: 86}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, " Active</span></div><div class=\"w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-3.5\"><div class=\"bg-blue-600 h-full rounded-full transition-all duration-500\" style=\"width: 100%\"></div></div><div class=\"flex items-center justify-between text-xs text-slate-500 mt-2.5 font-mono\"><span>Scope: <strong class=\"uppercase text-slate-800\" x-text=\"currentEnv\"></strong></span> <span class=\"text-emerald-700 font-bold\">100% Live</span></div></div></div><!-- KPI 2: Canary Rollouts --><div class=\"console-card p-6 flex flex-col justify-between\"><div class=\"flex items-center justify-between\"><span class=\"text-xs font-bold text-slate-500 uppercase tracking-wider font-mono\">Canary Splits</span><div class=\"h-9 w-9 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-200\"><i data-lucide=\"percent\" class=\"h-4 w-4\"></i></div></div><div class=\"mt-5\"><div class=\"flex items-baseline gap-2\"><span class=\"text-3xl font-extrabold text-slate-900 font-mono tracking-tight\">4</span> <span class=\"text-xs text-slate-500\">Gradual Rollouts</span></div><p class=\"text-xs text-slate-600 mt-2.5 leading-relaxed\">FNV-1a deterministic hashing enabled with zero cache degradation.</p><button @click=\"activeView = 'flags'\" class=\"text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 mt-3 cursor-pointer\">View rollouts <i data-lucide=\"arrow-right\" class=\"h-3.5 w-3.5\"></i></button></div></div><!-- KPI 3: Engine Telemetry --><div class=\"console-card p-6 flex flex-col justify-between\"><div class=\"flex items-center justify-between\"><span class=\"text-xs font-bold text-slate-500 uppercase tracking-wider font-mono\">Storage Engine</span><div class=\"h-9 w-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-200\"><i data-lucide=\"database\" class=\"h-4 w-4\"></i></div></div><div class=\"mt-5\"><div class=\"flex items-baseline gap-2\"><span class=\"text-xl font-bold text-slate-900 font-mono tracking-tight\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var4 string
-		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(driverName)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 70, Col: 90}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</span></div><div class=\"flex items-center gap-2 mt-2.5\"><span class=\"w-2 h-2 rounded-full bg-emerald-500\"></span> <span class=\"text-xs text-slate-600\">Deterministic FNV-1a Evaluation</span></div><button @click=\"activeView = 'benchmark'\" class=\"text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 mt-3 cursor-pointer\">Run Benchmark Suite <i data-lucide=\"arrow-right\" class=\"h-3.5 w-3.5\"></i></button></div></div><!-- KPI 4: Active Targeting Rules --><div class=\"console-card p-6 flex flex-col justify-between\"><div class=\"flex items-center justify-between\"><span class=\"text-xs font-bold text-slate-500 uppercase tracking-wider font-mono\">Targeting Rules</span><div class=\"h-9 w-9 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 border border-purple-200\"><i data-lucide=\"users\" class=\"h-4 w-4\"></i></div></div><div class=\"mt-5\"><div class=\"flex items-baseline gap-2\"><span class=\"text-3xl font-extrabold text-slate-900 font-mono tracking-tight\">8</span> <span class=\"text-xs text-slate-500\">Active Guardrails</span></div><p class=\"text-xs text-slate-600 mt-2.5 leading-relaxed\">Whitelists, geographic fences & overrides in <strong class=\"uppercase font-mono\" x-text=\"currentEnv\"></strong>.</p><button @click=\"activeView = 'evaluator'\" class=\"text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 mt-3 cursor-pointer\">Test Rules in Sandbox <i data-lucide=\"arrow-right\" class=\"h-3.5 w-3.5\"></i></button></div></div></div><!-- Main 2-Column Section: Active Canary Fleet & Quick Action Hub --><div class=\"grid grid-cols-1 lg:grid-cols-12 gap-8\"><!-- Left Column: Active Canary & Flag Progression (7 cols) --><div class=\"lg:col-span-7 console-card p-6 sm:p-8 space-y-6\"><div class=\"flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-5\"><div><h2 class=\"text-lg font-bold text-slate-900 font-display\">Active Canary Deployments</h2><p class=\"text-xs text-slate-500 mt-1\">Progressive traffic allocation and percentage rollouts in <span class=\"font-mono font-semibold uppercase text-slate-900\" x-text=\"currentEnv\"></span></p></div><div class=\"flex items-center gap-2.5 self-start sm:self-auto\"><button @click=\"openNewFlagEditor()\" class=\"px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-blue-600/25 cursor-pointer\"><i data-lucide=\"plus\" class=\"h-3.5 w-3.5\"></i> <span>New Flag</span></button> <button @click=\"activeView = 'flags'\" class=\"px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer\"><span>Manage All</span> <i data-lucide=\"arrow-right\" class=\"h-3 w-3\"></i></button></div></div><div class=\"space-y-4\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		for _, f := range flags {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"console-card-subtle p-5 space-y-4 transition-all group\" id=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue("overview-flag-" + f.Key)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 144, Col: 36}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" x-data=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var6 string
-			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("{ enabled: %t, rollout: %g, copied: false }", f.IsProdEnabled(), f.ProdPercentage()))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 145, Col: 113}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"><!-- Header Row --><div class=\"flex flex-col sm:flex-row sm:items-center justify-between gap-3\"><div class=\"flex items-center gap-2.5 flex-wrap\"><!-- Live State Indicator --><span class=\"inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-mono font-bold tracking-tight border shadow-2xs\" :class=\"enabled ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-700'\"><span class=\"relative flex h-1.5 w-1.5\"><template x-if=\"enabled\"><span class=\"animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75\"></span></template><span class=\"relative inline-flex rounded-full h-1.5 w-1.5\" :class=\"enabled ? 'bg-emerald-500' : 'bg-rose-500'\"></span></span> <span x-text=\"enabled ? 'LIVE' : 'OFF'\"></span></span><!-- Key with Copy --><button @click=\"navigator.clipboard.writeText('{ f.Key }'); copied = true; setTimeout(() => copied = false, 1800);\" class=\"font-mono text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs cursor-pointer\" title=\"Click to copy flag key\"><span>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var7 string
-			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(f.Key)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 170, Col: 23}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</span> <i data-lucide=\"check\" class=\"h-3 w-3 text-emerald-600\" x-show=\"copied\"></i> <i data-lucide=\"copy\" class=\"h-3 w-3 text-slate-400\" x-show=\"!copied\"></i></button><!-- Type --><span class=\"px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-600 font-medium uppercase border border-slate-200\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(f.Type)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 177, Col: 18}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</span></div><!-- Toggle & Edit Buttons --><div class=\"flex items-center gap-3 self-end sm:self-auto\"><button @click.stop=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var9 string
-			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("enabled = !enabled; toggleFlagStatus('%s', enabled);", f.Key))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 184, Col: 98}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" class=\"px-3 py-1.5 rounded-xl text-xs font-mono font-bold uppercase transition-all shadow-2xs cursor-pointer\" :class=\"enabled ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'bg-rose-50 border border-rose-200 text-rose-600'\" x-text=\"enabled ? 'ACTIVE (ON)' : 'DISABLED (OFF)'\"></button> <button @click.stop=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var10 string
-			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("openEditFlagEditor('%s');", f.Key))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 190, Col: 71}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" class=\"text-xs text-slate-600 hover:text-blue-600 font-semibold flex items-center gap-1 transition-colors cursor-pointer\"><span>Edit</span> <i data-lucide=\"arrow-right\" class=\"h-3.5 w-3.5\"></i></button></div></div><!-- Name & Description --><div class=\"space-y-0.5\"><div class=\"text-sm font-semibold text-slate-900\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var11 string
-			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(f.Name)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 201, Col: 66}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div><p class=\"text-xs text-slate-600 line-clamp-1\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var12 string
-			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(f.Description)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 202, Col: 70}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</p></div><!-- Rollout Progress & Slider --><template x-if=\"enabled\"><div class=\"space-y-2.5 pt-3 border-t border-slate-200\"><div class=\"flex items-center justify-between text-xs font-mono\"><span class=\"text-slate-600 flex items-center gap-1.5\"><i data-lucide=\"percent\" class=\"h-3.5 w-3.5 text-blue-600\"></i> Rollout Traffic Allocation:</span> <span class=\"font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200\" x-text=\"rollout + '%'\"></span></div><div class=\"flex items-center gap-3\"><input type=\"range\" min=\"0\" max=\"100\" step=\"5\" x-model=\"rollout\" @input=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var13 string
-			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("updateRollout('%s', $event.target.value)", f.Key))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 221, Col: 82}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\" @click.stop=\"\" class=\"flex-1 accent-blue-600 cursor-pointer\"> <button @click.stop=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var14 string
-			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("openEvaluatorForFlag('%s');", f.Key))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 226, Col: 74}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" class=\"text-xs font-mono text-blue-600 hover:underline font-semibold cursor-pointer shrink-0\">Test Sandbox →</button></div></div></template></div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
+		for i, f := range flags {
+			if i < 7 {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<tr class=\"hover:bg-slate-50 transition-colors\" x-data=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var3 string
+				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("{ envs: %s, get isProd() { return (this.envs && this.envs.production && this.envs.production.enabled) || false; }, get prodPct() { return (this.envs && this.envs.production && this.envs.production.percentage !== undefined ? this.envs.production.percentage : 0); } }", f.EnvironmentsJSON()))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 120, Col: 321}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\"><td class=\"py-3 px-4\"><div class=\"font-bold text-slate-900\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var4 string
+				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(f.Key)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 123, Col: 56}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div><div class=\"text-[11px] text-slate-500 font-sans truncate max-w-xs\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var5 string
+				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(f.Name)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 124, Col: 87}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></td><td class=\"py-3 px-3\"><span class=\"inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border\" :class=\"isProd ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'\" x-text=\"isProd ? (prodPct < 100 ? 'Canary ' + prodPct + '%' : 'Enabled 100%') : 'Disabled'\"></span></td><td class=\"py-3 px-3\"><span class=\"px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] uppercase font-bold border border-slate-200\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var6 string
+				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(f.Type)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 135, Col: 20}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</span></td><td class=\"py-3 px-4 text-right\"><button @click.stop=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var7 string
+				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("const next = !isProd; if (!envs.production) envs.production = {}; envs.production.enabled = next; toggleFlagEnvStatus('%s', 'production', next);", f.Key))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 140, Col: 192}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" class=\"relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none\" :class=\"isProd ? 'bg-emerald-600' : 'bg-slate-200'\"><span class=\"pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out\" :class=\"isProd ? 'translate-x-3' : 'translate-x-0'\"></span></button></td></tr>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
 		}
 		if len(flags) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<div class=\"p-8 text-center space-y-3 rounded-2xl bg-slate-50/70 border border-dashed border-slate-200\"><div class=\"w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center mx-auto\"><i data-lucide=\"flag\" class=\"w-5 h-5\"></i></div><div class=\"space-y-0.5\"><div class=\"text-sm font-bold text-slate-800\">No flags in this project yet</div><p class=\"text-xs text-slate-500\">Create your first flag to start serving features.</p></div><button @click=\"openNewFlagEditor()\" class=\"px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md shadow-blue-600/20 cursor-pointer\"><i data-lucide=\"plus\" class=\"w-3.5 h-3.5\"></i> <span>Create Flag</span></button></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<tr><td colspan=\"4\" class=\"p-8 text-center text-slate-500 font-sans\">No flags created yet.</td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div></div><!-- Right Column: Quick Evaluation Sandbox & Real-Time Audit Feed (5 cols) --><div class=\"lg:col-span-5 space-y-8\"><!-- Quick Sandbox Card --><div class=\"console-card p-6 sm:p-7 space-y-5\"><div class=\"flex items-center justify-between border-b border-slate-100 pb-4\"><div class=\"flex items-center gap-2.5\"><div class=\"h-8 w-8 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-200\"><i data-lucide=\"play\" class=\"h-4 w-4 fill-blue-600\"></i></div><h3 class=\"text-base font-bold text-slate-900 font-display\">Instant User Evaluator</h3></div><span class=\"font-mono text-xs px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-bold\">&lt; 0.1ms</span></div><p class=\"text-xs text-slate-600 leading-relaxed\">Check which features are served to any user persona instantly with deterministic FNV-1a sticky hashing.</p><div class=\"space-y-4\" x-data=\"{ quickUserId: 'usr_dhawal_01' }\"><div><label class=\"text-xs font-semibold text-slate-700 mb-1.5 block\">Test User ID / Hash Salt</label> <input type=\"text\" x-model=\"quickUserId\" class=\"input-clean w-full font-mono text-xs\" placeholder=\"e.g. usr_dhawal_01\"></div><div class=\"grid grid-cols-2 gap-2.5\"><button @click=\"quickUserId = 'usr_dhawal_01'; showToast('Loaded Admin Persona');\" class=\"rounded-xl border border-slate-200 bg-slate-50 p-3 text-left text-xs hover:bg-white hover:border-blue-400 transition-all font-mono cursor-pointer\"><div class=\"font-bold text-slate-900\">Admin Persona</div><div class=\"text-[10px] text-slate-500 mt-0.5\">Staff whitelist</div></button> <button @click=\"quickUserId = 'usr_anon_9934'; showToast('Loaded Anon Persona');\" class=\"rounded-xl border border-slate-200 bg-slate-50 p-3 text-left text-xs hover:bg-white hover:border-blue-400 transition-all font-mono cursor-pointer\"><div class=\"font-bold text-slate-900\">Anon Public</div><div class=\"text-[10px] text-slate-500 mt-0.5\">Standard user</div></button></div><button @click=\"activeView = 'evaluator'\" class=\"w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer\"><i data-lucide=\"play\" class=\"h-3.5 w-3.5 fill-current\"></i> <span>Open Full Evaluation Sandbox</span></button></div></div><!-- Real-Time Audit Feed Card --><div class=\"console-card p-6 sm:p-7 space-y-4\"><div class=\"flex items-center justify-between border-b border-slate-100 pb-4\"><div class=\"flex items-center gap-2.5\"><div class=\"h-8 w-8 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 border border-purple-200\"><i data-lucide=\"activity\" class=\"h-4 w-4\"></i></div><h3 class=\"text-base font-bold text-slate-900 font-display\">Recent Audit Log Events</h3></div><button @click=\"activeView = 'audit'\" class=\"text-xs text-blue-600 hover:underline font-mono font-semibold cursor-pointer\">View all →</button></div><div class=\"space-y-3\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</tbody></table></div></div><!-- Right 5 Cols: Audit Log Activity Stream --><div class=\"lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col overflow-hidden\"><div class=\"p-4 border-b border-slate-100 flex items-center justify-between\"><div class=\"flex items-center gap-2\"><i data-lucide=\"shield-check\" class=\"w-4 h-4 text-purple-600\"></i><h3 class=\"text-xs font-bold uppercase tracking-wider text-slate-800 font-mono\">Recent Governance &amp; Audits</h3></div><button @click=\"activeView = 'audit'\" class=\"text-xs font-semibold text-indigo-600 hover:text-indigo-700 font-mono flex items-center gap-1 cursor-pointer\"><span>Full Log</span> <i data-lucide=\"arrow-right\" class=\"w-3.5 h-3.5\"></i></button></div><div class=\"p-4 space-y-3 flex-1 overflow-y-auto max-h-[380px] font-mono text-xs\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for i, log := range auditLogs {
-			if i < 4 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div class=\"p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs\"><div class=\"flex items-center justify-between\"><span class=\"font-mono font-bold text-slate-900\">")
+		for i, a := range audits {
+			if i < 6 {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1 hover:bg-slate-100/80 transition-colors\"><div class=\"flex items-center justify-between\"><span class=\"font-bold text-slate-900\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var15 string
-				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(log.FlagKey)
+				var templ_7745c5c3_Var8 string
+				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(a.FlagKey)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 337, Col: 72}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 186, Col: 59}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</span> <span class=\"text-[10px] font-mono text-slate-500\">")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var16 string
-				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(log.Timestamp.Format("15:04:05"))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 339, Col: 45}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</span> <span class=\"text-[10px] text-slate-400\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</span></div><div class=\"flex items-center justify-between text-xs text-slate-600\"><span>Action: <span class=\"font-mono text-blue-700 font-semibold\">")
+				var templ_7745c5c3_Var9 string
+				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(a.Timestamp.Format("15:04:05"))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 187, Col: 82}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var17 string
-				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(log.Action)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 343, Col: 88}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</span></div><div class=\"flex items-center gap-2 text-[11px] text-slate-600 font-sans\"><span class=\"font-semibold text-indigo-600 font-mono\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</span></span> <span class=\"font-mono text-[10px] uppercase text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200\">")
+				var templ_7745c5c3_Var10 string
+				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(string(a.Action))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 190, Col: 81}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var18 string
-				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(string(log.Environment))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 344, Col: 149}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</span> <span>by</span> <span class=\"font-mono text-slate-700\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</span></div>")
+				var templ_7745c5c3_Var11 string
+				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(a.Actor)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 192, Col: 57}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if log.Details != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<p class=\"text-xs text-slate-600 font-mono bg-white p-2 rounded-lg border border-slate-200 truncate\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var19 string
-					templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(log.Details)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 348, Col: 24}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</p>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</span></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</div></div></div></div></div>")
+		if len(audits) == 0 {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<div class=\"py-10 text-center text-slate-400 font-sans\">No recent audit events recorded.</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div></div></div><!-- Environments Status Strip --><div class=\"bg-white p-4 rounded-xl border border-slate-200 shadow-xs font-mono text-xs\"><div class=\"flex flex-wrap items-center justify-between gap-4\"><div class=\"flex items-center gap-3\"><span class=\"font-bold text-slate-800 uppercase tracking-wider text-[11px]\">Sync Channels:</span><div class=\"flex items-center gap-2\"><span class=\"inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-[11px]\"><span class=\"w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse\"></span> Development (Active)</span> <span class=\"inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[11px]\"><span class=\"w-1.5 h-1.5 rounded-full bg-amber-600\"></span> Staging (Active)</span> <span class=\"inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-[11px]\"><span class=\"w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse\"></span> Production (Active)</span></div></div><div class=\"text-[11px] text-slate-500 font-sans\">Monotonic revision protocol v1.5.0 • In-memory ring buffer</div></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

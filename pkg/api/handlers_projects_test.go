@@ -125,8 +125,13 @@ func TestProjectsAPI_EndpointsAndIsolation(t *testing.T) {
 		t.Fatalf("Expected 1 flag 'beta-test-flag' for new project, got %d", flagsResp.Count)
 	}
 
-	// 7. GET /api/v1/flags without X-Project-ID should return default project flags (not beta-test-flag)
-	rr = doAuthReq("GET", "/api/v1/flags", nil, nil)
+	// 7. GET /api/v1/flags for default project should not contain beta-test-flag
+	rr = doAuthReq("GET", "/api/v1/flags", nil, map[string]string{
+		"X-Project-ID": domain.DefaultProjectID,
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("GET /api/v1/flags for default project failed: %d", rr.Code)
+	}
 	_ = json.Unmarshal(rr.Body.Bytes(), &flagsResp)
 	for _, f := range flagsResp.Flags {
 		if f.Key == "beta-test-flag" {

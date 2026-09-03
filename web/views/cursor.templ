@@ -3,11 +3,11 @@ package views
 templ CustomCursor() {
 	<div 
 		id="custom-cursor-dot" 
-		class="fixed top-0 left-0 w-2.5 h-2.5 bg-blue-500 rounded-full pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2 transition-transform duration-75 shadow-[0_0_12px_rgba(59,130,246,0.8)]"
+		class="fixed top-0 left-0 w-2 h-2 bg-[#00F5A0] rounded-full pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2 transition-transform duration-75 shadow-[0_0_12px_#00F5A0]"
 	></div>
 	<div 
 		id="custom-cursor-ring" 
-		class="fixed top-0 left-0 w-8 h-8 border border-blue-400/40 rounded-full pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out"
+		class="fixed top-0 left-0 w-8 h-8 border border-[#00F5A0]/30 rounded-full pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out"
 	></div>
 	<script>
 		document.addEventListener('DOMContentLoaded', () => {
@@ -32,12 +32,12 @@ templ CustomCursor() {
 			};
 			renderRing();
 
-			document.querySelectorAll('button, a, input, select, textarea, .clickable').forEach(el => {
+			document.querySelectorAll('button, a, input, select, textarea, .clickable, [role="button"]').forEach(el => {
 				el.addEventListener('mouseenter', () => {
-					ring.classList.add('scale-150', 'border-blue-400', 'bg-blue-500/10');
+					ring.classList.add('scale-150', 'border-[#00F5A0]', 'bg-[#00F5A0]/10');
 				});
 				el.addEventListener('mouseleave', () => {
-					ring.classList.remove('scale-150', 'border-blue-400', 'bg-blue-500/10');
+					ring.classList.remove('scale-150', 'border-[#00F5A0]', 'bg-[#00F5A0]/10');
 				});
 			});
 		});

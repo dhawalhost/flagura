@@ -110,11 +110,9 @@ func TestE2E_FullPlatformLifecycle(t *testing.T) {
 		if rec.Code != http.StatusCreated {
 			t.Fatalf("Create Org failed: %d: %s", rec.Code, rec.Body.String())
 		}
-		var orgResp struct {
-			Organization domain.Organization `json:"organization"`
-		}
-		_ = json.Unmarshal(rec.Body.Bytes(), &orgResp)
-		customOrgID = orgResp.Organization.ID
+		var createdOrg domain.Organization
+		_ = json.Unmarshal(rec.Body.Bytes(), &createdOrg)
+		customOrgID = createdOrg.ID
 
 		// Create Project
 		projBody := map[string]string{
@@ -132,11 +130,9 @@ func TestE2E_FullPlatformLifecycle(t *testing.T) {
 		if rec.Code != http.StatusCreated {
 			t.Fatalf("Create Project failed: %d: %s", rec.Code, rec.Body.String())
 		}
-		var projResp struct {
-			Project domain.Project `json:"project"`
-		}
-		_ = json.Unmarshal(rec.Body.Bytes(), &projResp)
-		customProjID = projResp.Project.ID
+		var createdProj domain.Project
+		_ = json.Unmarshal(rec.Body.Bytes(), &createdProj)
+		customProjID = createdProj.ID
 	})
 
 	// =========================================================================

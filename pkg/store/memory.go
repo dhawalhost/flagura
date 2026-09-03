@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -29,14 +30,14 @@ func newFlagSnapshot(flags []domain.FeatureFlag) *FlagSnapshot {
 		if fCopy.ProjectID == "" {
 			fCopy.ProjectID = DefaultProjectID
 		}
-		snap.flagsList[i] = fCopy
-		snap.flagsMap[fCopy.Key] = fCopy
-		if fCopy.ID != "" {
-			snap.flagsMap[fCopy.ID] = fCopy
+		if fCopy.ConfigVersion == 0 {
+			fCopy.ConfigVersion = 1
 		}
+		snap.flagsList[i] = fCopy
 		snap.flagsMap[fCopy.ProjectID+":"+fCopy.Key] = fCopy
 		if fCopy.ID != "" {
 			snap.flagsMap[fCopy.ProjectID+":"+fCopy.ID] = fCopy
+			snap.flagsMap[fCopy.ID] = fCopy
 		}
 	}
 	return snap
@@ -201,18 +202,9 @@ func (s *MemoryStore) ListFlags(ctx context.Context) ([]domain.FeatureFlag, erro
 	return result, nil
 }
 
-// GetFlag looks up a flag by key or ID from the current immutable snapshot.
+// GetFlag looks up a flag by key or ID from the default project.
 func (s *MemoryStore) GetFlag(ctx context.Context, keyOrID string) (*domain.FeatureFlag, error) {
-	snap := s.flagsSnapshot.Load()
-	if snap == nil {
-		return nil, fmt.Errorf("flag not found: %s", keyOrID)
-	}
-	flag, ok := snap.flagsMap[keyOrID]
-	if !ok {
-		return nil, fmt.Errorf("flag not found: %s", keyOrID)
-	}
-	clone := flag.DeepCopy()
-	return &clone, nil
+	return s.GetFlagByProject(ctx, DefaultProjectID, keyOrID)
 }
 
 func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, actor string) (*domain.AuditLogEntry, error) {
@@ -237,8 +229,8 @@ func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 	flagCopy := flag.DeepCopy()
 	var log domain.AuditLogEntry
 
-	if flagCopy.ProjectID == "" {
-		flagCopy.ProjectID = DefaultProjectID
+	if strings.TrimSpace(flagCopy.ProjectID) == "" {
+		return nil, errors.New("project_id is required to save a feature flag")
 	}
 
 	for i, f := range newList {
@@ -250,6 +242,7 @@ func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 			flagCopy.ID = f.ID
 			flagCopy.CreatedAt = f.CreatedAt
 			flagCopy.UpdatedAt = now
+			flagCopy.ConfigVersion = f.ConfigVersion + 1
 			newList[i] = flagCopy
 			found = true
 
@@ -272,6 +265,9 @@ func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 			b := make([]byte, 4)
 			_, _ = rand.Read(b)
 			flagCopy.ID = fmt.Sprintf("flag_%d_%s", time.Now().Unix(), hex.EncodeToString(b))
+		}
+		if flagCopy.ConfigVersion == 0 {
+			flagCopy.ConfigVersion = 1
 		}
 		flagCopy.CreatedAt = now
 		flagCopy.UpdatedAt = now
@@ -379,6 +375,7 @@ func (s *MemoryStore) ToggleFlag(ctx context.Context, keyOrID string, env domain
 				cfg.Enabled = !cfg.Enabled
 			}
 			flagCopy.Environments[env] = cfg
+			flagCopy.ConfigVersion = f.ConfigVersion + 1
 			flagCopy.UpdatedAt = time.Now().UTC()
 			newList[i] = flagCopy
 			updatedFlag = flagCopy
@@ -454,6 +451,7 @@ func (s *MemoryStore) UpdateRollout(ctx context.Context, keyOrID string, env dom
 				cfg.Strategy = domain.StrategyPercentage
 			}
 			flagCopy.Environments[env] = cfg
+			flagCopy.ConfigVersion = f.ConfigVersion + 1
 			flagCopy.UpdatedAt = time.Now().UTC()
 			newList[i] = flagCopy
 			updatedFlag = flagCopy
@@ -915,8 +913,8 @@ func (s *MemoryStore) CreateProject(ctx context.Context, project domain.Project)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if project.OrganizationID == "" {
-		project.OrganizationID = DefaultOrgID
+	if strings.TrimSpace(project.OrganizationID) == "" {
+		return nil, errors.New("organization_id is required to create a project")
 	}
 	if project.ID == "" {
 		b := make([]byte, 4)
@@ -982,7 +980,7 @@ func (s *MemoryStore) ListFlagsByProject(ctx context.Context, projectID string) 
 	}
 	var res []domain.FeatureFlag
 	for _, f := range snap.flagsList {
-		if f.ProjectID == projectID || (projectID == DefaultProjectID && f.ProjectID == "") {
+		if f.ProjectID == projectID {
 			res = append(res, f.DeepCopy())
 		}
 	}
@@ -1001,12 +999,6 @@ func (s *MemoryStore) GetFlagByProject(ctx context.Context, projectID, keyOrID s
 		clone := f.DeepCopy()
 		return &clone, nil
 	}
-	if projectID == DefaultProjectID {
-		if f, ok := snap.flagsMap[keyOrID]; ok {
-			clone := f.DeepCopy()
-			return &clone, nil
-		}
-	}
 	return nil, fmt.Errorf("flag not found: %s", keyOrID)
 }
 
@@ -1020,7 +1012,7 @@ func (s *MemoryStore) ListAuditLogsByProject(ctx context.Context, projectID stri
 
 	var res []domain.AuditLogEntry
 	for _, entry := range s.auditLogs {
-		if entry.ProjectID == projectID || (projectID == DefaultProjectID && entry.ProjectID == "") {
+		if entry.ProjectID == projectID {
 			res = append(res, entry)
 			if limit > 0 && len(res) >= limit {
 				break
@@ -1040,7 +1032,7 @@ func (s *MemoryStore) ListChangeRequestsByProject(ctx context.Context, projectID
 
 	var res []domain.ChangeRequest
 	for _, cr := range s.changeRequests {
-		if cr.ProjectID == projectID || (projectID == DefaultProjectID && cr.ProjectID == "") {
+		if cr.ProjectID == projectID {
 			if status == "" || cr.Status == status {
 				res = append(res, cr)
 			}
@@ -1059,7 +1051,7 @@ func (s *MemoryStore) ListAPIKeysByProject(ctx context.Context, projectID string
 
 	var res []domain.APIKey
 	for _, k := range s.apiKeys {
-		if k.ProjectID == projectID || (projectID == DefaultProjectID && k.ProjectID == "") {
+		if k.ProjectID == projectID {
 			kCopy := k
 			kCopy.Key = ""
 			kCopy.KeyHash = ""

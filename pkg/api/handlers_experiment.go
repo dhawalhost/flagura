@@ -82,10 +82,14 @@ func (s *Server) handleGetExperimentReport(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	flag, err := s.store.GetFlag(r.Context(), flagKey)
+	projectID := s.resolveProjectID(r)
+	flag, err := s.store.GetFlagByProject(r.Context(), projectID, flagKey)
 	if err != nil || flag == nil {
-		http.Error(w, "Flag not found: "+flagKey, http.StatusNotFound)
-		return
+		flag, err = s.store.GetFlag(r.Context(), flagKey)
+		if err != nil || flag == nil {
+			http.Error(w, "Flag not found: "+flagKey, http.StatusNotFound)
+			return
+		}
 	}
 
 	// Read query parameters

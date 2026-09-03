@@ -130,6 +130,11 @@ func WithProject(projectID string) Option {
 	}
 }
 
+// WithProjectID binds the SDK client to a specific project scope.
+func WithProjectID(projectID string) Option {
+	return WithProject(projectID)
+}
+
 // WithLogger sets the structured logger for the SDK.
 func WithLogger(logger Logger) Option {
 	return func(c *Config) {

@@ -9,7 +9,7 @@ SERVER_BIN := $(BIN_DIR)/flagura-server
 CLI_BIN := $(BIN_DIR)/flagura
 
 # Version & Build Flags
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "v1.3.0-dev")
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "v1.5.0")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 LDFLAGS := -s -w \
@@ -45,7 +45,7 @@ help:
 ## Generate templates and run Flagura server locally in in-memory mode
 dev: templ
 	@echo "🚀 Starting Flagura Control Plane (In-Memory Engine) on http://localhost:3000 ..."
-	go run main.go
+	go run ./cmd/server
 
 ## Build both flagura-server and flagura CLI binaries into bin/
 build: templ build-server build-cli
@@ -55,13 +55,13 @@ build: templ build-server build-cli
 build-server:
 	@mkdir -p $(BIN_DIR)
 	@echo "🔨 Compiling server binary -> $(SERVER_BIN) ..."
-	go build -ldflags="$(LDFLAGS)" -o $(SERVER_BIN) main.go
+	go build -ldflags="$(LDFLAGS)" -o $(SERVER_BIN) ./cmd/server
 
 ## Compile flagura developer CLI
 build-cli:
 	@mkdir -p $(BIN_DIR)
 	@echo "🔨 Compiling developer CLI -> $(CLI_BIN) ..."
-	go build -ldflags="$(LDFLAGS)" -o $(CLI_BIN) ./cmd/flagura
+	go build -ldflags="$(LDFLAGS)" -o $(CLI_BIN) ./cmd/cli
 
 ## Generate Go code from all *.templ component templates
 templ:
