@@ -330,12 +330,17 @@ templ Layout(title string) {
 								setTimeout(() => window.location.reload(), 500);
 							}
 						},
-						matchesEnterpriseFilter(key, name, tags, isProd, prodPct) {
+						matchesEnterpriseFilter(key, name, tags, isProd, prodPct, healthStatus) {
 							if (this.envFilter === 'prod_enabled' && !isProd) return false;
 							if (this.envFilter === 'prod_disabled' && isProd) return false;
 							if (this.envFilter === 'canary' && (!isProd || prodPct >= 100)) return false;
 
 							if (this.selectedTag !== 'all' && !tags.includes(this.selectedTag)) return false;
+
+							// Health Status Filter: 'all', 'stale', 'dead', 'active'
+							if (this.healthFilter === 'stale' && healthStatus !== 'READY_FOR_CLEANUP') return false;
+							if (this.healthFilter === 'dead' && healthStatus !== 'DEAD_FLAG') return false;
+							if (this.healthFilter === 'active' && healthStatus !== 'ACTIVE') return false;
 
 							const q = (this.searchQuery || '').toLowerCase().trim();
 							if (!q) return true;
@@ -346,11 +351,15 @@ templ Layout(title string) {
 					// Bento Enterprise Dashboard Component
 					Alpine.data('bentoEnterpriseDashboardComponent', () => ({
 						activeProdCount: 0,
-						staleCount: 1,
+						staleCount: 0,
 						init() {
 							this.$nextTick(() => {
 								const onToggles = document.querySelectorAll('.bg-emerald-600');
-								this.activeProdCount = Math.max(1, onToggles.length - 2);
+								this.activeProdCount = Math.max(0, onToggles.length - 2);
+
+								// Dynamically count flags ready for cleanup
+								const staleBadges = document.querySelectorAll('.bg-amber-50');
+								this.staleCount = staleBadges.length;
 							});
 						}
 					}));
@@ -627,6 +636,7 @@ templ Layout(title string) {
 					// SDK View Component
 					Alpine.data('sdkViewComponent', () => ({
 						sdkTab: 'apikeys',
+						openfeatureLang: 'go',
 						copied: false,
 						apiKeys: [],
 						showKeyModal: false,
@@ -684,6 +694,15 @@ templ Layout(title string) {
 							setTimeout(() => this.keyCopied = false, 2000);
 						},
 						getSdkSnippet() {
+							if (this.sdkTab === 'openfeature') {
+								if (this.openfeatureLang === 'go') {
+									return `package main\n\nimport (\n    "context"\n    "fmt"\n    flagura "github.com/dhawalhost/flagura/sdks/go"\n    flaguraOF "github.com/dhawalhost/flagura/sdks/go/openfeature"\n    of "github.com/open-feature/go-sdk/openfeature"\n)\n\nfunc main() {\n    // 1. Initialize Flagura in-process evaluation client\n    client := flagura.NewClient("${window.location.origin}", "flg_live_your_api_key",\n        flagura.WithLocalEvaluation(true),\n    )\n    defer client.Close()\n\n    // 2. Register Flagura as the OpenFeature global provider\n    of.SetProvider(flaguraOF.NewProvider(client))\n    ofClient := of.NewClient("backend-service")\n\n    // 3. Evaluate using standard OpenFeature APIs\n    ctx := of.NewEvaluationContext("usr_dhawal_01", map[string]interface{}{\n        "email": "dhawal@flagura.dev",\n        "tier":  "enterprise",\n    })\n    enabled, _ := ofClient.BooleanValue(context.Background(), "ai-smart-search", false, ctx)\n    fmt.Printf("OpenFeature enabled: %v\\n", enabled)\n}`;
+								} else if (this.openfeatureLang === 'ts') {
+									return `import { FlaguraClient } from '@flagura/sdk';\nimport { FlaguraOpenFeatureProvider } from '@flagura/sdk/openfeature';\nimport { OpenFeature } from '@openfeature/server-sdk';\n\n// 1. Initialize Flagura Client\nconst client = new FlaguraClient({\n  endpoint: '${window.location.origin}',\n  apiKey: 'flg_live_your_api_key'\n});\n\n// 2. Bind Flagura as the OpenFeature Provider\nawait OpenFeature.setProviderAndWait(new FlaguraOpenFeatureProvider(client));\nconst ofClient = OpenFeature.getClient('billing-service');\n\n// 3. Evaluate with standard OpenFeature context\nconst enabled = await ofClient.getBooleanValue('ai-smart-search', false, {\n  targetingKey: 'usr_dhawal_01',\n  email: 'dhawal@flagura.dev',\n  tier: 'enterprise'\n});\nconsole.log({ enabled });`;
+								} else if (this.openfeatureLang === 'python') {
+									return `from openfeature import api\nfrom openfeature.evaluation_context import EvaluationContext\nfrom flagura import FlaguraClient\nfrom flagura.openfeature_provider import FlaguraOpenFeatureProvider\n\n# 1. Initialize client & register OpenFeature provider\nclient = FlaguraClient("${window.location.origin}", api_key="flg_live_your_api_key")\napi.set_provider(FlaguraOpenFeatureProvider(client=client))\nof_client = api.get_client("api-service")\n\n# 2. Evaluate with OpenFeature standard API\ncontext = EvaluationContext(targeting_key="usr_dhawal_01", attributes={"email": "dhawal@flagura.dev", "tier": "enterprise"})\nenabled = of_client.get_boolean_value("ai-smart-search", False, context)\nprint("OpenFeature enabled:", enabled)\nclient.close()`;
+								}
+							}
 							if (this.sdkTab === 'go') {
 								return `package main\n\nimport (\n    "context"\n    "fmt"\n    flagura "github.com/dhawalhost/flagura/sdks/go"\n)\n\nfunc main() {\n    // Project scope and environment are automatically resolved from your API key\n    client := flagura.NewClient("${window.location.origin}", "flg_live_your_api_key",\n        flagura.WithLocalEvaluation(true),\n    )\n    defer client.Close()\n\n    res, _ := client.Evaluate(context.Background(), "ai-smart-search", flagura.Context{\n        UserID: "usr_dhawal_01",\n        Email:  "dhawal@flagura.dev",\n    })\n    fmt.Printf("Enabled: %v | Latency: %v ns\\n", res.Enabled, res.EvaluationLatencyNs)\n}`;
 							} else if (this.sdkTab === 'ts') {

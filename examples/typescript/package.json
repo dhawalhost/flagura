@@ -1,0 +1,16 @@
+{
+  "name": "flagura-example-typescript",
+  "version": "1.0.0",
+  "description": "Runnable TypeScript example for Flagura Native and OpenFeature SDK",
+  "main": "index.ts",
+  "scripts": {
+    "start": "ts-node index.ts"
+  },
+  "dependencies": {
+    "@openfeature/server-sdk": "^1.14.0"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

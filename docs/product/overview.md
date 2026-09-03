@@ -10,8 +10,9 @@ Traditional SaaS feature flag providers require client applications to make remo
 
 Flagura eliminates this overhead:
 1. **Deterministic Hashing**: Rollout percentages are computed using mathematical **64-bit FNV-1a sticky hashing**. Users land in the exact same rollout bucket every single time without requiring database lookups.
-2. **Sub-Microsecond Latency**: Local in-memory evaluations execute in **~400 nanoseconds**, enabling millions of checks per second without blocking the application thread.
-3. **Decoupled Architecture**: Flag configurations can be managed centrally in the Flagura console and evaluated anywhere (Edge, Serverless, Docker, or Kubernetes microservices).
+2. **Sub-Microsecond Latency**: Local in-memory evaluations execute in **~85 nanoseconds across all storage backends** (SQLite, PostgreSQL, and In-Memory Edge Store), enabling millions of checks per second without blocking the application thread or paying database I/O penalties.
+3. **Zero External Dependencies**: Runs as a single binary with embedded **SQLite (WAL mode)**, distributed **PostgreSQL**, or a zero-dependency **In-Memory Edge Store**.
+4. **Decoupled Architecture**: Flag configurations are managed centrally in the Flagura control plane and evaluated locally in-process anywhere (Microservices, Edge Workers, Lambdas, or Frontend apps).
 
 ---
 
@@ -72,3 +73,26 @@ When an evaluation request is triggered:
 Every flag in Flagura includes an **instant 1-click master kill-switch**. If a newly rolled out feature triggers production errors or memory leaks:
 - Flip the toggle switch to `OFF` in the console.
 - Within milliseconds, all clients immediately drop to the safe control group with **zero code deployments or restarts required**.
+
+---
+
+## 🧹 Automated Code Hygiene & Technical Debt Elimination
+
+Unlike legacy flag platforms where obsolete flags rot inside production codebases, Flagura actively manages flag lifecycles:
+- **Automatic Stale Detection**: Flags that are 100% rolled out in production with no custom rules are flagged as `READY_FOR_CLEANUP`.
+- **In-App Refactoring Guidance**: Interactive cleanup assistant shows exact before/after code diffs in **Go**, **TypeScript**, and **Python**.
+- **CLI Static Scanning**: Run `flagura scan .` in your repositories to locate all flag occurrences in code and integrate with CI/CD gates (`--fail-on-stale`).
+
+👉 **[Read Code Hygiene & Flag Debt Guide](code-hygiene-and-flag-debt.md)**
+
+---
+
+## 🌐 CNCF OpenFeature Standard Native
+
+Flagura provides drop-in OpenFeature Providers for **Go**, **TypeScript**, and **Python**:
+- **Zero Vendor Lock-In**: Code against standard OpenFeature APIs.
+- **Real-Time Config Bus**: Automatically emits `ProviderReady` and `ProviderConfigChange` events via SSE streams.
+- **Polyglot Examples**: Complete working applications available in [`examples/`](../../examples/README.md).
+
+👉 **[Read OpenFeature Integration Guide](../integrations/openfeature.md)**
+

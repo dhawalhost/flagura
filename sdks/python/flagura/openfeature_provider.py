@@ -26,8 +26,11 @@ class ResolutionDetails:
 class FlaguraOpenFeatureProvider:
     """Official Flagura OpenFeature Provider for Python applications."""
 
-    def __init__(self, client: FlaguraClient):
-        self.client = client
+    def __init__(self, client: Optional[FlaguraClient] = None, **kwargs: Any):
+        if client is not None:
+            self.client = client
+        else:
+            self.client = FlaguraClient(**kwargs)
         self.name = "flagura-python-provider"
 
     def get_metadata(self) -> Dict[str, str]:

@@ -54,7 +54,8 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 					>
 						<option value="all">All Health States</option>
 						<option value="stale">Stale (100% Launched)</option>
-						<option value="healthy">Active / Healthy</option>
+						<option value="dead">Dead (0% / Disabled)</option>
+						<option value="active">Active / Healthy</option>
 					</select>
 				</div>
 
@@ -133,7 +134,7 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 							<tr 
 								id={ "flag-row-" + f.Key }
 								x-data={ fmt.Sprintf("{ envs: %s, copied: false, get isDev() { return (this.envs && this.envs.development && this.envs.development.enabled) || false; }, get isStg() { return (this.envs && this.envs.staging && this.envs.staging.enabled) || false; }, get isProd() { return (this.envs && this.envs.production && this.envs.production.enabled) || false; }, get prodPct() { return (this.envs && this.envs.production && this.envs.production.percentage !== undefined ? this.envs.production.percentage : 0); }, get devPct() { return (this.envs && this.envs.development && this.envs.development.percentage !== undefined ? this.envs.development.percentage : 0); }, get stgPct() { return (this.envs && this.envs.staging && this.envs.staging.percentage !== undefined ? this.envs.staging.percentage : 0); } }", f.EnvironmentsJSON()) }
-								x-show={ fmt.Sprintf("matchesEnterpriseFilter('%s', '%s', '%s', isProd, prodPct)", f.Key, f.Name, f.Tags) }
+								x-show={ fmt.Sprintf("matchesEnterpriseFilter('%s', '%s', '%s', isProd, prodPct, '%s')", f.Key, f.Name, f.Tags, domain.AnalyzeFlagHealth(f).Status) }
 								class="hover:bg-slate-50/80 transition-colors"
 							>
 								<!-- Checkbox -->
@@ -245,12 +246,27 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 								<!-- Health Alert Column -->
 								<td class="py-3 px-3">
 									if report := domain.AnalyzeFlagHealth(f); report.Status == domain.HealthStatusStale {
-										<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold" title={ report.SuggestedAction }>
-											<i data-lucide="sparkles" class="h-3 w-3 text-amber-600"></i>
-											<span>Stale</span>
-										</span>
+										<button
+											type="button"
+											@click={ fmt.Sprintf("openHygieneModal({ key: '%s', name: '%s', status: '%s', reason: '%s', action: '%s' })", f.Key, f.Name, report.Status, report.Reason, report.SuggestedAction) }
+											class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-bold transition cursor-pointer shadow-2xs group"
+											title="100% launched in production. Click for automated cleanup guide."
+										>
+											<i data-lucide="sparkles" class="h-3 w-3 text-amber-600 group-hover:scale-110 transition-transform"></i>
+											<span>Ready for Cleanup</span>
+										</button>
+									} else if report.Status == domain.HealthStatusDead {
+										<button
+											type="button"
+											@click={ fmt.Sprintf("openHygieneModal({ key: '%s', name: '%s', status: '%s', reason: '%s', action: '%s' })", f.Key, f.Name, report.Status, report.Reason, report.SuggestedAction) }
+											class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 text-red-800 text-[10px] font-bold transition cursor-pointer shadow-2xs group"
+											title="Kill-switched / 0% traffic. Click for cleanup guide."
+										>
+											<i data-lucide="alert-triangle" class="h-3 w-3 text-red-600 group-hover:scale-110 transition-transform"></i>
+											<span>Dead Flag</span>
+										</button>
 									} else {
-										<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold">
+										<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold">
 											<i data-lucide="check" class="h-3 w-3 text-emerald-600"></i>
 											<span>Active</span>
 										</span>

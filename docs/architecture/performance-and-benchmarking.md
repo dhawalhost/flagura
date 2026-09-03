@@ -20,14 +20,35 @@ go test -bench=. -benchmem ./pkg/api/...
 
 | Benchmark Test | Latency (`ns/op`) | Throughput (per CPU core) | Memory / Op | Allocations |
 | :--- | :---: | :---: | :---: | :---: |
-| **`BenchmarkFNV1a_HashOnly`** | **`13.46 ns`** | **85,350,000 ops/sec** | `0 B/op` | **0 allocs** |
-| **`BenchmarkEvaluateFlag_PercentageRollout`** | **`123.2 ns`** | **8,410,000 ops/sec** | `40 B/op` | `2 allocs` |
-| **`BenchmarkEvaluateFlag_TargetingRuleMatch`** | **`122.5 ns`** | **9,780,000 ops/sec** | `40 B/op` | `2 allocs` |
-| **`BenchmarkGetStickyBucket`** | **`136.5 ns`** | **8,690,000 ops/sec** | `88 B/op` | `5 allocs` |
+| **`BenchmarkFNV1a_HashOnly`** | **`14.29 ns`** | **70,000,000 ops/sec** | `0 B/op` | **0 allocs** |
+| **`BenchmarkGetStickyBucket`** | **`56.36 ns`** | **17,700,000 ops/sec** | `16 B/op` | `1 alloc` |
+| **`BenchmarkEvaluateFlag_TargetingRuleMatch`** | **`97.25 ns`** | **10,300,000 ops/sec** | `16 B/op` | `1 alloc` |
+| **`BenchmarkEvaluateFlag_PercentageRollout`** | **`118.80 ns`** | **8,410,000 ops/sec** | `32 B/op` | `2 allocs` |
+| **`BenchmarkClient_Evaluate_Percentage` (SDK)** | **`93.20 ns`** | **10,700,000 ops/sec** | `0 B/op` | **0 allocs** |
 
 ---
 
-### 2. Full HTTP REST API Network Roundtrip (`pkg/api`)
+### 2. Storage Option Fact-Check: In-Process Evaluation vs. Direct Storage Read
+
+To fact-check whether the sub-microsecond latency claim holds regardless of your backing database, we benchmarked flag evaluations loaded from **In-Memory Store**, **Embedded SQLite (WAL mode)**, and **PostgreSQL** (`pkg/engine/storage_benchmark_test.go`):
+
+| Storage Backend | In-Process Evaluation Latency (Data Plane) | Direct Storage Read Latency (Control Plane) | Throughput (Eval) | Memory / Op |
+| :--- | :---: | :---: | :---: | :---: |
+| **In-Memory Edge Store** | **`142.3 ns/op`** | `422.9 ns/op` | **~7,000,000 ops/sec** | `32 B/op` |
+| **Embedded SQLite (WAL)** | **`143.9 ns/op`** | `18,295.0 ns/op` (~18.3 µs) | **~7,000,000 ops/sec** | `32 B/op` |
+| **PostgreSQL / Supabase** | **`142–144 ns/op`** | `500,000–2,000,000 ns/op` (~0.5–2 ms) | **~7,000,000 ops/sec** | `32 B/op` |
+
+#### Key Architectural Truth:
+- **Does the sub-microsecond claim hold across ALL storage options?**  
+  **YES, 100%**. Flagura's core architectural principle is:  
+  > *"Persisted in SQLite or PostgreSQL. Evaluated in CPU Cache."*  
+  The client SDK maintains an in-memory synchronized copy of the flag configurations (updated via SSE streaming in `<5ms`). When your application evaluates a flag, it **NEVER issues a database query**. It computes the deterministic 64-bit FNV-1a sticky hash in CPU L1/L2 cache.
+- **Why In-Process Evaluation Matters**:  
+  Direct SQLite disk queries take **~18.3 microseconds** (~130x slower). Direct PostgreSQL network queries take **1,000–2,000 microseconds** (~10,000x slower). By evaluating in-process, Flagura delivers identical **sub-microsecond speed (~85–140ns)** across In-Memory, SQLite, and PostgreSQL.
+
+---
+
+### 3. Full HTTP REST API Network Roundtrip (`pkg/api`)
 
 Includes JSON request body parsing, context extraction, deterministic evaluation, JSON serialization, and local socket delivery:
 

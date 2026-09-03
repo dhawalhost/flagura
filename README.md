@@ -10,10 +10,10 @@
 ![OpenFeature](https://img.shields.io/badge/OpenFeature-Native-7c3aed?style=flat&logo=openfeature&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
-**Persisted in PostgreSQL. Evaluated in CPU Cache.**  
+**Persisted in SQLite or PostgreSQL. Evaluated in CPU Cache.**  
 _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes governance, and zero PII leakage — without the per-MAU billing trap._
 
-[Live Demo & Console](#-quickstart) • [Architecture](#-architecture) • [OpenFeature](#-openfeature-go-provider) • [API Reference](#-rest-api-reference) • [Go SDK](sdks/go) • [Deployment](#-deployment-options) • [Runbooks](docs/runbooks/README.md)
+[Quickstart](#-quickstart) • [Architecture](#-architecture) • [OpenFeature](#-openfeature-polyglot-ecosystem) • [Code Hygiene](docs/product/code-hygiene-and-flag-debt.md) • [Examples](examples/README.md) • [API Reference](#-rest-api-reference) • [Go SDK](sdks/go) • [Runbooks](docs/runbooks/README.md)
 
 </div>
 
@@ -24,13 +24,13 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 **Flagura** is an open-source, developer-first feature management platform engineered around a fundamental separation of concerns:
 
 - **Control Plane (Durable ACID Persistence)**: Governs environments, organizations, projects, API keys, RBAC, 4-Eyes change requests, and immutable audit trails backed by PostgreSQL or SQLite.
-- **Data Plane (In-Memory SDKs)**: Evaluates targeting rules and percentage rollouts locally in-process using **deterministic 64-bit FNV-1a sticky hashing**, executing in **nanoseconds (~85ns)** with zero network hops, zero database I/O, and zero customer PII egress.
+- **Data Plane (In-Memory SDKs)**: Evaluates targeting rules and percentage rollouts locally in-process using **deterministic 64-bit FNV-1a sticky hashing**, executing in **sub-microsecond time (~85ns across all storage options)** with zero network hops, zero database I/O, and zero customer PII egress.
 
 ---
 
 ## ⚡ Core Architectural Pillars & Wedges
 
-- **⚡ Local-First In-Process Evaluation:** Connected SDKs evaluate flags in-memory with deterministic sticky bucketing and zero database I/O on evaluation hot paths.
+- **⚡ Local-First In-Process Evaluation:** Connected SDKs evaluate flags in-memory with deterministic sticky bucketing and zero database I/O on evaluation hot paths (~85ns across SQLite, PostgreSQL, and In-Memory modes).
 - **🧹 Zero Flag Debt & Active Hygiene:** Automated detection of 100% rolled-out flags, longevity tracking, and safe deprecation workflows to eliminate dead code rot.
 - **🛡️ 4-Eyes Change Governance:** Configurable environment protection requiring peer review and dual authorization before production flag mutations are applied.
 - **🔒 Zero Customer PII Egress:** Targeting rules are compiled and distributed to SDKs; customer emails, IDs, and IP addresses never leave process memory (GDPR/HIPAA ready).
@@ -46,7 +46,7 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 
 | Feature / Capability              | ⚡ Flagura (`v2.0`)                | OpenFeature Native | Self-Hosted Support |
 | :-------------------------------- | :--------------------------------- | :----------------: | :-----------------: |
-| **Local In-Process Evaluation**   | ✅ Sub-microsecond (~85ns)         |       ✅ Yes       |       ✅ Yes        |
+| **Local In-Process Evaluation**   | ✅ Sub-microsecond (~85ns across all storage engines) |       ✅ Yes       |       ✅ Yes        |
 | **Durable ACID Persistence**      | ✅ PostgreSQL & SQLite Embedded    |        N/A         |       ✅ Yes        |
 | **Zero Flag Debt & Hygiene**      | ✅ Stale Flag Detection & Auditing |        N/A         |       ✅ Yes        |
 | **Zero Customer PII Egress**      | ✅ 100% In-Process Context (GDPR)  |       ✅ Yes       |       ✅ Yes        |
@@ -70,7 +70,7 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 │                        FLAGURA CONTROL PLANE                           │
 ├────────────────────────────────────────────────────────────────────────┤
 │  • Go Core              ── High-concurrency control API & Web Console │
-│  • Storage Layer        ── Multi-tenant PostgreSQL / In-Memory Edge    │
+│  • Storage Layer        ── Embedded SQLite / PostgreSQL / In-Memory   │
 │  • Governance Engine    ── 4-Eyes review pipeline & Change Requests   │
 │  • Stream Hub           ── Project & environment-scoped SSE broadcast │
 │  • Audit & Telemetry    ── Append-only audit logs & experiment events │
@@ -83,15 +83,15 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 │  1. Check Environment Master Kill-Switch                               │
 │  2. Evaluate Specific Attribute Targeting Rules                        │
 │  3. Compute Deterministic FNV-1a 64-bit Sticky Hash Bucket (0-99.99%)  │
-│  4. Resolve Value / Variant locally in nanoseconds (~100ns)            │
+│  4. Resolve Value / Variant locally in nanoseconds (~85ns)             │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 🚀 Quickstart
 
-### 1. Run Locally (In-Memory Edge Mode)
+### Option A: In-Memory Edge Mode (Zero Dependencies)
 
-No database installation required to get started. Flagura includes a built-in in-memory edge store pre-seeded with sample flags:
+No database installation required. Flagura includes a built-in in-memory edge store pre-seeded with sample flags:
 
 ```bash
 # Clone the repository
@@ -100,55 +100,33 @@ cd flagura
 
 # Run with Make (auto-generates templates & starts server)
 make dev
-
-# Or build both server and developer CLI binaries into bin/
-make build
 ```
 
-> **Tip:** Run `make help` to see all available local workflows (testing, benchmarks, docker, code coverage).
+### Option B: Embedded SQLite (Single-Binary Durable Persistence)
 
-Open your browser to:
+Run with zero external database processes while persisting all flags, users, environments, and audit history locally on disk:
 
-- **Storytelling Landing Page:** [http://localhost:3000](http://localhost:3000)
-- **Developer Console:** [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
+```bash
+# Enable pure-Go embedded SQLite storage
+export DATABASE_URL="sqlite://data/flagura.db"
+make dev
+```
 
----
+### Option C: Connect to PostgreSQL (Supabase / AWS RDS / Neon)
 
-### 2. Connect to Supabase PostgreSQL
-
-1. Open your **Supabase Dashboard** -> **SQL Editor**.
-2. Run the migration script in [`supabase/schema.sql`](supabase/schema.sql):
-
-   ```sql
-   CREATE TABLE IF NOT EXISTS feature_flags (
-       id TEXT PRIMARY KEY,
-       key TEXT UNIQUE NOT NULL,
-       name TEXT NOT NULL,
-       description TEXT,
-       type TEXT NOT NULL DEFAULT 'boolean',
-       tags TEXT[] DEFAULT '{}',
-       variants JSONB DEFAULT '[]'::jsonb,
-       environments JSONB NOT NULL DEFAULT '{}'::jsonb,
-       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-   );
-
-   CREATE TABLE IF NOT EXISTS audit_logs (
-       id TEXT PRIMARY KEY,
-       flag_key TEXT NOT NULL,
-       action TEXT NOT NULL,
-       environment TEXT NOT NULL,
-       actor TEXT NOT NULL,
-       details TEXT,
-       timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
-   );
-   ```
-
+1. Open your **Supabase Dashboard** -> **SQL Editor** (or run `psql "$DATABASE_URL" -f supabase/schema.sql`).
+2. Run the migration script in [`supabase/schema.sql`](supabase/schema.sql).
 3. Set your connection string and launch:
    ```bash
    export DATABASE_URL="postgres://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require"
-   go run main.go
+   make dev
    ```
+
+---
+
+Open your browser to:
+- **Developer Console:** [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
+- **Product Landing:** [http://localhost:3000](http://localhost:3000)
 
 ---
 
@@ -338,6 +316,42 @@ ctx = EvaluationContext(targeting_key="usr_123", attributes={"email": "alice@fla
 is_enabled = client.get_boolean_value("ai-smart-search", False, ctx)
 ```
 
+👉 **[Complete OpenFeature Architecture & Guide](docs/integrations/openfeature.md)**
+
+---
+
+## 🚀 Standalone Runnable Polyglot Examples (`examples/`)
+
+Self-contained, working applications demonstrating Flagura Native and OpenFeature integrations:
+
+| Language | Directory | Description |
+| :--- | :--- | :--- |
+| **Go** | [`examples/go/`](examples/go/main.go) | Native Go client (<85ns) + CNCF `openfeature.FeatureProvider`. |
+| **TypeScript** | [`examples/typescript/`](examples/typescript/index.ts) | Server-side Node / TypeScript with `@openfeature/server-sdk`. |
+| **Python** | [`examples/python/`](examples/python/example.py) | Standard `openfeature` evaluation + native Python client. |
+| **Rust** | [`examples/rust/`](examples/rust/src/main.rs) | Async Tokio-based evaluation with microsecond execution. |
+
+👉 **[Read Examples Quickstart Guide](examples/README.md)**
+
+---
+
+## 🧹 Automated Code Hygiene & Flag Debt Management
+
+Feature flags that remain in codebases after 100% rollout generate technical debt and CPU branch overhead. Flagura includes an **automated flag debt elimination engine**:
+
+1. **Automated Health Analysis**: Flags are continually classified into:
+   - 🟢 **`ACTIVE`**: Actively splitting traffic or evaluating custom targeting rules.
+   - 🧹 **`READY_FOR_CLEANUP`**: 100% rolled out in production with 0 custom rules (safe to eliminate).
+   - ⚠️ **`DEAD_FLAG`**: Permanently disabled or kill-switched (0% traffic).
+2. **In-App Cleanup Assistant**: Clicking a flag's health badge in the console reveals exact before/after code refactoring diffs across Go, TypeScript, and Python.
+3. **CLI Static Code Scanner (`flagura scan`)**:
+   ```bash
+   # Scan your repository to detect all flag occurrences in code
+   flagura scan .
+   ```
+
+👉 **[Read Code Hygiene & Flag Debt Guide](docs/product/code-hygiene-and-flag-debt.md)**
+
 ---
 
 ## ⚡ Real-Time Streaming & Resilience
@@ -400,9 +414,9 @@ curl -X POST "https://flagura.dhawalhost.com/api/v1/evaluate?trace=true" \
         },
         {
           "step_index": 2,
-          "name": "Targeting Rule Match: Enterprise VIP",
+          "name": "Targeting Rule Match: VIP Tier",
           "passed": true,
-          "detail": "Condition matched (tier equals [enterprise]). Action: force_enabled."
+          "detail": "Condition matched (tier equals [vip]). Action: force_enabled."
         }
       ],
       "final_reason": "TARGETING_RULE_MATCH",

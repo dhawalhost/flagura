@@ -220,3 +220,52 @@ func TestEngineMultivariateAndPercentage(t *testing.T) {
 		t.Fatalf("expected multivariate match v_all, got: %+v", resMulti)
 	}
 }
+
+func BenchmarkClient_Evaluate_Percentage(b *testing.B) {
+	flag := FeatureFlag{
+		Key:  "pct-flag",
+		Type: FlagTypeBoolean,
+		Environments: map[Environment]EnvironmentConfig{
+			EnvProduction: {
+				Enabled:    true,
+				Strategy:   StrategyPercentage,
+				Percentage: 50,
+			},
+		},
+	}
+	ctx := Context{UserID: "usr_bench_42", Environment: EnvProduction}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_ = Evaluate(flag, ctx)
+	}
+}
+
+func BenchmarkClient_Evaluate_TargetingRule(b *testing.B) {
+	flag := FeatureFlag{
+		Key:  "rule-gate",
+		Name: "Rule Gate",
+		Type: FlagTypeBoolean,
+		Environments: map[Environment]EnvironmentConfig{
+			EnvProduction: {
+				Enabled:  true,
+				Strategy: StrategyRules,
+				Rules: []Rule{
+					{
+						ID:      "rule-1",
+						Enabled: true,
+						Conditions: []RuleCondition{
+							{Attribute: "country", Operator: "EQUALS", Value: "US"},
+						},
+					},
+				},
+			},
+		},
+	}
+	ctx := Context{UserID: "usr_bench_42", Country: "US", Environment: EnvProduction}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_ = Evaluate(flag, ctx)
+	}
+}

@@ -22,22 +22,36 @@ Flagura relies on relational tables with JSONB document columns in PostgreSQL:
 
 ---
 
-## 2. Initial Setup & Multi-Database Support
+## 2. Initial Setup & Supported Storage Drivers
 
-Flagura uses standard ANSI SQL and the official PostgreSQL driver (`github.com/lib/pq`). It runs seamlessly on any standard PostgreSQL instance (version 14+).
+Flagura supports 3 storage options: **Embedded SQLite (Pure Go)**, **PostgreSQL (Supabase/AWS RDS/Neon)**, and an **In-Memory Edge Store**.
 
-### Method 1: Local PostgreSQL via Docker Compose (1-Click)
+### Method 1: Embedded SQLite (Zero External Dependencies — Recommended for Single-Node)
+```bash
+# Run Flagura with durable embedded SQLite storage
+export DATABASE_URL="sqlite://data/flagura.db"
+./bin/flagura
+```
+- **Zero CGo (`CGO_ENABLED=0`)**: Runs via `modernc.org/sqlite`, fully cross-compilable.
+- **WAL Mode (`PRAGMA journal_mode = WAL;`)**: Concurrent readers do not block writes.
+- **Automated Migrations**: Automatically creates and migrates all 8 tables on boot.
+- **Effortless Backups**: Back up the entire database with a simple file copy:
+  ```bash
+  cp data/flagura.db "data/flagura_backup_$(date +%Y%m%d%H%M%S).db"
+  ```
+
+### Method 2: Local PostgreSQL via Docker Compose (1-Click)
 ```bash
 # Starts local PostgreSQL + Flagura with persistent storage and auto-migrations
 docker compose up -d
 ```
 
-### Method 2: Supabase Dashboard
+### Method 3: Supabase Dashboard
 1. Log in to [Supabase Console](https://supabase.com/dashboard).
 2. Select your Project -> **SQL Editor**.
 3. Copy and run the contents of [`supabase/schema.sql`](../../supabase/schema.sql).
 
-### Method 3: Any Cloud PostgreSQL (AWS RDS, Neon, Cloud SQL, Railway, Render)
+### Method 4: Any Cloud PostgreSQL (AWS RDS, Neon, Cloud SQL, Railway, Render)
 ```bash
 # Connect and initialize schema on any remote or local database:
 psql "$DATABASE_URL" -f supabase/schema.sql

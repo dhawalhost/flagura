@@ -49,6 +49,9 @@ templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domai
 
 					<!-- VIEW 11: Project & Workspace Modal -->
 					@ProjectModal(orgs, projects, activeProjectID)
+
+					<!-- VIEW 12: Automated Code Hygiene & Cleanup Modal -->
+					@HygieneModal()
 				</main>
 			</div>
 		</div>

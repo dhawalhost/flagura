@@ -91,6 +91,14 @@ templ SDKModal() {
 					Rust SDK
 				</button>
 				<button 
+					@click="sdkTab = 'openfeature'"
+					class="px-4 py-2 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer flex items-center gap-1.5"
+					:class="sdkTab === 'openfeature' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200'"
+				>
+					<span class="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
+					<span>OpenFeature (CNCF)</span>
+				</button>
+				<button 
 					@click="sdkTab = 'cli'"
 					class="px-4 py-2 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer"
 					:class="sdkTab === 'cli' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200'"
@@ -203,8 +211,41 @@ templ SDKModal() {
 			</div>
 
 			<!-- TAB 2: Code Snippets Display -->
-			<div x-show="sdkTab !== 'apikeys'" class="relative">
-				<pre class="bg-slate-900 p-6 rounded-2xl text-xs font-mono text-emerald-400 overflow-x-auto border border-slate-800 leading-relaxed shadow-sm" x-text="getSdkSnippet()"></pre>
+			<div x-show="sdkTab !== 'apikeys'" class="space-y-4">
+				<!-- OpenFeature Language Switcher & Badge -->
+				<div x-show="sdkTab === 'openfeature'" class="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono">
+					<div class="flex items-center gap-2 text-xs text-indigo-950 font-bold">
+						<i data-lucide="shield-check" class="w-4 h-4 text-indigo-600"></i>
+						<span>CNCF OpenFeature Standard — Zero Vendor Lock-In</span>
+					</div>
+					<div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-indigo-200 text-xs">
+						<button
+							@click="openfeatureLang = 'go'"
+							class="px-3 py-1 rounded-lg font-bold transition cursor-pointer"
+							:class="openfeatureLang === 'go' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'"
+						>
+							Go
+						</button>
+						<button
+							@click="openfeatureLang = 'ts'"
+							class="px-3 py-1 rounded-lg font-bold transition cursor-pointer"
+							:class="openfeatureLang === 'ts' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'"
+						>
+							TypeScript
+						</button>
+						<button
+							@click="openfeatureLang = 'python'"
+							class="px-3 py-1 rounded-lg font-bold transition cursor-pointer"
+							:class="openfeatureLang === 'python' ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'"
+						>
+							Python
+						</button>
+					</div>
+				</div>
+
+				<div class="relative">
+					<pre class="bg-slate-900 p-6 rounded-2xl text-xs font-mono text-emerald-400 overflow-x-auto border border-slate-800 leading-relaxed shadow-sm" x-text="getSdkSnippet()"></pre>
+				</div>
 			</div>
 		</div>
 
