@@ -44,7 +44,7 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 
 ## ⚖️ Capability Matrix
 
-| Feature / Capability              | ⚡ Flagura (`v2.0`)                | OpenFeature Native | Self-Hosted Support |
+| Feature / Capability              | ⚡ Flagura (`v1.5.0`)              | OpenFeature Native | Self-Hosted Support |
 | :-------------------------------- | :--------------------------------- | :----------------: | :-----------------: |
 | **Local In-Process Evaluation**   | ✅ Sub-microsecond (~85ns across all storage engines) |       ✅ Yes       |       ✅ Yes        |
 | **Durable ACID Persistence**      | ✅ PostgreSQL & SQLite Embedded    |        N/A         |       ✅ Yes        |
