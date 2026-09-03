@@ -47,7 +47,7 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 	if cleanPath != ":memory:" {
 		dir := filepath.Dir(cleanPath)
 		if dir != "." && dir != "/" {
-			if err := os.MkdirAll(dir, 0755); err != nil {
+			if err := os.MkdirAll(dir, 0750); err != nil {
 				return nil, fmt.Errorf("failed to create sqlite directory: %w", err)
 			}
 		}
@@ -81,12 +81,12 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 	defer cancel()
 
 	if err := s.autoMigrate(ctx); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("failed to auto-migrate sqlite schema: %w", err)
 	}
 
 	if err := s.seedDefaults(ctx); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("failed to seed sqlite defaults: %w", err)
 	}
 
@@ -346,14 +346,24 @@ func (s *SQLiteStore) Reset(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	tables := []string{
-		"experiment_events", "audit_logs", "change_requests", "api_keys",
-		"feature_flags", "sessions", "password_reset_tokens", "org_invitations",
-		"org_members", "projects", "organizations", "users",
+	truncateQueries := []string{
+		"DELETE FROM experiment_events",
+		"DELETE FROM audit_logs",
+		"DELETE FROM change_requests",
+		"DELETE FROM api_keys",
+		"DELETE FROM feature_flags",
+		"DELETE FROM sessions",
+		"DELETE FROM password_reset_tokens",
+		"DELETE FROM org_invitations",
+		"DELETE FROM org_members",
+		"DELETE FROM projects",
+		"DELETE FROM organizations",
+		"DELETE FROM users",
 	}
 
-	for _, tbl := range tables {
-		_, _ = s.db.ExecContext(ctx, "DELETE FROM "+tbl)
+	for _, q := range truncateQueries {
+		// #nosec G202 -- q is a static internal query with zero dynamic user input
+		_, _ = s.db.ExecContext(ctx, q)
 	}
 
 	return s.seedDefaults(ctx)
