@@ -16,7 +16,7 @@ graph TB
 
     subgraph EdgeLayer["Ingress & Edge Routing"]
         VercelEdge["Vercel Serverless Function (api/index.go)"]
-        NativeServer["Standalone Native Server (main.go)"]
+        NativeServer["Standalone Native Server (cmd/server/main.go)"]
     end
 
     subgraph CoreEngine["Flagura Core (pkg/)"]

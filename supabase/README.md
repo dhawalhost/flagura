@@ -86,6 +86,6 @@ export DATABASE_URL="postgres://postgres.[ref]:[pw]@..."
 
 # Generate templates and run
 templ generate
-go run main.go
+go run ./cmd/server
 ```
 If `DATABASE_URL` is omitted, Flagura automatically runs with its zero-dependency in-memory edge store.

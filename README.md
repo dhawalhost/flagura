@@ -441,13 +441,13 @@ curl -X POST "https://flagura.dhawalhost.com/api/v1/flags/ai-smart-search/promot
 
 ---
 
-## 💻 Flagura Developer CLI (`cmd/flagura`)
+## 💻 Flagura Developer CLI (`cmd/cli`)
 
 Flagura includes a single-binary CLI tool for developers, terminal evaluation, and CI/CD automated rollouts:
 
 ```bash
 # Build / install CLI
-go build -o /usr/local/bin/flagura ./cmd/flagura
+go build -o /usr/local/bin/flagura ./cmd/cli
 ```
 
 ### CLI Commands:
@@ -689,8 +689,9 @@ go test -v ./...
 # Recompile Templ components
 templ generate
 
-# Build production binary
-go build -o bin/flagura main.go
+# Build production binaries
+go build -o bin/flagura-server ./cmd/server
+go build -o bin/flagura ./cmd/cli
 ```
 
 ---

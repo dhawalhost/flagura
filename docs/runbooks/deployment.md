@@ -81,7 +81,7 @@ RUN apk add --no-cache git
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /bin/flagura main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /bin/flagura ./cmd/server
 
 FROM alpine:3.19
 WORKDIR /app
@@ -112,7 +112,7 @@ docker run -d \
 
 ```bash
 templ generate
-CGO_ENABLED=0 go build -ldflags="-w -s" -o /usr/local/bin/flagura main.go
+CGO_ENABLED=0 go build -ldflags="-w -s" -o /usr/local/bin/flagura ./cmd/server
 ```
 
 #### 2. Configure Systemd Service (`/etc/systemd/system/flagura.service`):

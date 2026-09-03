@@ -84,7 +84,7 @@ func main() {
 	}
 
 	go func() {
-		fmt.Printf("\n🚀 Flagura Engine running on http://localhost:%s\n", cfg.ServerPort)
+		fmt.Printf("\n🚀 Flagura Server running on http://localhost:%s\n", cfg.ServerPort)
 		fmt.Printf("   ├── Environment: %s\n", cfg.Environment)
 		fmt.Printf("   ├── Storage Driver: %s\n", st.DriverName())
 		fmt.Printf("   ├── Fast-Path Evaluator: FNV-1a 64-bit Deterministic\n")
@@ -101,7 +101,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	slog.Info("Shutting down server gracefully...")
+	slog.Info("Shutting down Flagura server gracefully...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -109,5 +109,5 @@ func main() {
 		slog.Error("Server forced to shutdown", slog.Any("error", err))
 		os.Exit(1)
 	}
-	slog.Info("Server exited successfully")
+	slog.Info("Flagura server exited successfully")
 }

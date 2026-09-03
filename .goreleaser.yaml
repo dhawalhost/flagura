@@ -10,7 +10,7 @@ before:
 
 builds:
   - id: flagura-server
-    main: ./main.go
+    main: ./cmd/server/main.go
     binary: flagura-server
     env:
       - CGO_ENABLED=0
@@ -30,7 +30,7 @@ builds:
         goarch: arm64
 
   - id: flagura-cli
-    main: ./cmd/flagura/main.go
+    main: ./cmd/cli/main.go
     binary: flagura
     env:
       - CGO_ENABLED=0

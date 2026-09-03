@@ -557,10 +557,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 							<div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
 								<div class="flex items-center justify-between text-xs">
 									<span class="text-slate-900 font-bold">1. Control Plane &amp; Store</span>
-									<span class="text-indigo-600 font-bold">PostgreSQL</span>
+									<span class="text-indigo-600 font-bold">SQLite / PostgreSQL</span>
 								</div>
 								<p class="text-xs text-slate-600 font-sans leading-relaxed">
-									Flags and rollout strategies are committed to the ACID store and signed cryptographically.
+									Flags and rollout strategies are persisted in Embedded SQLite or PostgreSQL and signed cryptographically.
 								</p>
 							</div>
 
