@@ -15,6 +15,29 @@ This guide covers the end-to-end procedures for building, testing, versioning, a
 
 ---
 
+## 🚀 One-Click Manual Release Workflow (GitHub Actions)
+
+Flagura provides a secure, manual dispatch workflow ([`.github/workflows/publish-sdk.yml`](../../.github/workflows/publish-sdk.yml)) to publish any SDK on-demand.
+
+### 🛡️ Access Restriction
+* This workflow is **strictly gated** to the repository owner (`dhawalhost`).
+* Attempts by unauthorized users will automatically fail at the `authorize` stage before any build or publish steps are executed.
+
+### 🔑 Required Repository Secrets (`Settings -> Secrets and variables -> Actions`)
+1. **`NPM_TOKEN`**: NPM automation access token with 2FA bypass for `@flagura/sdk`.
+2. **`PYPI_API_TOKEN`**: PyPI token (`pypi-...`) with upload rights for `flagura-sdk`.
+3. **`CRATES_IO_TOKEN`**: Crates.io API token for `flagura`.
+
+### 🕹️ How to Trigger:
+1. Navigate to **GitHub ➔ Actions ➔ Publish SDKs (Manual Dispatch)**.
+2. Click **Run workflow**:
+   - **Target SDK**: Choose `javascript`, `python`, `rust`, `go`, or `all`.
+   - **Semantic Version**: Specify the version to publish (e.g. `1.0.0` or `1.5.0`).
+   - **Dry run**: Enable to test building, bundling, and packaging without publishing to registries.
+3. Click **Run workflow**.
+
+---
+
 ## 1. Go SDK & OpenFeature Provider (`sdks/go`)
 
 The Go SDK is structured as an isolated, dedicated submodule (`github.com/dhawalhost/flagura/sdks/go`) with **zero server dependencies** (`lib/pq`, `templ`, etc. are excluded).
