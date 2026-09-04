@@ -279,3 +279,52 @@ func TestClientCircuitBreaker(t *testing.T) {
 		t.Fatalf("expected StateHalfOpen after cooldown, got: %v", c.circuitBreaker.State())
 	}
 }
+
+func TestEndpointResolutionAndNormalization(t *testing.T) {
+	// Test 1: Default to https://flagura.dev when endpoint is empty and env is empty
+	_ = os.Unsetenv("FLAGURA_ENDPOINT")
+	c1 := NewClient("", "flg_live_test")
+	defer c1.Close()
+	if c1.config.Endpoint != "https://flagura.dev" {
+		t.Errorf("expected default endpoint https://flagura.dev, got %s", c1.config.Endpoint)
+	}
+
+	// Test 2: Resolve from FLAGURA_ENDPOINT environment variable
+	_ = os.Setenv("FLAGURA_ENDPOINT", "https://flags.custom.org")
+	c2 := NewClient("", "flg_live_test")
+	defer c2.Close()
+	if c2.config.Endpoint != "https://flags.custom.org" {
+		t.Errorf("expected env endpoint https://flags.custom.org, got %s", c2.config.Endpoint)
+	}
+	_ = os.Unsetenv("FLAGURA_ENDPOINT")
+
+	// Test 3: WithEndpoint option overrides default
+	c3 := NewClient("", "flg_live_test", WithEndpoint("flags.internal.corp:8443"))
+	defer c3.Close()
+	if c3.config.Endpoint != "https://flags.internal.corp:8443" {
+		t.Errorf("expected https://flags.internal.corp:8443, got %s", c3.config.Endpoint)
+	}
+
+	// Test 4: normalizeEndpoint tests
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"", "https://flagura.dev"},
+		{"   ", "https://flagura.dev"},
+		{"https://flagura.dev", "https://flagura.dev"},
+		{"https://flagura.dev/", "https://flagura.dev"},
+		{"flagura.dev", "https://flagura.dev"},
+		{"localhost:3000", "http://localhost:3000"},
+		{"localhost:3000/", "http://localhost:3000"},
+		{"127.0.0.1:8080", "http://127.0.0.1:8080"},
+		{"https://flags.mycompany.internal/api/", "https://flags.mycompany.internal/api"},
+	}
+
+	for _, tc := range tests {
+		got := normalizeEndpoint(tc.input)
+		if got != tc.want {
+			t.Errorf("normalizeEndpoint(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}

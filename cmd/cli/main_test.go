@@ -146,3 +146,26 @@ func TestCLIApiInteraction(t *testing.T) {
 	printHelp()
 }
 
+func TestNormalizeEndpoint(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"", "https://flagura.dev"},
+		{"   ", "https://flagura.dev"},
+		{"https://flagura.dev", "https://flagura.dev"},
+		{"https://flagura.dev/", "https://flagura.dev"},
+		{"flagura.dev", "https://flagura.dev"},
+		{"localhost:3000", "http://localhost:3000"},
+		{"localhost:3000/", "http://localhost:3000"},
+		{"127.0.0.1:8080", "http://127.0.0.1:8080"},
+		{"https://flags.mycompany.internal/api/", "https://flags.mycompany.internal/api"},
+	}
+
+	for _, tc := range tests {
+		got := normalizeEndpoint(tc.input)
+		if got != tc.want {
+			t.Errorf("normalizeEndpoint(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}

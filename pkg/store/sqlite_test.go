@@ -63,11 +63,11 @@ func TestSQLiteStore_Lifecycle(t *testing.T) {
 
 	// 3. Flags CRUD & Rollouts
 	newFlag := domain.FeatureFlag{
-		ProjectID:   proj.ID,
-		Key:         "dark-mode-v2",
-		Name:        "Dark Mode v2",
-		Type:        "boolean",
-		Tags:        []string{"ui", "theme"},
+		ProjectID: proj.ID,
+		Key:       "dark-mode-v2",
+		Name:      "Dark Mode v2",
+		Type:      "boolean",
+		Tags:      []string{"ui", "theme"},
 		Environments: map[domain.Environment]domain.EnvironmentConfig{
 			domain.EnvProduction: {Enabled: false, Strategy: domain.StrategyPercentage, Percentage: 0},
 		},
@@ -199,6 +199,26 @@ func TestSQLiteStore_Lifecycle(t *testing.T) {
 	fetchedUser, err := s.GetUserByEmail(ctx, "charlie@acme.com")
 	if err != nil || fetchedUser.ID != user.ID {
 		t.Errorf("get user by email mismatch: %v", err)
+	}
+
+	updatedUser, err := s.UpdateUser(ctx, domain.User{
+		ID:        user.ID,
+		Name:      "Charlie Brown",
+		AvatarURL: "https://flagura.dev/charlie.png",
+	})
+	if err != nil {
+		t.Fatalf("UpdateUser failed: %v", err)
+	}
+	if updatedUser.Name != "Charlie Brown" || updatedUser.AvatarURL != "https://flagura.dev/charlie.png" {
+		t.Errorf("unexpected updated user: %+v", updatedUser)
+	}
+
+	if err := s.UpdateUserPassword(ctx, user.ID, "brand_new_hash_999"); err != nil {
+		t.Fatalf("UpdateUserPassword failed: %v", err)
+	}
+	userByID, err := s.GetUserByID(ctx, user.ID)
+	if err != nil || userByID.PasswordHash != "brand_new_hash_999" {
+		t.Errorf("expected updated password hash, got: %+v", userByID)
 	}
 
 	sess := domain.Session{

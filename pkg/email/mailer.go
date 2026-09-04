@@ -152,13 +152,17 @@ func NewDisabledMailer(cfg ...Config) *DisabledMailer {
 	return &DisabledMailer{Config: c}
 }
 
-func (m *DisabledMailer) IsEnabled() bool { return false }
-func (m *DisabledMailer) GetConfig() Config { return m.Config }
-func (m *DisabledMailer) GetGovernanceEmails() []string { return m.Config.GovernanceEmails }
-func (m *DisabledMailer) GetSupportEmail() string { return m.Config.SupportEmail }
+func (m *DisabledMailer) IsEnabled() bool                                                 { return false }
+func (m *DisabledMailer) GetConfig() Config                                               { return m.Config }
+func (m *DisabledMailer) GetGovernanceEmails() []string                                   { return m.Config.GovernanceEmails }
+func (m *DisabledMailer) GetSupportEmail() string                                         { return m.Config.SupportEmail }
 func (m *DisabledMailer) SendPasswordReset(toEmail, recipientName, resetURL string) error { return nil }
-func (m *DisabledMailer) SendWelcomeEmail(toEmail, recipientName, dashboardURL string) error { return nil }
-func (m *DisabledMailer) SendChangeRequestNotification(toEmail, recipientName, requesterName, flagKey, environment, actionType, reviewURL string) error { return nil }
+func (m *DisabledMailer) SendWelcomeEmail(toEmail, recipientName, dashboardURL string) error {
+	return nil
+}
+func (m *DisabledMailer) SendChangeRequestNotification(toEmail, recipientName, requesterName, flagKey, environment, actionType, reviewURL string) error {
+	return nil
+}
 
 // ConsoleMailer logs HTML emails to stdout (useful in local dev or testing when explicitly enabled).
 type ConsoleMailer struct {

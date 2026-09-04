@@ -420,6 +420,10 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPatch || r.Method == http.MethodPut {
+		s.handleUpdateProfile(w, r)
+		return
+	}
 	user, err := s.getUserFromRequest(r)
 	if err != nil {
 		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
@@ -428,6 +432,137 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(user)
+}
+
+func (s *Server) handleUpdateProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch && r.Method != http.MethodPut && r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, err := s.getUserFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	var req domain.UpdateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request payload: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	trimmedName := strings.TrimSpace(req.Name)
+	if trimmedName == "" {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "Validation Error",
+			"message": "Full Name cannot be empty.",
+		})
+		return
+	}
+
+	updatedUser, err := s.store.UpdateUser(r.Context(), domain.User{
+		ID:        user.ID,
+		Name:      trimmedName,
+		AvatarURL: strings.TrimSpace(req.AvatarURL),
+	})
+	if err != nil {
+		http.Error(w, "Failed to update profile: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Profile updated successfully",
+		"user":    updatedUser,
+	})
+}
+
+func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, err := s.getUserFromRequest(r)
+	if err != nil {
+		http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	freshUser, err := s.store.GetUserByID(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	var req domain.ChangePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request payload: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if req.CurrentPassword == "" {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "Validation Error",
+			"message": "Current password is required.",
+		})
+		return
+	}
+	if req.NewPassword == "" {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "Validation Error",
+			"message": "New password is required.",
+		})
+		return
+	}
+
+	// Verify current password against stored bcrypt hash
+	if err := bcrypt.CompareHashAndPassword([]byte(freshUser.PasswordHash), []byte(req.CurrentPassword)); err != nil {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "Incorrect Password",
+			"message": "The current password provided is incorrect.",
+		})
+		return
+	}
+
+	// Validate new password complexity
+	if err := validatePasswordComplexity(req.NewPassword); err != nil {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "Weak Password",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Hash new password
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.store.UpdateUserPassword(r.Context(), user.ID, string(hash)); err != nil {
+		http.Error(w, "Failed to update password: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Password has been successfully updated.",
+	})
 }
 
 func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
@@ -536,4 +671,3 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 		"message": "Password has been successfully updated. You can now sign in with your new credentials.",
 	})
 }
-

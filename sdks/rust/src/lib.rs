@@ -276,7 +276,21 @@ impl FlaguraBuilder {
     }
 
     pub fn build(self) -> FlaguraClient {
-        let endpoint = self.endpoint.unwrap_or_else(|| "http://localhost:3000".to_string());
+        let raw_endpoint = self
+            .endpoint
+            .or_else(|| std::env::var("FLAGURA_ENDPOINT").ok())
+            .unwrap_or_else(|| "https://flagura.dev".to_string());
+        let trimmed = raw_endpoint.trim();
+        let mut endpoint = trimmed.to_string();
+        if !endpoint.starts_with("http://") && !endpoint.starts_with("https://") {
+            if endpoint.starts_with("localhost") || endpoint.starts_with("127.0.0.1") {
+                endpoint = format!("http://{}", endpoint);
+            } else {
+                endpoint = format!("https://{}", endpoint);
+            }
+        }
+        let endpoint = endpoint.trim_end_matches('/').to_string();
+
         let config = ClientConfig {
             endpoint,
             api_key: self.api_key,

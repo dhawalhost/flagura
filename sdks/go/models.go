@@ -74,17 +74,17 @@ type EnvironmentConfig struct {
 
 // FeatureFlag represents a complete feature flag definition.
 type FeatureFlag struct {
-	ID           string                       `json:"id"`
-	ProjectID    string                       `json:"project_id"`
-	Key          string                       `json:"key"`
-	Name         string                       `json:"name"`
-	Description  string                       `json:"description"`
-	Type         FlagType                     `json:"type"`
-	Tags         []string                     `json:"tags,omitempty"`
-	Variants     []Variant                    `json:"variants,omitempty"`
+	ID           string                            `json:"id"`
+	ProjectID    string                            `json:"project_id"`
+	Key          string                            `json:"key"`
+	Name         string                            `json:"name"`
+	Description  string                            `json:"description"`
+	Type         FlagType                          `json:"type"`
+	Tags         []string                          `json:"tags,omitempty"`
+	Variants     []Variant                         `json:"variants,omitempty"`
 	Environments map[Environment]EnvironmentConfig `json:"environments"`
-	CreatedAt    time.Time                    `json:"created_at"`
-	UpdatedAt    time.Time                    `json:"updated_at"`
+	CreatedAt    time.Time                         `json:"created_at"`
+	UpdatedAt    time.Time                         `json:"updated_at"`
 }
 
 // Context represents user or request targeting context for flag evaluation.

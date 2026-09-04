@@ -301,6 +301,31 @@ func TestMemoryStore_UserAndSessionManagement(t *testing.T) {
 			},
 		},
 		{
+			name: "Update user profile and password",
+			testFunc: func(t *testing.T) {
+				updated, err := memStore.UpdateUser(ctx, domain.User{
+					ID:        createdUser.ID,
+					Name:      "Sarah Connor Updated",
+					AvatarURL: "https://flagura.dev/avatar.png",
+				})
+				if err != nil {
+					t.Fatalf("UpdateUser failed: %v", err)
+				}
+				if updated.Name != "Sarah Connor Updated" || updated.AvatarURL != "https://flagura.dev/avatar.png" {
+					t.Fatalf("Unexpected updated user data: %+v", updated)
+				}
+
+				if err := memStore.UpdateUserPassword(ctx, createdUser.ID, "new_hashed_pwd_456"); err != nil {
+					t.Fatalf("UpdateUserPassword failed: %v", err)
+				}
+
+				byID, err := memStore.GetUserByID(ctx, createdUser.ID)
+				if err != nil || byID.PasswordHash != "new_hashed_pwd_456" {
+					t.Fatalf("Expected password hash to be updated, got: %v", byID)
+				}
+			},
+		},
+		{
 			name: "Session lifecycle (create, get, delete)",
 			testFunc: func(t *testing.T) {
 				sess := domain.Session{
@@ -769,4 +794,3 @@ func TestMemoryStore_ProjectScopedAndGovernanceQueries(t *testing.T) {
 		t.Errorf("expected nil error on Ping, got %v", err)
 	}
 }
-

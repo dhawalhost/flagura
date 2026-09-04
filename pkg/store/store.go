@@ -63,6 +63,8 @@ type Store interface {
 	CreatePasswordResetToken(ctx context.Context, email string, ttl time.Duration) (string, error)
 	GetPasswordResetToken(ctx context.Context, token string) (*domain.PasswordResetToken, error)
 	ResetPasswordWithToken(ctx context.Context, token string, newPasswordHash string) error
+	UpdateUser(ctx context.Context, user domain.User) (*domain.User, error)
+	UpdateUserPassword(ctx context.Context, userID string, newPasswordHash string) error
 
 	// Experiments & A/B Testing
 	RecordExperimentEvents(ctx context.Context, events []domain.ExperimentEvent) error

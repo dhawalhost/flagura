@@ -1068,6 +1068,61 @@ func (s *SQLiteStore) ResetPasswordWithToken(ctx context.Context, token string, 
 	return nil
 }
 
+func (s *SQLiteStore) UpdateUser(ctx context.Context, user domain.User) (*domain.User, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE users
+		SET name = ?, avatar_url = ?, updated_at = ?
+		WHERE id = ?
+	`, user.Name, user.AvatarURL, now, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil || rows == 0 {
+		return nil, fmt.Errorf("user not found with ID: %s", user.ID)
+	}
+
+	// Read updated user back
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, email, password_hash, name, role, avatar_url, created_at, updated_at
+		FROM users
+		WHERE id = ?
+	`, user.ID)
+
+	var u domain.User
+	var createdStr, updatedStr string
+	if err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Name, &u.Role, &u.AvatarURL, &createdStr, &updatedStr); err != nil {
+		return nil, err
+	}
+	u.CreatedAt, _ = time.Parse(time.RFC3339, createdStr)
+	u.UpdatedAt, _ = time.Parse(time.RFC3339, updatedStr)
+	return &u, nil
+}
+
+func (s *SQLiteStore) UpdateUserPassword(ctx context.Context, userID string, newPasswordHash string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE users
+		SET password_hash = ?, updated_at = ?
+		WHERE id = ?
+	`, newPasswordHash, now, userID)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil || rows == 0 {
+		return fmt.Errorf("user not found with ID: %s", userID)
+	}
+	return nil
+}
+
 // --- MEMBERS & INVITATIONS ---
 
 func (s *SQLiteStore) CreateOrgMember(ctx context.Context, member domain.OrgMember) (*domain.OrgMember, error) {

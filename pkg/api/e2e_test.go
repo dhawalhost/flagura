@@ -349,7 +349,7 @@ func TestE2E_FullPlatformLifecycle(t *testing.T) {
 			},
 			"guardrails": map[string]any{
 				"max_error_rate_pct": 2.0,
-				"auto_rollback":     true,
+				"auto_rollback":      true,
 			},
 		}
 		b, _ := json.Marshal(canaryPayload)

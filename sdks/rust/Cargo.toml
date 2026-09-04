@@ -1,6 +1,6 @@
 [package]
 name = "flagura"
-version = "1.3.0"
+version = "1.1.0"
 edition = "2021"
 authors = ["Flagura Team <support@flagura.dev>"]
 description = "Official Flagura Native Rust Client SDK for high-performance feature flag evaluation and experimentation."

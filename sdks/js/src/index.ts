@@ -20,7 +20,7 @@ export interface EvaluationResult<T = any> {
 }
 
 export interface FlaguraClientOptions {
-  endpoint: string;
+  endpoint?: string;
   apiKey?: string;
   projectId?: string;
   defaultEnvironment?: string;
@@ -38,8 +38,14 @@ export class FlaguraClient {
   private listeners: Array<(flags: Map<string, any>) => void> = [];
   private abortController: AbortController | null = null;
 
-  constructor(options: FlaguraClientOptions) {
-    this.endpoint = options.endpoint.replace(/\/+$/, '');
+  constructor(options: FlaguraClientOptions = {}) {
+    const nodeEnv = typeof globalThis !== 'undefined' ? (globalThis as any).process?.env?.FLAGURA_ENDPOINT : undefined;
+    const rawEndpoint = options.endpoint || nodeEnv || 'https://flagura.dev';
+    let ep = rawEndpoint.trim();
+    if (!ep.startsWith('http://') && !ep.startsWith('https://')) {
+      ep = (ep.startsWith('localhost') || ep.startsWith('127.0.0.1')) ? `http://${ep}` : `https://${ep}`;
+    }
+    this.endpoint = ep.replace(/\/+$/, '');
     this.apiKey = options.apiKey;
     this.projectId = options.projectId;
     this.defaultEnvironment = options.defaultEnvironment || 'production';

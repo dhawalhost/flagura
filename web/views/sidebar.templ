@@ -39,7 +39,7 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 					<div class="flex flex-col">
 						<span class="font-display font-extrabold text-slate-900 text-base tracking-tight leading-none flex items-center gap-1.5">
 							Flagura
-							<span class="text-[9px] font-mono text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200">v1.5.0</span>
+							<span class="text-[9px] font-mono text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200">v{ domain.CleanVersion() }</span>
 						</span>
 						<span class="text-[9px] font-mono text-slate-400 font-semibold uppercase tracking-wider mt-1">Feature Console</span>
 					</div>
@@ -240,11 +240,27 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 						class="text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-bold"
 					>4-Eyes</span>
 				</button>
+
+				<!-- 9: Profile Settings -->
+				<button 
+					@click="activeView = 'profile'; isMobileSidebarOpen = false;"
+					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
+					:class="activeView === 'profile' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
+				>
+					<div class="flex items-center gap-2.5">
+						<i data-lucide="user-cog" class="w-4 h-4"></i>
+						<span class="font-sans font-medium">Profile Settings</span>
+					</div>
+					<span 
+						class="text-[10px] px-2 py-0.5 rounded-full font-bold"
+						:class="activeView === 'profile' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-600 border border-slate-200'"
+					>Account</span>
+				</button>
 			</nav>
 		</div>
 
-		<!-- Bottom Status & Actions -->
-		<div class="space-y-3 pt-4 border-t border-slate-200 font-mono">
+		<!-- Bottom Status -->
+		<div class="pt-4 border-t border-slate-200 font-mono">
 			<!-- Runtime Info Box -->
 			<div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
 				<div class="flex items-center justify-between">
@@ -254,26 +270,21 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 						FNV-1a 64-bit
 					</span>
 				</div>
-				<div class="text-[11px] text-slate-500 flex justify-between">
+				<div class="text-[11px] text-slate-500 flex justify-between items-center">
 					<span>Session:</span>
-					<span class="text-slate-900 font-bold truncate max-w-[110px]" title={ user.Email }>
+					<button 
+						@click="activeView = 'profile'"
+						class="text-slate-900 hover:text-indigo-600 font-bold truncate max-w-[110px] transition cursor-pointer text-left" 
+						title={ user.Email }
+					>
 						if user != nil && user.Name != "" {
 							{ user.Name }
 						} else {
 							Developer
 						}
-					</span>
+					</button>
 				</div>
 			</div>
-
-			<!-- Reset Seed Data Button -->
-			<button 
-				@click="resetSeedData()"
-				class="w-full py-2 px-3 rounded-xl bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 text-xs font-semibold flex items-center justify-center gap-1.5 transition border border-slate-200 shadow-xs cursor-pointer"
-			>
-				<i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-				<span>Reset Seed Data</span>
-			</button>
 		</div>
 	</aside>
 }

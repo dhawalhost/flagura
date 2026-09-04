@@ -97,4 +97,19 @@ func TestTemplComponents(t *testing.T) {
 			t.Fatalf("expected 200 OK for official landing page, got %d", rec.Code)
 		}
 	})
+
+	t.Run("DocsRedirect", func(t *testing.T) {
+		server, _ := NewServer(mem)
+		req := httptest.NewRequest(http.MethodGet, "/docs", nil)
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusTemporaryRedirect {
+			t.Fatalf("expected 307 Temporary Redirect for /docs, got %d", rec.Code)
+		}
+		expectedLoc := "https://github.com/dhawalhost/flagura/blob/main/docs/product/sdks-and-api.md"
+		if loc := rec.Header().Get("Location"); loc != expectedLoc {
+			t.Fatalf("expected Location %s, got %s", expectedLoc, loc)
+		}
+	})
 }

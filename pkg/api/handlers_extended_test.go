@@ -512,3 +512,24 @@ func TestHandlers_ExtendedEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+func TestInstallScriptHandler(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	srv, err := NewServer(memStore)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/install.sh", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !bytes.Contains([]byte(body), []byte("Flagura Developer CLI")) {
+		t.Errorf("expected install script body to contain 'Flagura Developer CLI', got: %s", body)
+	}
+}

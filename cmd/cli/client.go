@@ -14,8 +14,23 @@ func getHttpClient() *http.Client {
 	return &http.Client{Timeout: 8 * time.Second}
 }
 
+func normalizeEndpoint(ep string) string {
+	ep = strings.TrimSpace(ep)
+	if ep == "" {
+		return "https://flagura.dev"
+	}
+	if !strings.HasPrefix(ep, "http://") && !strings.HasPrefix(ep, "https://") {
+		if strings.HasPrefix(ep, "localhost") || strings.HasPrefix(ep, "127.0.0.1") {
+			ep = "http://" + ep
+		} else {
+			ep = "https://" + ep
+		}
+	}
+	return strings.TrimRight(ep, "/")
+}
+
 func makeRequest(method, path string, body interface{}) (*http.Response, []byte, error) {
-	url := fmt.Sprintf("%s%s", strings.TrimRight(endpoint, "/"), path)
+	url := fmt.Sprintf("%s%s", normalizeEndpoint(endpoint), path)
 	var bodyReader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)

@@ -98,6 +98,33 @@ func TestPostgresStore_UserAndSessionOperations(t *testing.T) {
 		t.Fatalf("ListUsers failed: %v", err)
 	}
 
+	// UpdateUser
+	mock.ExpectExec(`UPDATE users SET name = \$1, avatar_url = \$2, updated_at = \$3 WHERE id = \$4`).
+		WithArgs("Alice Smith", "https://flagura.dev/alice.png", sqlmock.AnyArg(), "u_alice_01").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`SELECT id, email, password_hash, name, role, avatar_url, created_at, updated_at FROM users WHERE id = \$1`).
+		WithArgs("u_alice_01").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password_hash", "name", "role", "avatar_url", "created_at", "updated_at"}).
+			AddRow("u_alice_01", "alice@flagura.dev", "hashed_pwd", "Alice Smith", "developer", "https://flagura.dev/alice.png", time.Now(), time.Now()))
+
+	updatedUser, err := st.UpdateUser(ctx, domain.User{
+		ID:        "u_alice_01",
+		Name:      "Alice Smith",
+		AvatarURL: "https://flagura.dev/alice.png",
+	})
+	if err != nil || updatedUser.Name != "Alice Smith" {
+		t.Fatalf("UpdateUser failed: %v", err)
+	}
+
+	// UpdateUserPassword
+	mock.ExpectExec(`UPDATE users SET password_hash = \$1, updated_at = \$2 WHERE id = \$3`).
+		WithArgs("new_hashed_pwd_789", sqlmock.AnyArg(), "u_alice_01").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	if err := st.UpdateUserPassword(ctx, "u_alice_01", "new_hashed_pwd_789"); err != nil {
+		t.Fatalf("UpdateUserPassword failed: %v", err)
+	}
+
 	// 5. CreateSession
 	session := domain.Session{
 		Token:     "tok_session_123",

@@ -20,10 +20,10 @@ func TestLoad(t *testing.T) {
 		{
 			name: "Default configuration values",
 			envSetup: map[string]string{
-				"PORT":                  "",
-				"FLAGURA_LOG_LEVEL":     "",
+				"PORT":                   "",
+				"FLAGURA_LOG_LEVEL":      "",
 				"FLAGURA_RATE_LIMIT_RPS": "",
-				"FLAGURA_ENV":           "",
+				"FLAGURA_ENV":            "",
 			},
 			expectedPort: "3000",
 			expectedLog:  slog.LevelInfo,
@@ -33,10 +33,10 @@ func TestLoad(t *testing.T) {
 		{
 			name: "Custom environment overrides",
 			envSetup: map[string]string{
-				"PORT":                  "8080",
-				"FLAGURA_LOG_LEVEL":     "DEBUG",
+				"PORT":                   "8080",
+				"FLAGURA_LOG_LEVEL":      "DEBUG",
 				"FLAGURA_RATE_LIMIT_RPS": "250.5",
-				"FLAGURA_ENV":           "staging",
+				"FLAGURA_ENV":            "staging",
 			},
 			expectedPort: "8080",
 			expectedLog:  slog.LevelDebug,
@@ -46,10 +46,10 @@ func TestLoad(t *testing.T) {
 		{
 			name: "Warn log level and development environment",
 			envSetup: map[string]string{
-				"PORT":                  "4000",
-				"FLAGURA_LOG_LEVEL":     "WARN",
+				"PORT":                   "4000",
+				"FLAGURA_LOG_LEVEL":      "WARN",
 				"FLAGURA_RATE_LIMIT_RPS": "",
-				"FLAGURA_ENV":           "development",
+				"FLAGURA_ENV":            "development",
 			},
 			expectedPort: "4000",
 			expectedLog:  slog.LevelWarn,
@@ -59,11 +59,11 @@ func TestLoad(t *testing.T) {
 		{
 			name: "Error log level, custom burst, and text format",
 			envSetup: map[string]string{
-				"PORT":                    "5000",
-				"FLAGURA_LOG_LEVEL":       "ERROR",
+				"PORT":                     "5000",
+				"FLAGURA_LOG_LEVEL":        "ERROR",
 				"FLAGURA_RATE_LIMIT_BURST": "500",
-				"FLAGURA_LOG_FORMAT":      "text",
-				"HOST":                    "127.0.0.1",
+				"FLAGURA_LOG_FORMAT":       "text",
+				"HOST":                     "127.0.0.1",
 			},
 			expectedPort: "5000",
 			expectedLog:  slog.LevelError,

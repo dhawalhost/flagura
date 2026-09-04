@@ -1,10 +1,12 @@
 package api
 
 import (
+	"io/fs"
 	"net/http"
 	"os"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
+	"github.com/dhawalhost/flagura/web"
 	"github.com/dhawalhost/flagura/web/views"
 )
 
@@ -21,7 +23,7 @@ func (s *Server) handleLanding(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Default: Landing page is disabled by default for self-hosted instances (redirect to /auth)
-	// Only enabled when explicitly configured (e.g. ENABLE_LANDING_PAGE=true on our official cloud/demo deployment)
+	// Only enabled when explicitly configured (e.g. ENABLE_LANDING_PAGE=true on official cloud/demo deployment)
 	if os.Getenv("ENABLE_LANDING_PAGE") != "true" && os.Getenv("SHOW_LANDING_PAGE") != "true" {
 		http.Redirect(w, r, "/auth", http.StatusSeeOther)
 		return
@@ -41,7 +43,7 @@ func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	showLanding := os.Getenv("ENABLE_LANDING_PAGE") == "true" || os.Getenv("SHOW_LANDING_PAGE") == "true"
+	showLanding := true
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	component := views.AuthPage(showLanding)
@@ -107,4 +109,19 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	if err := component.Render(r.Context(), w); err != nil {
 		http.Error(w, "Templ Render Error: "+err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func (s *Server) handleInstallScript(w http.ResponseWriter, r *http.Request) {
+	scriptData, err := fs.ReadFile(web.Files, "static/install.sh")
+	if err != nil {
+		http.Error(w, "Install script not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	_, _ = w.Write(scriptData)
+}
+
+func (s *Server) handleDocs(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "https://github.com/dhawalhost/flagura/blob/main/docs/product/sdks-and-api.md", http.StatusTemporaryRedirect)
 }

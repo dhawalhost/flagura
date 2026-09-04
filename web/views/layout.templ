@@ -69,62 +69,6 @@ templ Layout(title string) {
 			</div>
 
 			<script>
-				// Micro Audio Synthesizer
-				class MicroAudioSynth {
-					constructor() {
-						this.ctx = null;
-						this.enabled = true;
-					}
-					init() {
-						if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
-							const AudioCtx = window.AudioContext || window.webkitAudioContext;
-							this.ctx = new AudioCtx();
-						}
-						if (this.ctx && this.ctx.state === 'suspended') {
-							this.ctx.resume();
-						}
-					}
-					playClick(freq = 580, dur = 0.04) {
-						if (!this.enabled) return;
-						try {
-							this.init();
-							if (!this.ctx) return;
-							const osc = this.ctx.createOscillator();
-							const gain = this.ctx.createGain();
-							osc.type = 'sine';
-							osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-							osc.frequency.exponentialRampToValueAtTime(140, this.ctx.currentTime + dur);
-							gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
-							gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + dur);
-							osc.connect(gain);
-							gain.connect(this.ctx.destination);
-							osc.start();
-							osc.stop(this.ctx.currentTime + dur);
-						} catch(e) {}
-					}
-					playSwitch(state) {
-						if (!this.enabled) return;
-						try {
-							this.init();
-							if (!this.ctx) return;
-							const osc = this.ctx.createOscillator();
-							const gain = this.ctx.createGain();
-							osc.type = 'triangle';
-							const startFreq = state ? 420 : 640;
-							const endFreq = state ? 920 : 280;
-							osc.frequency.setValueAtTime(startFreq, this.ctx.currentTime);
-							osc.frequency.exponentialRampToValueAtTime(endFreq, this.ctx.currentTime + 0.06);
-							gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
-							gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.06);
-							osc.connect(gain);
-							gain.connect(this.ctx.destination);
-							osc.start();
-							osc.stop(this.ctx.currentTime + 0.06);
-						} catch(e) {}
-					}
-				}
-				window.synth = new MicroAudioSynth();
-
 				// FNV-1a Hash helper
 				function getStickyBucketJs(key, salt = '') {
 					const FNV_OFFSET = 0xcbf29ce484222325n;
@@ -143,7 +87,6 @@ templ Layout(title string) {
 					// Global App Root State
 					Alpine.data('globalApp', () => ({
 						toasts: [],
-						soundOn: true,
 						currentEnv: 'production',
 						activeView: 'overview',
 						previousView: 'overview',
@@ -158,12 +101,6 @@ templ Layout(title string) {
 							{ id: 'warm-stone', name: 'Warm Stone Dunes', url: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=2560&q=85' }
 						],
 						currentUser: { id: 'dev-1', name: 'Dhawal (Developer)', email: 'dhawal@flagura.dev', role: 'developer' },
-						toggleSound() {
-							this.soundOn = !this.soundOn;
-							window.synth.enabled = this.soundOn;
-							if (this.soundOn) window.synth.playClick(720);
-							this.showToast(this.soundOn ? 'Sound synthesizer enabled' : 'Sound muted');
-						},
 						showToast(msg, type = 'info') {
 							const id = Date.now();
 							this.toasts.push({ id, message: msg, type });
@@ -180,7 +117,8 @@ templ Layout(title string) {
 								benchmark: 'Latency Benchmark',
 								audit: 'Audit Trail',
 								sdk: 'SDK Integration',
-								editor: 'Flag Editor'
+								editor: 'Flag Editor',
+								profile: 'Profile Settings'
 							};
 							return titles[this.activeView] || 'Console';
 						},
@@ -260,15 +198,6 @@ templ Layout(title string) {
 									const card = document.getElementById('flag-card-' + key);
 									if (card) card.remove();
 									this.showToast('Deleted flag ' + key);
-								}
-							}
-						},
-						async resetSeedData() {
-							if (confirm('Reset entire flag database to default initial state?')) {
-								const res = await fetch('/api/v1/reset', { method: 'POST' });
-								if (res.ok) {
-									this.showToast('Database reset to default seed!');
-									setTimeout(() => window.location.reload(), 600);
 								}
 							}
 						},
@@ -424,7 +353,6 @@ templ Layout(title string) {
 						},
 						async evaluateNow() {
 							this.evaluating = true;
-							window.synth.playClick(620);
 							try {
 								let parsedCustom = {};
 								try { if (this.customJson.trim()) parsedCustom = JSON.parse(this.customJson); } catch(e) {}
@@ -539,7 +467,6 @@ templ Layout(title string) {
 						},
 						async runStressTest() {
 							this.isRunning = true;
-							if (window.synth) window.synth.playClick(750);
 							try {
 								const res = await fetch('/api/v1/benchmark', {
 									method: 'POST',
@@ -555,7 +482,6 @@ templ Layout(title string) {
 						},
 						async probeLiveNetwork() {
 							this.networkProbing = true;
-							if (window.synth) window.synth.playClick(620);
 							const samples = [];
 							const payload = JSON.stringify({
 								flags: ['*'],
@@ -712,7 +638,8 @@ templ Layout(title string) {
 							} else if (this.sdkTab === 'rust') {
 								return `use flagura::{FlaguraClient, EvaluationContext};\n\n#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n    // Project scope is automatically resolved from your API key\n    let client = FlaguraClient::new("${window.location.origin}")\n        .with_api_key("flg_live_your_api_key");\n    let ctx = EvaluationContext::new("usr_alex_42").with_email("alex@company.com");\n\n    if client.is_enabled("ai-smart-search", &ctx).await {\n        println!("✨ AI Smart Search is active!");\n    }\n    Ok(())\n}`;
 							} else if (this.sdkTab === 'cli') {
-								return `# Install or run Flagura Developer CLI\nexport FLAGURA_API_KEY="flg_live_your_api_key"\nflagura api-key list\nflagura list\nflagura rollout ai-smart-search 50% --env=production`;
+								const selfHostEnv = window.location.origin !== 'https://flagura.dev' ? `export FLAGURA_ENDPOINT="${window.location.origin}"\n` : '';
+								return `# Install or run Flagura Developer CLI\n${selfHostEnv}export FLAGURA_API_KEY="flg_live_your_api_key"\nflagura api-key list\nflagura list\nflagura rollout ai-smart-search 50% --env=production`;
 							}
 							return `curl -X POST ${window.location.origin}/api/v1/evaluate \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer flg_live_your_api_key" \\\n  -d '{"flags":["ai-smart-search"],"context":{"user_id":"usr_dhawal_01","email":"dhawal@flagura.dev"}}'`;
 						},
@@ -882,9 +809,14 @@ templ Layout(title string) {
 					// Landing Page Component
 					Alpine.data('landingPageComponent', () => ({
 						consoleMode: 'switchboard',
-						heroUserId: 'sarah@example.com',
+						testUserId: 'usr_alex_42',
+						canaryPercent: 50,
+						computedHashHex: '',
+						computedBucket: 0,
+						isEvaluatedTrue: true,
+						heroUserId: 'usr_alex_42',
 						heroRolloutPct: 50,
-						heroBucket: 42,
+						heroBucket: 0,
 						isHeroActive: true,
 						sdkLanguage: 'go',
 						codeCopied: false,
@@ -896,49 +828,39 @@ templ Layout(title string) {
 						benchmarkTimeMs: '',
 						benchOpsPerSec: '',
 						benchmarkThroughput: '',
-						soundOn: true,
 						init() {
-							this.updateHeroBucket();
+							this.computeHashModulo();
 							this.runBrowserBenchmark(true);
 							this.$nextTick(() => {
 								if (window.lucide) window.lucide.createIcons();
 							});
 						},
-						toggleSound() {
-							this.soundOn = !this.soundOn;
-							if (window.synth) {
-								window.synth.enabled = this.soundOn;
-								if (this.soundOn) window.synth.playClick(600);
-							}
-						},
 						scrollToSection(id) {
-							if (window.synth) window.synth.playClick(520);
 							const el = document.getElementById(id);
 							if (el) el.scrollIntoView({ behavior: 'smooth' });
 						},
+						computeHashModulo() {
+							const uid = (this.testUserId || 'usr_alex_42').trim();
+							const res = getStickyBucketJs(uid, 'ai-smart-search');
+							this.computedHashHex = '0x' + res.hashRaw.slice(0, 12).toUpperCase();
+							this.computedBucket = Math.floor(res.bucket);
+							this.isEvaluatedTrue = this.computedBucket < Number(this.canaryPercent);
+							this.heroUserId = uid;
+							this.heroRolloutPct = Number(this.canaryPercent);
+							this.heroBucket = this.computedBucket;
+							this.isHeroActive = this.isEvaluatedTrue;
+						},
 						updateHeroBucket() {
-							const rawUser = this.heroUserId || 'guest';
-							let hash = 2166136261;
-							const str = rawUser + ':ai-smart-search';
-							for (let i = 0; i < str.length; i++) {
-								hash ^= str.charCodeAt(i);
-								hash = Math.imul(hash, 16777619);
-							}
-							const bucket = Math.abs(hash % 100);
-							this.heroBucket = bucket;
-							this.isHeroActive = this.heroBucket < this.heroRolloutPct;
-							this.$nextTick(() => {
-								if (window.lucide) window.lucide.createIcons();
-							});
+							this.computeHashModulo();
 						},
 						randomizeUser() {
-							if (window.synth) window.synth.playClick(680);
-							const users = ['customer_alex_44', 'emma@company.com', 'david_pro_user', 'sarah_shopper_99', 'mike_enterprise', 'priya_dev_01', 'lucas_cloud_88'];
-							this.heroUserId = users[Math.floor(Math.random() * users.length)];
-							this.updateHeroBucket();
+							const users = ['usr_alex_42', 'sarah@stripe.com', 'david_pro_99', 'emma_infra', 'enterprise_vip', 'dev_priya_01', 'cloud_node_88'];
+							const current = this.testUserId;
+							const pool = users.filter(u => u !== current);
+							this.testUserId = pool[Math.floor(Math.random() * pool.length)];
+							this.computeHashModulo();
 						},
 						copySnippet() {
-							if (window.synth) window.synth.playClick(880);
 							let code = '';
 							if (this.sdkLanguage === 'go') {
 								code = 'package main\n\nimport (\n    "context"\n    "fmt"\n    flagura "github.com/dhawalhost/flagura/sdks/go"\n)\n\nfunc main() {\n    client := flagura.NewClient("https://api.flagura.dev", "flg_live_secret", flagura.WithLocalEvaluation(true))\n    defer client.Close()\n    res, _ := client.Evaluate(context.Background(), "ai-smart-search", flagura.Context{UserID: "usr_alex_42", Email: "alex@company.com"})\n    fmt.Printf("Enabled: %v | Latency: %v ns\\n", res.Enabled, res.EvaluationLatencyNs)\n}';
@@ -959,7 +881,6 @@ templ Layout(title string) {
 						async runBrowserBenchmark(isSilent = false) {
 							this.benchRunning = true;
 							this.isRunningBenchmark = true;
-							if (!isSilent && window.synth) window.synth.playClick(440);
 							if (!isSilent) await new Promise(r => setTimeout(r, 60));
 							const iterations = 100000;
 							const start = performance.now();
@@ -983,7 +904,6 @@ templ Layout(title string) {
 							this.benchRunning = false;
 							this.isRunningBenchmark = false;
 							if (!isSilent) {
-								if (window.synth) window.synth.playClick(880);
 								this.showToast('Measured 100,000 evaluations in ' + durStr + 'ms (' + opsStr + ')');
 							}
 						}

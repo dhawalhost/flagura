@@ -15,7 +15,7 @@ import (
 func main() {
 	endpoint := os.Getenv("FLAGURA_ENDPOINT")
 	if endpoint == "" {
-		endpoint = "http://localhost:3000"
+		endpoint = "https://flagura.dev"
 	}
 
 	apiKey := os.Getenv("FLAGURA_API_KEY")

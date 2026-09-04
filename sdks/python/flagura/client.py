@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, List, Optional
 import urllib.request
 import urllib.error
 import json
+import os
 import threading
 import time
 import datetime
@@ -53,14 +54,21 @@ class FlaguraClient:
 
     def __init__(
         self,
-        endpoint: str = "http://localhost:3000",
+        endpoint: Optional[str] = None,
         api_key: Optional[str] = None,
         project_id: Optional[str] = None,
         default_environment: str = "production",
         timeout: float = 5.0,
         enable_streaming: bool = False,
     ):
-        self.endpoint = endpoint.rstrip("/")
+        raw_endpoint = endpoint or os.environ.get("FLAGURA_ENDPOINT") or "https://flagura.dev"
+        ep = raw_endpoint.strip()
+        if not ep.startswith("http://") and not ep.startswith("https://"):
+            if ep.startswith("localhost") or ep.startswith("127.0.0.1"):
+                ep = f"http://{ep}"
+            else:
+                ep = f"https://{ep}"
+        self.endpoint = ep.rstrip("/")
         self.api_key = api_key
         self.project_id = project_id
         self.default_environment = default_environment

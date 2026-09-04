@@ -73,6 +73,9 @@ func (s *Server) routes() {
 
 	// UI Web Routes
 	s.mux.HandleFunc("/", s.handleLanding)
+	s.mux.HandleFunc("/install.sh", s.handleInstallScript)
+	s.mux.HandleFunc("/docs", s.handleDocs)
+	s.mux.HandleFunc("/docs/", s.handleDocs)
 	s.mux.HandleFunc("/auth", s.handleAuth)
 	s.mux.HandleFunc("/dashboard", s.handleDashboard)
 
@@ -83,10 +86,14 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/auth/reset-password", s.authLimiter.LimitHandler(s.handleResetPassword))
 	s.mux.HandleFunc("/api/v1/auth/logout", s.handleLogout)
 	s.mux.HandleFunc("/api/v1/auth/me", s.handleMe)
+	s.mux.HandleFunc("/api/v1/auth/profile", s.RequireAuth(s.handleUpdateProfile))
+	s.mux.HandleFunc("/api/v1/auth/change-password", s.authLimiter.LimitHandler(s.RequireAuth(s.handleChangePassword)))
 
 	// Public Observability & Webhook Routes
-	s.mux.HandleFunc("/api/health", s.handleHealthz)
+	s.mux.HandleFunc("/health", s.handleHealth)
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
+	s.mux.HandleFunc("/api/health", s.handleHealthz)
+	s.mux.HandleFunc("/api/v1/health", s.handleHealth)
 	s.mux.HandleFunc("/livez", s.handleLivez)
 	s.mux.HandleFunc("/readyz", s.handleReadyz)
 	s.mux.HandleFunc("/metrics", s.handleMetrics)

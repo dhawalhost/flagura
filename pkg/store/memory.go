@@ -53,7 +53,7 @@ type MemoryStore struct {
 	orgInvitations      map[string]domain.OrgInvitation
 	auditLogs           []domain.AuditLogEntry
 	events              []domain.ExperimentEvent
-	users               map[string]domain.User // indexed by email and id
+	users               map[string]domain.User    // indexed by email and id
 	sessions            map[string]domain.Session // indexed by token
 	changeRequests      map[string]domain.ChangeRequest
 	apiKeys             map[string]domain.APIKey // indexed by key ID
@@ -856,6 +856,59 @@ func (s *MemoryStore) ResetPasswordWithToken(ctx context.Context, token string, 
 	return nil
 }
 
+func (s *MemoryStore) UpdateUser(ctx context.Context, user domain.User) (*domain.User, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	existing, exists := s.users[user.ID]
+	if !exists {
+		return nil, fmt.Errorf("user not found with ID: %s", user.ID)
+	}
+
+	if user.Name != "" {
+		existing.Name = user.Name
+	}
+	existing.AvatarURL = user.AvatarURL
+	existing.UpdatedAt = time.Now().UTC()
+
+	s.users[existing.ID] = existing
+	s.users[existing.Email] = existing
+
+	// Update user reference in any active sessions
+	for tokenKey, sess := range s.sessions {
+		if sess.UserID == existing.ID {
+			sess.User = &existing
+			s.sessions[tokenKey] = sess
+		}
+	}
+
+	return &existing, nil
+}
+
+func (s *MemoryStore) UpdateUserPassword(ctx context.Context, userID string, newPasswordHash string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	user, exists := s.users[userID]
+	if !exists {
+		return fmt.Errorf("user not found with ID: %s", userID)
+	}
+
+	user.PasswordHash = newPasswordHash
+	user.UpdatedAt = time.Now().UTC()
+	s.users[user.ID] = user
+	s.users[user.Email] = user
+
+	for tokenKey, sess := range s.sessions {
+		if sess.UserID == user.ID {
+			sess.User = &user
+			s.sessions[tokenKey] = sess
+		}
+	}
+
+	return nil
+}
+
 func (s *MemoryStore) CreateOrganization(ctx context.Context, org domain.Organization) (*domain.Organization, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1228,4 +1281,3 @@ func (s *MemoryStore) ListOrgInvitations(ctx context.Context, organizationID str
 	}
 	return res, nil
 }
-

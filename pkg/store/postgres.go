@@ -1151,6 +1151,40 @@ func (s *PostgresStore) ResetPasswordWithToken(ctx context.Context, token string
 	return tx.Commit()
 }
 
+func (s *PostgresStore) UpdateUser(ctx context.Context, user domain.User) (*domain.User, error) {
+	now := time.Now().UTC()
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE users
+		SET name = $1, avatar_url = $2, updated_at = $3
+		WHERE id = $4
+	`, user.Name, user.AvatarURL, now, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return nil, fmt.Errorf("user not found with ID: %s", user.ID)
+	}
+	return s.GetUserByID(ctx, user.ID)
+}
+
+func (s *PostgresStore) UpdateUserPassword(ctx context.Context, userID string, newPasswordHash string) error {
+	now := time.Now().UTC()
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE users
+		SET password_hash = $1, updated_at = $2
+		WHERE id = $3
+	`, newPasswordHash, now, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update user password: %w", err)
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found with ID: %s", userID)
+	}
+	return nil
+}
+
 func (s *PostgresStore) CreateOrganization(ctx context.Context, org domain.Organization) (*domain.Organization, error) {
 	if org.ID == "" {
 		b := make([]byte, 4)
@@ -1598,5 +1632,3 @@ func (s *PostgresStore) ListOrgInvitations(ctx context.Context, organizationID s
 	}
 	return invitations, nil
 }
-
-

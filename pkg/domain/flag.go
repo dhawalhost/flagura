@@ -144,15 +144,15 @@ type EvaluationContext struct {
 type EvaluationReason string
 
 const (
-	ReasonKillSwitchDisabled     EvaluationReason = "KILL_SWITCH_DISABLED"
-	ReasonEnvDisabled            EvaluationReason = "ENV_DISABLED"
-	ReasonTargetingRuleMatch     EvaluationReason = "TARGETING_RULE_MATCH"
-	ReasonPercentageBucket       EvaluationReason = "PERCENTAGE_ROLLOUT_BUCKET"
-	ReasonPercentageExcluded     EvaluationReason = "PERCENTAGE_ROLLOUT_EXCLUDED"
-	ReasonMultivariateBucket     EvaluationReason = "MULTIVARIATE_BUCKET"
-	ReasonDefaultEnabled         EvaluationReason = "DEFAULT_ENABLED"
-	ReasonDefaultOff             EvaluationReason = "DEFAULT_OFF"
-	ReasonFlagNotFound           EvaluationReason = "FLAG_NOT_FOUND"
+	ReasonKillSwitchDisabled EvaluationReason = "KILL_SWITCH_DISABLED"
+	ReasonEnvDisabled        EvaluationReason = "ENV_DISABLED"
+	ReasonTargetingRuleMatch EvaluationReason = "TARGETING_RULE_MATCH"
+	ReasonPercentageBucket   EvaluationReason = "PERCENTAGE_ROLLOUT_BUCKET"
+	ReasonPercentageExcluded EvaluationReason = "PERCENTAGE_ROLLOUT_EXCLUDED"
+	ReasonMultivariateBucket EvaluationReason = "MULTIVARIATE_BUCKET"
+	ReasonDefaultEnabled     EvaluationReason = "DEFAULT_ENABLED"
+	ReasonDefaultOff         EvaluationReason = "DEFAULT_OFF"
+	ReasonFlagNotFound       EvaluationReason = "FLAG_NOT_FOUND"
 )
 
 type EvaluationResult struct {
@@ -190,17 +190,17 @@ type AuditLogEntry struct {
 }
 
 type BenchmarkMetrics struct {
-	Iterations      int       `json:"iterations"`
-	TotalDurationMs float64   `json:"totalDurationMs"`
-	OpsPerSec       int64     `json:"opsPerSec"`
-	P50Ns           int64     `json:"p50Ns"`
-	P90Ns           int64     `json:"p90Ns"`
-	P99Ns           int64     `json:"p99Ns"`
-	P999Ns          int64     `json:"p999Ns"`
-	MinNs           int64     `json:"minNs"`
-	MaxNs           int64     `json:"maxNs"`
-	AvgNs           int64     `json:"avgNs"`
-	HashBuckets     [100]int  `json:"hashBuckets"`
+	Iterations      int      `json:"iterations"`
+	TotalDurationMs float64  `json:"totalDurationMs"`
+	OpsPerSec       int64    `json:"opsPerSec"`
+	P50Ns           int64    `json:"p50Ns"`
+	P90Ns           int64    `json:"p90Ns"`
+	P99Ns           int64    `json:"p99Ns"`
+	P999Ns          int64    `json:"p999Ns"`
+	MinNs           int64    `json:"minNs"`
+	MaxNs           int64    `json:"maxNs"`
+	AvgNs           int64    `json:"avgNs"`
+	HashBuckets     [100]int `json:"hashBuckets"`
 }
 
 // DeepCopy returns a fully independent clone of FeatureFlag to guarantee memory isolation.

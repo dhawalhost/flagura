@@ -163,6 +163,14 @@ templ HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string
 						</div>
 					</div>
 
+					<button 
+						@click="activeView = 'profile'; userOpen = false;"
+						class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 flex items-center gap-2 cursor-pointer transition font-sans font-medium"
+					>
+						<i data-lucide="user-cog" class="w-3.5 h-3.5 text-indigo-600"></i>
+						<span>Profile Settings</span>
+					</button>
+
 					<a 
 						href="/"
 						class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-50 text-slate-700 flex items-center gap-2 cursor-pointer transition font-sans"

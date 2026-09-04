@@ -6,10 +6,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
 var (
-	version   = "v1.5.0"
+	version   = domain.Version
 	endpoint  string
 	apiKey    string
 	env       string
@@ -26,7 +28,7 @@ func main() {
 	// Read environment variables
 	defaultEndpoint := os.Getenv("FLAGURA_ENDPOINT")
 	if defaultEndpoint == "" {
-		defaultEndpoint = "http://localhost:3000"
+		defaultEndpoint = "https://flagura.dev"
 	}
 	defaultApiKey := os.Getenv("FLAGURA_API_KEY")
 	defaultProject := os.Getenv("FLAGURA_PROJECT_ID")
@@ -35,7 +37,7 @@ func main() {
 
 	// Global Flags
 	fs := flag.NewFlagSet("flagura", flag.ExitOnError)
-	fs.StringVar(&endpoint, "endpoint", defaultEndpoint, "Flagura control plane URL")
+	fs.StringVar(&endpoint, "endpoint", defaultEndpoint, "Flagura control plane URL (default: $FLAGURA_ENDPOINT or https://flagura.dev)")
 	fs.StringVar(&apiKey, "api-key", defaultApiKey, "API key for authentication")
 	fs.StringVar(&env, "env", "production", "Target environment (production, staging, development)")
 	fs.StringVar(&projectID, "project", defaultProject, "Project ID scope (env: FLAGURA_PROJECT_ID)")
@@ -194,7 +196,7 @@ Commands:
   help                      Show this help message
 
 Flags:
-  --endpoint <url>          Flagura control plane URL (default: $FLAGURA_ENDPOINT or http://localhost:3000)
+  --endpoint <url>          Flagura control plane URL (default: $FLAGURA_ENDPOINT or https://flagura.dev)
   --api-key <key>           API key for authentication (default: $FLAGURA_API_KEY)
   --env <name>              Target environment: production, staging, development (default: production)
   --name <name>             Name for newly generated API Key (default: CLI Service Key)

@@ -52,6 +52,9 @@ templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domai
 
 					<!-- VIEW 12: Automated Code Hygiene & Cleanup Modal -->
 					@HygieneModal()
+
+					<!-- VIEW 13: Profile & Account Settings -->
+					@ProfileSettings(user, orgs, projects)
 				</main>
 			</div>
 		</div>

@@ -1,0 +1,748 @@
+package views
+
+import (
+	"fmt"
+	"github.com/dhawalhost/flagura/pkg/domain"
+)
+
+templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []domain.Project) {
+	<div class="space-y-8" x-show="activeView === 'profile'" x-cloak x-data="profileSettingsComponent()">
+		<!-- Top Header Card -->
+		<div class="glass-panel p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 shadow-xs">
+			<div class="flex items-center gap-3.5">
+				<button 
+					@click="activeView = 'overview'" 
+					class="p-2 text-slate-500 hover:text-slate-900 transition-colors rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-2xs flex items-center gap-1.5 text-xs font-semibold cursor-pointer font-mono" 
+					title="Return to overview"
+				>
+					<i data-lucide="arrow-left" class="h-4 w-4"></i>
+					<span class="hidden sm:inline">Back</span>
+				</button>
+				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 shadow-2xs">
+					<i data-lucide="user-cog" class="h-5 w-5"></i>
+				</div>
+				<div>
+					<div class="flex items-center gap-2">
+						<h2 class="text-base font-bold text-slate-900 font-display">Profile &amp; Account Settings</h2>
+						<span class="rounded-md bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-[10px] font-mono text-indigo-700 font-bold uppercase">
+							Account
+						</span>
+					</div>
+					<p class="text-xs text-slate-500 mt-0.5 font-sans">
+						Manage your personal credentials, identity, security preferences, and workspace permissions.
+					</p>
+				</div>
+			</div>
+
+			<div class="flex items-center gap-2.5 font-mono">
+				<span class="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-xs flex items-center gap-1.5">
+					<i data-lucide="shield-check" class="h-3.5 w-3.5 text-emerald-600"></i>
+					<span>Session Active</span>
+				</span>
+			</div>
+		</div>
+
+		<!-- Identity Hero Banner -->
+		<div class="glass-panel p-6 sm:p-8 bg-white border border-slate-200 shadow-xs relative overflow-hidden">
+			<!-- Subtle background gradient accent -->
+			<div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-50/60 rounded-full blur-3xl pointer-events-none"></div>
+			<div class="absolute -right-8 -bottom-8 w-48 h-48 bg-emerald-50/50 rounded-full blur-2xl pointer-events-none"></div>
+
+			<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative z-10">
+				<div class="flex items-center gap-5">
+					<!-- Large User Avatar with Live Fallback -->
+					<div class="relative group">
+						<div class="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center text-2xl font-bold font-display shadow-md border-2 border-white ring-4 ring-indigo-50 overflow-hidden">
+							<template x-if="profile.avatarUrl">
+								<img :src="profile.avatarUrl" alt="Avatar" class="w-full h-full object-cover" @error="profile.avatarUrl = ''"/>
+							</template>
+							<template x-if="!profile.avatarUrl">
+								<span x-text="getInitials(profile.name)">
+									if user != nil && user.Name != "" {
+										{ string([]rune(user.Name)[0]) }
+									} else {
+										U
+									}
+								</span>
+							</template>
+						</div>
+					</div>
+
+					<div class="space-y-1">
+						<div class="flex items-center gap-3">
+							<h3 class="text-xl font-bold text-slate-900 font-display" x-text="profile.name || 'Developer'">
+								if user != nil && user.Name != "" {
+									{ user.Name }
+								} else {
+									Developer
+								}
+							</h3>
+							<span 
+								class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase border"
+								:class="{
+									'bg-indigo-50 text-indigo-700 border-indigo-200': profile.role === 'admin',
+									'bg-purple-50 text-purple-700 border-purple-200': profile.role === 'developer',
+									'bg-slate-100 text-slate-700 border-slate-200': profile.role === 'viewer'
+								}"
+								x-text="profile.role || 'Member'"
+							>
+								if user != nil {
+									{ string(user.Role) }
+								} else {
+									Member
+								}
+							</span>
+						</div>
+						<div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 font-mono">
+							<span class="flex items-center gap-1 text-slate-600 font-sans">
+								<i data-lucide="mail" class="h-3.5 w-3.5 text-slate-400"></i>
+								<span x-text="profile.email">
+									if user != nil {
+										{ user.Email }
+									} else {
+										developer@flagura.dev
+									}
+								</span>
+							</span>
+							<span class="text-slate-300">•</span>
+							<span class="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-[10px] font-bold">
+								<i data-lucide="check" class="h-3 w-3"></i> Verified Account
+							</span>
+							<span class="text-slate-300 hidden md:inline">•</span>
+							<span class="hidden md:flex items-center gap-1 text-[11px] text-slate-400">
+								<i data-lucide="clock" class="h-3.5 w-3.5"></i>
+								Member since { user.CreatedAt.Format("Jan 2006") }
+							</span>
+						</div>
+					</div>
+				</div>
+
+				<div class="flex sm:flex-col items-center sm:items-end gap-2 text-xs font-mono text-slate-500 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+					<span class="text-[10px] uppercase font-bold text-slate-400">Account ID</span>
+					<div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 font-semibold">
+						<code class="text-[11px] select-all" x-text="profile.id">
+							if user != nil {
+								{ user.ID }
+							} else {
+								usr_dev_default
+							}
+						</code>
+						<button 
+							@click="copyToClipboard(profile.id, 'Account ID copied')" 
+							class="text-slate-400 hover:text-slate-700 transition cursor-pointer"
+							title="Copy Account ID"
+						>
+							<i data-lucide="copy" class="h-3.5 w-3.5"></i>
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- Tab Navigation Bar -->
+			<div class="flex items-center gap-1 border-t border-slate-100 mt-6 pt-4 font-mono text-xs overflow-x-auto">
+				<button 
+					@click="tab = 'general'" 
+					class="px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 cursor-pointer shrink-0"
+					:class="tab === 'general' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'"
+				>
+					<i data-lucide="user" class="h-4 w-4"></i>
+					<span>Personal Identity</span>
+				</button>
+				<button 
+					@click="tab = 'security'" 
+					class="px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 cursor-pointer shrink-0"
+					:class="tab === 'security' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'"
+				>
+					<i data-lucide="lock" class="h-4 w-4"></i>
+					<span>Security &amp; Password</span>
+				</button>
+				<button 
+					@click="tab = 'workspaces'" 
+					class="px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 cursor-pointer shrink-0"
+					:class="tab === 'workspaces' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'"
+				>
+					<i data-lucide="layers" class="h-4 w-4"></i>
+					<span>Workspaces &amp; Projects</span>
+				</button>
+				<button 
+					@click="tab = 'permissions'" 
+					class="px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 cursor-pointer shrink-0"
+					:class="tab === 'permissions' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'"
+				>
+					<i data-lucide="shield" class="h-4 w-4"></i>
+					<span>Role Governance</span>
+				</button>
+			</div>
+		</div>
+
+		<!-- TAB 1: General Details Form -->
+		<div x-show="tab === 'general'" x-transition class="space-y-6">
+			<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+				<!-- Edit Profile Details Card -->
+				<div class="lg:col-span-2 glass-panel p-6 sm:p-7 space-y-6 bg-white border border-slate-200 shadow-xs">
+					<div class="border-b border-slate-100 pb-4">
+						<h3 class="text-sm font-bold text-slate-900 font-display">Personal Information</h3>
+						<p class="text-xs text-slate-500 font-sans mt-0.5">
+							Update your public display name and avatar displayed on audit trails and change requests.
+						</p>
+					</div>
+
+					<form @submit.prevent="saveProfile()" class="space-y-5">
+						<!-- Full Name -->
+						<div class="space-y-1.5 font-mono">
+							<label class="text-xs font-semibold text-slate-700 flex items-center justify-between">
+								<span>Full Name</span>
+								<span class="text-[10px] text-slate-400">Required</span>
+							</label>
+							<div class="relative">
+								<i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+								<input 
+									type="text" 
+									x-model="form.name" 
+									placeholder="e.g. Alex Mercer"
+									required
+									class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition"
+								/>
+							</div>
+						</div>
+
+						<!-- Email Address (Read-only) -->
+						<div class="space-y-1.5 font-mono">
+							<label class="text-xs font-semibold text-slate-700 flex items-center justify-between">
+								<span>Email Address</span>
+								<span class="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.2 rounded border border-emerald-200">Verified</span>
+							</label>
+							<div class="relative">
+								<i data-lucide="mail" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+								<input 
+									type="email" 
+									:value="profile.email" 
+									disabled
+									class="w-full bg-slate-100/70 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs text-slate-500 cursor-not-allowed"
+								/>
+							</div>
+							<p class="text-[11px] text-slate-400 font-sans">
+								Primary login address. To migrate your email, please contact a workspace administrator.
+							</p>
+						</div>
+
+						<!-- Avatar URL -->
+						<div class="space-y-1.5 font-mono">
+							<label class="text-xs font-semibold text-slate-700 flex items-center justify-between">
+								<span>Avatar Image URL</span>
+								<span class="text-[10px] text-slate-400 font-sans">Optional HTTPS Link</span>
+							</label>
+							<div class="relative">
+								<i data-lucide="image" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+								<input 
+									type="url" 
+									x-model="form.avatarUrl" 
+									placeholder="https://images.unsplash.com/... or https://github.com/username.png"
+									class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition"
+								/>
+							</div>
+							<p class="text-[11px] text-slate-400 font-sans">
+								Paste any direct image link to customize your console avatar.
+							</p>
+						</div>
+
+						<!-- Actions -->
+						<div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+							<span class="text-xs text-slate-500 font-mono" x-show="profileMessage" x-text="profileMessage"></span>
+							<div class="ml-auto flex items-center gap-3 font-mono">
+								<button 
+									type="button" 
+									@click="resetForm()" 
+									class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 border border-slate-200 transition cursor-pointer"
+								>
+									Reset
+								</button>
+								<button 
+									type="submit" 
+									:disabled="savingProfile"
+									class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition shadow-sm hover:shadow flex items-center gap-2 cursor-pointer hover:scale-[1.02]"
+								>
+									<i data-lucide="check" class="h-3.5 w-3.5" x-show="!savingProfile"></i>
+									<i data-lucide="loader-2" class="h-3.5 w-3.5 animate-spin" x-show="savingProfile"></i>
+									<span x-text="savingProfile ? 'Saving Changes...' : 'Save Profile Changes'"></span>
+								</button>
+							</div>
+						</div>
+					</form>
+				</div>
+
+				<!-- Identity & Session Summary Sidebar -->
+				<div class="space-y-6">
+					<div class="glass-panel p-6 bg-white border border-slate-200 shadow-xs space-y-4 font-mono text-xs">
+						<div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+							<i data-lucide="fingerprint" class="h-4 w-4 text-indigo-600"></i>
+							<span class="font-bold text-slate-900 font-display">Identity Metadata</span>
+						</div>
+
+						<div class="space-y-3">
+							<div class="flex justify-between items-center text-slate-600">
+								<span>Role Assignment:</span>
+								<span class="font-bold text-slate-900 uppercase" x-text="profile.role"></span>
+							</div>
+							<div class="flex justify-between items-center text-slate-600">
+								<span>Account Status:</span>
+								<span class="font-bold text-emerald-600 flex items-center gap-1">
+									<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+									Active
+								</span>
+							</div>
+							<div class="flex justify-between items-center text-slate-600">
+								<span>Cookie Protection:</span>
+								<span class="font-bold text-indigo-600">SameSite=Lax</span>
+							</div>
+							<div class="flex justify-between items-center text-slate-600">
+								<span>Transport Security:</span>
+								<span class="font-bold text-slate-900">TLS 1.3 / HTTP/2</span>
+							</div>
+						</div>
+					</div>
+
+					<div class="glass-panel p-6 bg-slate-900 text-slate-100 rounded-2xl shadow-xs space-y-3 font-mono text-xs">
+						<div class="flex items-center gap-2 text-indigo-400">
+							<i data-lucide="terminal" class="h-4 w-4"></i>
+							<span class="font-bold uppercase tracking-wider text-[11px]">Developer CLI Setup</span>
+						</div>
+						<p class="text-[11px] text-slate-300 font-sans leading-relaxed">
+							Authenticate with the Flagura CLI directly using your credentials or an environment-scoped API token:
+						</p>
+						<div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-[11px] text-emerald-400 select-all font-mono">
+							flagura login --endpoint https://flagura.dev
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- TAB 2: Security & Password Form -->
+		<div x-show="tab === 'security'" x-transition class="space-y-6">
+			<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+				<!-- Password Form Card -->
+				<div class="lg:col-span-2 glass-panel p-6 sm:p-7 space-y-6 bg-white border border-slate-200 shadow-xs">
+					<div class="border-b border-slate-100 pb-4">
+						<h3 class="text-sm font-bold text-slate-900 font-display">Change Password</h3>
+						<p class="text-xs text-slate-500 font-sans mt-0.5">
+							Ensure your account uses a strong, complex passphrase compliant with enterprise security standards.
+						</p>
+					</div>
+
+					<form @submit.prevent="changePassword()" class="space-y-5">
+						<!-- Current Password -->
+						<div class="space-y-1.5 font-mono">
+							<label class="text-xs font-semibold text-slate-700">Current Password</label>
+							<div class="relative">
+								<i data-lucide="key" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+								<input 
+									:type="showCurrentPassword ? 'text' : 'password'" 
+									x-model="passwordForm.currentPassword" 
+									placeholder="Enter existing password..."
+									required
+									class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-10 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition"
+								/>
+								<button 
+									type="button" 
+									@click="showCurrentPassword = !showCurrentPassword" 
+									class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+								>
+									<i :data-lucide="showCurrentPassword ? 'eye-off' : 'eye'" class="h-4 w-4"></i>
+								</button>
+							</div>
+						</div>
+
+						<!-- New Password -->
+						<div class="space-y-1.5 font-mono">
+							<label class="text-xs font-semibold text-slate-700">New Password</label>
+							<div class="relative">
+								<i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+								<input 
+									:type="showNewPassword ? 'text' : 'password'" 
+									x-model="passwordForm.newPassword" 
+									placeholder="At least 8 chars with uppercase, number & symbol..."
+									required
+									class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-10 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition"
+								/>
+								<button 
+									type="button" 
+									@click="showNewPassword = !showNewPassword" 
+									class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+								>
+									<i :data-lucide="showNewPassword ? 'eye-off' : 'eye'" class="h-4 w-4"></i>
+								</button>
+							</div>
+
+							<!-- Live Complexity Criteria Checklist -->
+							<div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 mt-2 space-y-2">
+								<span class="text-[10px] uppercase font-bold text-slate-500">Complexity Requirements</span>
+								<div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
+									<div class="flex items-center gap-1.5" :class="passRules.length ? 'text-emerald-700' : 'text-slate-400'">
+										<i :data-lucide="passRules.length ? 'check-circle-2' : 'circle'" class="w-3.5 h-3.5"></i>
+										<span>8+ characters</span>
+									</div>
+									<div class="flex items-center gap-1.5" :class="passRules.upper ? 'text-emerald-700' : 'text-slate-400'">
+										<i :data-lucide="passRules.upper ? 'check-circle-2' : 'circle'" class="w-3.5 h-3.5"></i>
+										<span>Uppercase (A-Z)</span>
+									</div>
+									<div class="flex items-center gap-1.5" :class="passRules.lower ? 'text-emerald-700' : 'text-slate-400'">
+										<i :data-lucide="passRules.lower ? 'check-circle-2' : 'circle'" class="w-3.5 h-3.5"></i>
+										<span>Lowercase (a-z)</span>
+									</div>
+									<div class="flex items-center gap-1.5" :class="passRules.digit ? 'text-emerald-700' : 'text-slate-400'">
+										<i :data-lucide="passRules.digit ? 'check-circle-2' : 'circle'" class="w-3.5 h-3.5"></i>
+										<span>Digit (0-9)</span>
+									</div>
+									<div class="flex items-center gap-1.5" :class="passRules.special ? 'text-emerald-700' : 'text-slate-400'">
+										<i :data-lucide="passRules.special ? 'check-circle-2' : 'circle'" class="w-3.5 h-3.5"></i>
+										<span>Symbol (!@#$...)</span>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Confirm Password -->
+						<div class="space-y-1.5 font-mono">
+							<label class="text-xs font-semibold text-slate-700 flex items-center justify-between">
+								<span>Confirm New Password</span>
+								<span 
+									class="text-[10px] font-bold" 
+									x-show="passwordForm.confirmPassword"
+									:class="passwordForm.newPassword === passwordForm.confirmPassword ? 'text-emerald-600' : 'text-rose-600'"
+									x-text="passwordForm.newPassword === passwordForm.confirmPassword ? 'Passwords Match' : 'Passwords Do Not Match'"
+								></span>
+							</label>
+							<div class="relative">
+								<i data-lucide="shield-alert" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+								<input 
+									type="password" 
+									x-model="passwordForm.confirmPassword" 
+									placeholder="Re-type new password..."
+									required
+									class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition"
+								/>
+							</div>
+						</div>
+
+						<!-- Submit Button -->
+						<div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+							<span class="text-xs text-rose-600 font-mono" x-show="passwordError" x-text="passwordError"></span>
+							<span class="text-xs text-emerald-600 font-mono" x-show="passwordSuccess" x-text="passwordSuccess"></span>
+							<button 
+								type="submit" 
+								:disabled="savingPassword || !isPasswordValid()"
+								class="ml-auto px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-xs transition shadow-sm hover:shadow flex items-center gap-2 cursor-pointer"
+							>
+								<i data-lucide="shield-check" class="h-3.5 w-3.5" x-show="!savingPassword"></i>
+								<i data-lucide="loader-2" class="h-3.5 w-3.5 animate-spin" x-show="savingPassword"></i>
+								<span x-text="savingPassword ? 'Updating Password...' : 'Update Password'"></span>
+							</button>
+						</div>
+					</form>
+				</div>
+
+				<!-- Security Posture Info -->
+				<div class="space-y-6">
+					<div class="glass-panel p-6 bg-white border border-slate-200 shadow-xs space-y-4 text-xs font-mono">
+						<div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+							<i data-lucide="shield" class="h-4 w-4 text-emerald-600"></i>
+							<span class="font-bold text-slate-900 font-display">Cryptographic Defense</span>
+						</div>
+
+						<div class="space-y-3 font-sans text-slate-600 text-[11px] leading-relaxed">
+							<div class="flex items-start gap-2.5">
+								<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+								<div>
+									<strong class="text-slate-900 font-mono">Bcrypt Hash:</strong> Passwords are salt-hashed using standard adaptive cost work factors preventing brute-force rainbow table lookups.
+								</div>
+							</div>
+							<div class="flex items-start gap-2.5">
+								<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+								<div>
+									<strong class="text-slate-900 font-mono">HttpOnly Cookies:</strong> Active session tokens are stored in tamper-proof, non-JavaScript-accessible cookie jars.
+								</div>
+							</div>
+							<div class="flex items-start gap-2.5">
+								<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+								<div>
+									<strong class="text-slate-900 font-mono">Instant Session Invalidation:</strong> Changing passwords automatically expires other existing login tokens across devices.
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- TAB 3: Workspaces & Projects -->
+		<div x-show="tab === 'workspaces'" x-transition class="space-y-6">
+			<div class="glass-panel p-6 sm:p-7 bg-white border border-slate-200 shadow-xs space-y-6">
+				<div class="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+					<div>
+						<h3 class="text-sm font-bold text-slate-900 font-display">Workspace &amp; Project Access</h3>
+						<p class="text-xs text-slate-500 font-sans mt-0.5">
+							Organizations and project scopes you are currently authorized to view and manage.
+						</p>
+					</div>
+					<button 
+						@click="$dispatch('open-create-project-modal')"
+						class="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-mono font-bold flex items-center gap-1.5 border border-indigo-200 cursor-pointer self-start sm:self-auto"
+					>
+						<i data-lucide="plus" class="w-3.5 h-3.5"></i>
+						<span>New Scope</span>
+					</button>
+				</div>
+
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
+					for _, org := range orgs {
+						<div class="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-2">
+									<div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold font-display">
+										<i data-lucide="building-2" class="w-4 h-4"></i>
+									</div>
+									<div>
+										<h4 class="font-bold text-slate-900">{ org.Name }</h4>
+										<span class="text-[10px] text-slate-400 font-mono">{ org.Slug }</span>
+									</div>
+								</div>
+								<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase">
+									Member
+								</span>
+							</div>
+
+							<div class="space-y-1.5 pt-2 border-t border-slate-200/80">
+								<span class="text-[10px] uppercase font-bold text-slate-400">Scoped Projects:</span>
+								<div class="space-y-1">
+									for _, p := range projects {
+										if p.OrganizationID == org.ID || (org.ID == "org_default" && p.OrganizationID == "") {
+											<div class="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200/80">
+												<div class="truncate">
+													<div class="font-bold text-slate-900 truncate">{ p.Name }</div>
+													<div class="text-[10px] text-slate-400 truncate">{ p.Slug }</div>
+												</div>
+												<button 
+													@click={ fmt.Sprintf("switchProject('%s')", p.ID) }
+													class="px-2.5 py-1 rounded-md text-[10px] font-bold bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 transition cursor-pointer"
+												>
+													Switch
+												</button>
+											</div>
+										}
+									}
+								</div>
+							</div>
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+
+		<!-- TAB 4: Role Governance & Permissions Breakdown -->
+		<div x-show="tab === 'permissions'" x-transition class="space-y-6">
+			<div class="glass-panel p-6 sm:p-7 bg-white border border-slate-200 shadow-xs space-y-6">
+				<div class="border-b border-slate-100 pb-4">
+					<h3 class="text-sm font-bold text-slate-900 font-display">Governance &amp; Authorization Matrix</h3>
+					<p class="text-xs text-slate-500 font-sans mt-0.5">
+						Detailed authorization capabilities for your assigned role in this workspace.
+					</p>
+				</div>
+
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 font-mono text-xs">
+					<!-- Permission: Flags -->
+					<div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+						<div class="flex items-center justify-between">
+							<span class="font-bold text-slate-900 font-sans">Flag Management</span>
+							<i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+						</div>
+						<p class="text-[11px] text-slate-500 font-sans">Create, edit, toggle, and configure multivariate rollouts across environments.</p>
+					</div>
+
+					<!-- Permission: Kill Switches -->
+					<div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+						<div class="flex items-center justify-between">
+							<span class="font-bold text-slate-900 font-sans">Automated Kill-Switches</span>
+							<i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+						</div>
+						<p class="text-[11px] text-slate-500 font-sans">Trigger instant &lt;5ms SSE kill-switches via APM webhooks or console.</p>
+					</div>
+
+					<!-- Permission: 4-Eyes Governance -->
+					<div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+						<div class="flex items-center justify-between">
+							<span class="font-bold text-slate-900 font-sans">4-Eyes Change Requests</span>
+							<i data-lucide="check-circle" class="w-4 h-4 text-purple-600"></i>
+						</div>
+						<p class="text-[11px] text-slate-500 font-sans">Author production change requests and review peer changes (author self-review blocked).</p>
+					</div>
+
+					<!-- Permission: Canary Progressive Rollouts -->
+					<div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+						<div class="flex items-center justify-between">
+							<span class="font-bold text-slate-900 font-sans">Progressive Canary Ramps</span>
+							<i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+						</div>
+						<p class="text-[11px] text-slate-500 font-sans">Automate multi-stage rollout increments with metric guardrail rollbacks.</p>
+					</div>
+
+					<!-- Permission: API Service Keys -->
+					<div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+						<div class="flex items-center justify-between">
+							<span class="font-bold text-slate-900 font-sans">Service Accounts &amp; Keys</span>
+							<i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+						</div>
+						<p class="text-[11px] text-slate-500 font-sans">Generate cryptographically secure tokens for microservice SDK evaluations.</p>
+					</div>
+
+					<!-- Permission: Audit Trail -->
+					<div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+						<div class="flex items-center justify-between">
+							<span class="font-bold text-slate-900 font-sans">Immutable Audit Trail</span>
+							<i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+						</div>
+						<p class="text-[11px] text-slate-500 font-sans">Inspect tamper-evident action logs, actors, and state deltas.</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		function profileSettingsComponent() {
+			return {
+				tab: 'general',
+				savingProfile: false,
+				savingPassword: false,
+				profileMessage: '',
+				passwordError: '',
+				passwordSuccess: '',
+				showCurrentPassword: false,
+				showNewPassword: false,
+				profile: {
+					id: '',
+					name: '',
+					email: '',
+					role: '',
+					avatarUrl: ''
+				},
+				form: {
+					name: '',
+					avatarUrl: ''
+				},
+				passwordForm: {
+					currentPassword: '',
+					newPassword: '',
+					confirmPassword: ''
+				},
+				get passRules() {
+					const p = this.passwordForm.newPassword || '';
+					return {
+						length: p.length >= 8,
+						upper: /[A-Z]/.test(p),
+						lower: /[a-z]/.test(p),
+						digit: /[0-9]/.test(p),
+						special: /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?~]/.test(p)
+					};
+				},
+				isPasswordValid() {
+					const r = this.passRules;
+					return r.length && r.upper && r.lower && r.digit && r.special &&
+						this.passwordForm.currentPassword.length > 0 &&
+						this.passwordForm.newPassword === this.passwordForm.confirmPassword;
+				},
+				init() {
+					this.fetchProfile();
+				},
+				getInitials(name) {
+					if (!name) return 'U';
+					const parts = name.trim().split(/\s+/);
+					if (parts.length >= 2) {
+						return (parts[0][0] + parts[1][0]).toUpperCase();
+					}
+					return name.substring(0, 2).toUpperCase();
+				},
+				async fetchProfile() {
+					try {
+						const res = await fetch('/api/v1/auth/me');
+						if (res.ok) {
+							const data = await res.json();
+							this.profile = data;
+							this.form.name = data.name || '';
+							this.form.avatarUrl = data.avatarUrl || '';
+						}
+					} catch(e) {}
+				},
+				resetForm() {
+					this.form.name = this.profile.name || '';
+					this.form.avatarUrl = this.profile.avatarUrl || '';
+					this.profileMessage = '';
+				},
+				async saveProfile() {
+					if (!this.form.name.trim()) return;
+					this.savingProfile = true;
+					this.profileMessage = '';
+					try {
+						const res = await fetch('/api/v1/auth/profile', {
+							method: 'PATCH',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({
+								name: this.form.name.trim(),
+								avatarUrl: this.form.avatarUrl.trim()
+							})
+						});
+						const data = await res.json();
+						if (!res.ok) {
+							throw new Error(data.message || 'Failed to update profile');
+						}
+						this.profile.name = this.form.name.trim();
+						this.profile.avatarUrl = this.form.avatarUrl.trim();
+						this.showToast('Profile updated successfully!', 'info');
+						this.profileMessage = 'Profile updated successfully!';
+					} catch (err) {
+						this.profileMessage = err.message;
+						this.showToast(err.message, 'error');
+					} finally {
+						this.savingProfile = false;
+					}
+				},
+				async changePassword() {
+					if (!this.isPasswordValid()) return;
+					this.savingPassword = true;
+					this.passwordError = '';
+					this.passwordSuccess = '';
+					try {
+						const res = await fetch('/api/v1/auth/change-password', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({
+								currentPassword: this.passwordForm.currentPassword,
+								newPassword: this.passwordForm.newPassword
+							})
+						});
+						const data = await res.json();
+						if (!res.ok) {
+							throw new Error(data.message || 'Failed to update password');
+						}
+						this.passwordSuccess = 'Password has been successfully updated!';
+						this.passwordForm.currentPassword = '';
+						this.passwordForm.newPassword = '';
+						this.passwordForm.confirmPassword = '';
+						this.showToast('Password updated successfully!', 'info');
+					} catch (err) {
+						this.passwordError = err.message;
+						this.showToast(err.message, 'error');
+					} finally {
+						this.savingPassword = false;
+					}
+				},
+				copyToClipboard(text, msg = 'Copied to clipboard') {
+					if (!text) return;
+					navigator.clipboard.writeText(text).then(() => {
+						this.showToast(msg, 'info');
+					});
+				}
+			};
+		}
+	</script>
+}

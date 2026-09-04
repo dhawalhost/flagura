@@ -60,11 +60,11 @@ func TestHandlers_ComprehensiveSuite(t *testing.T) {
 	// 1. handleUpdateFlag & handleDeleteFlag
 	t.Run("UpdateAndDeleteFlag", func(t *testing.T) {
 		initialFlag := domain.FeatureFlag{
-			ID:          "flag_update_test",
-			ProjectID:   domain.DefaultProjectID,
-			Key:         "ai-smart-search",
-			Name:        "AI Smart Search",
-			Type:        "boolean",
+			ID:        "flag_update_test",
+			ProjectID: domain.DefaultProjectID,
+			Key:       "ai-smart-search",
+			Name:      "AI Smart Search",
+			Type:      "boolean",
 			Environments: map[domain.Environment]domain.EnvironmentConfig{
 				domain.EnvProduction: {Enabled: true, Percentage: 50},
 			},

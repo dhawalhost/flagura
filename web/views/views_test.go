@@ -95,6 +95,7 @@ func TestTemplComponentsRender(t *testing.T) {
 		{name: "FlagEditorModal", component: FlagEditorModal()},
 		{name: "HeaderBar", component: HeaderBar(u, flags, "production")},
 		{name: "Sidebar", component: Sidebar(u, flags, auditLogs, orgs, projects, "proj_1")},
+		{name: "ProfileSettings", component: ProfileSettings(u, orgs, projects)},
 		{name: "CustomCursor", component: CustomCursor()},
 		{name: "ThreeCanvas", component: ThreeCanvas()},
 		{name: "Layout", component: Layout("Flagura Control Plane")},

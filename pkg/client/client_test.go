@@ -303,7 +303,7 @@ func (l *testLogger) Debugf(format string, args ...interface{}) {
 func (l *testLogger) Infof(format string, args ...interface{}) {
 	l.infoLogs = append(l.infoLogs, fmt.Sprintf(format, args...))
 }
-func (l *testLogger) Warnf(format string, args ...interface{}) {}
+func (l *testLogger) Warnf(format string, args ...interface{})  {}
 func (l *testLogger) Errorf(format string, args ...interface{}) {}
 
 func TestSDKFunctionalOptionsAndLogger(t *testing.T) {
@@ -390,4 +390,3 @@ func TestSDKAllOptionsAndBatchLocalEvaluation(t *testing.T) {
 
 	_ = updateNotified
 }
-

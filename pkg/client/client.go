@@ -239,7 +239,7 @@ func New(endpoint string, opts ...Option) *Client {
 		SyncInterval:            30 * time.Second,
 		CircuitBreakerThreshold: 5,
 		CircuitBreakerCooldown:  10 * time.Second,
-		TelemetryFlushInterval: 60 * time.Second,
+		TelemetryFlushInterval:  60 * time.Second,
 	}
 
 	for _, opt := range opts {

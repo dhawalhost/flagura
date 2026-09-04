@@ -200,7 +200,20 @@ func BentoOverview(flags []domain.FeatureFlag, audits []domain.AuditLogEntry, dr
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div></div></div><!-- Environments Status Strip --><div class=\"bg-white p-4 rounded-xl border border-slate-200 shadow-xs font-mono text-xs\"><div class=\"flex flex-wrap items-center justify-between gap-4\"><div class=\"flex items-center gap-3\"><span class=\"font-bold text-slate-800 uppercase tracking-wider text-[11px]\">Sync Channels:</span><div class=\"flex items-center gap-2\"><span class=\"inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-[11px]\"><span class=\"w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse\"></span> Development (Active)</span> <span class=\"inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[11px]\"><span class=\"w-1.5 h-1.5 rounded-full bg-amber-600\"></span> Staging (Active)</span> <span class=\"inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-[11px]\"><span class=\"w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse\"></span> Production (Active)</span></div></div><div class=\"text-[11px] text-slate-500 font-sans\">Monotonic revision protocol v1.5.0 • In-memory ring buffer</div></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div></div></div><!-- Environments Status Strip --><div class=\"bg-white p-4 rounded-xl border border-slate-200 shadow-xs font-mono text-xs\"><div class=\"flex flex-wrap items-center justify-between gap-4\"><div class=\"flex items-center gap-3\"><span class=\"font-bold text-slate-800 uppercase tracking-wider text-[11px]\">Sync Channels:</span><div class=\"flex items-center gap-2\"><span class=\"inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-[11px]\"><span class=\"w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse\"></span> Development (Active)</span> <span class=\"inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[11px]\"><span class=\"w-1.5 h-1.5 rounded-full bg-amber-600\"></span> Staging (Active)</span> <span class=\"inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-[11px]\"><span class=\"w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse\"></span> Production (Active)</span></div></div><div class=\"text-[11px] text-slate-500 font-sans\">Monotonic revision protocol v")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var12 string
+		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(domain.CleanVersion())
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/bento_overview.templ`, Line: 227, Col: 57}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, " • In-memory ring buffer</div></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

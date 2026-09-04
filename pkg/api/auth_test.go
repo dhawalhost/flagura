@@ -353,3 +353,140 @@ func TestForgotPasswordAndResetFlow(t *testing.T) {
 	}
 }
 
+func TestProfileUpdateAndChangePasswordFlow(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	server, err := NewServer(memStore)
+	if err != nil {
+		t.Fatalf("Failed to create server: %v", err)
+	}
+
+	// 1. Sign up user
+	signUpPayload := domain.SignUpRequest{
+		Name:     "Profile Tester",
+		Email:    "profile.tester@flagura.dev",
+		Password: "InitialPassword123!",
+		Role:     domain.RoleDeveloper,
+	}
+	body, _ := json.Marshal(signUpPayload)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/signup", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 on signup, got %d", w.Code)
+	}
+
+	var authResp domain.AuthResponse
+	_ = json.NewDecoder(w.Body).Decode(&authResp)
+	token := authResp.Token
+
+	// 2. Test GET /api/v1/auth/me
+	reqMe := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	reqMe.Header.Set("Authorization", "Bearer "+token)
+	wMe := httptest.NewRecorder()
+	server.ServeHTTP(wMe, reqMe)
+
+	if wMe.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK on GET /api/v1/auth/me, got %d", wMe.Code)
+	}
+	var me domain.User
+	_ = json.NewDecoder(wMe.Body).Decode(&me)
+	if me.Name != "Profile Tester" || me.Email != "profile.tester@flagura.dev" {
+		t.Fatalf("Unexpected user info from /api/v1/auth/me: %+v", me)
+	}
+
+	// 3. Test PATCH /api/v1/auth/profile with empty name -> 400
+	invalidProfileBody, _ := json.Marshal(domain.UpdateProfileRequest{Name: "   "})
+	reqInvalid := httptest.NewRequest(http.MethodPatch, "/api/v1/auth/profile", bytes.NewReader(invalidProfileBody))
+	reqInvalid.Header.Set("Authorization", "Bearer "+token)
+	reqInvalid.Header.Set("Content-Type", "application/json")
+	wInvalid := httptest.NewRecorder()
+	server.ServeHTTP(wInvalid, reqInvalid)
+	if wInvalid.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 Bad Request for empty name, got %d", wInvalid.Code)
+	}
+
+	// 4. Test PATCH /api/v1/auth/profile with valid update
+	validProfileBody, _ := json.Marshal(domain.UpdateProfileRequest{
+		Name:      "Profile Tester Updated",
+		AvatarURL: "https://flagura.dev/avatars/tester.png",
+	})
+	reqValid := httptest.NewRequest(http.MethodPatch, "/api/v1/auth/profile", bytes.NewReader(validProfileBody))
+	reqValid.Header.Set("Authorization", "Bearer "+token)
+	reqValid.Header.Set("Content-Type", "application/json")
+	wValid := httptest.NewRecorder()
+	server.ServeHTTP(wValid, reqValid)
+
+	if wValid.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK on profile update, got %d (%s)", wValid.Code, wValid.Body.String())
+	}
+
+	// 5. Test Change Password with wrong current password -> 400
+	badPassBody, _ := json.Marshal(domain.ChangePasswordRequest{
+		CurrentPassword: "WrongCurrentPassword123!",
+		NewPassword:     "BrandNewPass123!",
+	})
+	reqBadPass := httptest.NewRequest(http.MethodPost, "/api/v1/auth/change-password", bytes.NewReader(badPassBody))
+	reqBadPass.Header.Set("Authorization", "Bearer "+token)
+	reqBadPass.Header.Set("Content-Type", "application/json")
+	wBadPass := httptest.NewRecorder()
+	server.ServeHTTP(wBadPass, reqBadPass)
+	if wBadPass.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 Bad Request for wrong current password, got %d", wBadPass.Code)
+	}
+
+	// 6. Test Change Password with weak new password -> 400
+	weakPassBody, _ := json.Marshal(domain.ChangePasswordRequest{
+		CurrentPassword: "InitialPassword123!",
+		NewPassword:     "weak",
+	})
+	reqWeakPass := httptest.NewRequest(http.MethodPost, "/api/v1/auth/change-password", bytes.NewReader(weakPassBody))
+	reqWeakPass.Header.Set("Authorization", "Bearer "+token)
+	reqWeakPass.Header.Set("Content-Type", "application/json")
+	wWeakPass := httptest.NewRecorder()
+	server.ServeHTTP(wWeakPass, reqWeakPass)
+	if wWeakPass.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 Bad Request for weak password, got %d", wWeakPass.Code)
+	}
+
+	// 7. Test Change Password with valid credentials -> 200
+	validPassBody, _ := json.Marshal(domain.ChangePasswordRequest{
+		CurrentPassword: "InitialPassword123!",
+		NewPassword:     "BrandNewPass123!#",
+	})
+	reqChangePass := httptest.NewRequest(http.MethodPost, "/api/v1/auth/change-password", bytes.NewReader(validPassBody))
+	reqChangePass.Header.Set("Authorization", "Bearer "+token)
+	reqChangePass.Header.Set("Content-Type", "application/json")
+	wChangePass := httptest.NewRecorder()
+	server.ServeHTTP(wChangePass, reqChangePass)
+	if wChangePass.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK on change password, got %d (%s)", wChangePass.Code, wChangePass.Body.String())
+	}
+
+	// 8. Verify login with old password fails
+	loginOldBody, _ := json.Marshal(domain.LoginRequest{
+		Email:    "profile.tester@flagura.dev",
+		Password: "InitialPassword123!",
+	})
+	reqLoginOld := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(loginOldBody))
+	reqLoginOld.Header.Set("Content-Type", "application/json")
+	wLoginOld := httptest.NewRecorder()
+	server.ServeHTTP(wLoginOld, reqLoginOld)
+	if wLoginOld.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 Unauthorized for old password after change, got %d", wLoginOld.Code)
+	}
+
+	// 9. Verify login with new password succeeds
+	loginNewBody, _ := json.Marshal(domain.LoginRequest{
+		Email:    "profile.tester@flagura.dev",
+		Password: "BrandNewPass123!#",
+	})
+	reqLoginNew := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(loginNewBody))
+	reqLoginNew.Header.Set("Content-Type", "application/json")
+	wLoginNew := httptest.NewRecorder()
+	server.ServeHTTP(wLoginNew, reqLoginNew)
+	if wLoginNew.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for new password login, got %d", wLoginNew.Code)
+	}
+}

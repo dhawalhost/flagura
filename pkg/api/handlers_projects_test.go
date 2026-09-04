@@ -228,4 +228,3 @@ func TestMultiTenantUserSignUpIsolation(t *testing.T) {
 		t.Fatalf("MULTI-TENANT COLLISION: User A and User B share the same project ID: %s", userAProjectID)
 	}
 }
-

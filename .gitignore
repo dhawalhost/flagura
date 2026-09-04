@@ -11,3 +11,5 @@ bin/
 coverage.txt
 *.zip
 coverage.out
+target/
+**/target/

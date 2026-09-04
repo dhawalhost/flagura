@@ -499,15 +499,15 @@ type RuleEvaluationStep struct {
 
 // EvaluationTrace contains comprehensive diagnostics for an evaluation request
 type EvaluationTrace struct {
-	FlagKey        string               `json:"flag_key"`
-	Environment    domain.Environment   `json:"environment"`
-	IdentifierUsed string               `json:"identifier_used"`
-	Steps          []RuleEvaluationStep `json:"steps"`
+	FlagKey        string                  `json:"flag_key"`
+	Environment    domain.Environment      `json:"environment"`
+	IdentifierUsed string                  `json:"identifier_used"`
+	Steps          []RuleEvaluationStep    `json:"steps"`
 	FinalReason    domain.EvaluationReason `json:"final_reason"`
-	FinalVariant   string               `json:"final_variant"`
-	FinalEnabled   bool                 `json:"final_enabled"`
-	Bucket         float64              `json:"bucket"`
-	ElapsedNs      int64                `json:"elapsed_ns"`
+	FinalVariant   string                  `json:"final_variant"`
+	FinalEnabled   bool                    `json:"final_enabled"`
+	Bucket         float64                 `json:"bucket"`
+	ElapsedNs      int64                   `json:"elapsed_ns"`
 }
 
 // EvaluateFlagWithTrace performs evaluation and builds a step-by-step diagnostics trace

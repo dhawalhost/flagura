@@ -18,8 +18,8 @@ type FlagMetric struct {
 
 // TelemetryPayload represents the batch telemetry payload flushed to the server.
 type TelemetryPayload struct {
-	Timestamp int64                      `json:"timestamp"`
-	Events    map[string]FlagMetric      `json:"events"`
+	Timestamp int64                 `json:"timestamp"`
+	Events    map[string]FlagMetric `json:"events"`
 }
 
 // TelemetryBuffer aggregates in-memory evaluations and periodically flushes them to Flagura.

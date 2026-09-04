@@ -16,11 +16,11 @@ const (
 
 // CanaryStage represents a single step in a multi-stage progressive rollout.
 type CanaryStage struct {
-	Index            int           `json:"index"`
-	TargetPercentage float64       `json:"target_percentage"` // e.g. 5, 25, 50, 100
-	DurationSec      int64         `json:"duration_sec"`      // Duration to remain at this stage in seconds
-	StartedAt        time.Time     `json:"started_at"`
-	CompletedAt      time.Time     `json:"completed_at,omitempty"`
+	Index            int       `json:"index"`
+	TargetPercentage float64   `json:"target_percentage"` // e.g. 5, 25, 50, 100
+	DurationSec      int64     `json:"duration_sec"`      // Duration to remain at this stage in seconds
+	StartedAt        time.Time `json:"started_at"`
+	CompletedAt      time.Time `json:"completed_at,omitempty"`
 }
 
 // CanaryGuardrails defines automated rollback thresholds.

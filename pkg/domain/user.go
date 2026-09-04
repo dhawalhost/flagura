@@ -50,12 +50,12 @@ type APIKey struct {
 	ID          string     `json:"id"`
 	ProjectID   string     `json:"projectId,omitempty"`
 	Environment string     `json:"environment,omitempty"` // "production", "staging", "development", or "all"
-	Key         string     `json:"key,omitempty"`      // Raw token, only returned on initial creation
-	KeyPrefix   string     `json:"key_prefix"`        // Display prefix (e.g. "flg_live_8f7b...****")
-	KeyHash     string     `json:"key_hash,omitempty"` // SHA-256 hash for secure storage
-	Name        string     `json:"name"`              // Descriptive name (e.g. "Prod K8s Cluster")
-	Role        UserRole   `json:"role"`              // RoleDeveloper or RoleAdmin
-	CreatedBy   string     `json:"created_by"`        // Creator user email
+	Key         string     `json:"key,omitempty"`         // Raw token, only returned on initial creation
+	KeyPrefix   string     `json:"key_prefix"`            // Display prefix (e.g. "flg_live_8f7b...****")
+	KeyHash     string     `json:"key_hash,omitempty"`    // SHA-256 hash for secure storage
+	Name        string     `json:"name"`                  // Descriptive name (e.g. "Prod K8s Cluster")
+	Role        UserRole   `json:"role"`                  // RoleDeveloper or RoleAdmin
+	CreatedBy   string     `json:"created_by"`            // Creator user email
 	CreatedAt   time.Time  `json:"created_at"`
 	LastUsedAt  *time.Time `json:"last_used_at,omitempty"`
 	Revoked     bool       `json:"revoked"`
@@ -93,4 +93,12 @@ type ResetPasswordRequest struct {
 	NewPassword string `json:"newPassword"`
 }
 
+type UpdateProfileRequest struct {
+	Name      string `json:"name"`
+	AvatarURL string `json:"avatarUrl"`
+}
 
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}

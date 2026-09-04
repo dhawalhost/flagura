@@ -53,6 +53,13 @@ func WithAPIKey(key string) Option {
 	}
 }
 
+// WithEndpoint sets or overrides the Flagura control plane URL.
+func WithEndpoint(endpoint string) Option {
+	return func(c *Config) {
+		c.Endpoint = normalizeEndpoint(endpoint)
+	}
+}
+
 func WithProjectID(projectID string) Option {
 	return func(c *Config) {
 		c.ProjectID = projectID
@@ -124,8 +131,33 @@ type Client struct {
 	cancelFunc context.CancelFunc
 }
 
+func normalizeEndpoint(ep string) string {
+	ep = strings.TrimSpace(ep)
+	if ep == "" {
+		return "https://flagura.dev"
+	}
+	if !strings.HasPrefix(ep, "http://") && !strings.HasPrefix(ep, "https://") {
+		if strings.HasPrefix(ep, "localhost") || strings.HasPrefix(ep, "127.0.0.1") {
+			ep = "http://" + ep
+		} else {
+			ep = "https://" + ep
+		}
+	}
+	return strings.TrimRight(ep, "/")
+}
+
 // NewClient initializes a new Flagura SDK client.
+// If endpoint is empty, it resolves from the FLAGURA_ENDPOINT environment variable,
+// falling back to "https://flagura.dev".
 func NewClient(endpoint string, apiKey string, opts ...Option) *Client {
+	if endpoint == "" {
+		endpoint = os.Getenv("FLAGURA_ENDPOINT")
+		if endpoint == "" {
+			endpoint = "https://flagura.dev"
+		}
+	}
+	endpoint = normalizeEndpoint(endpoint)
+
 	cfg := Config{
 		Endpoint:                endpoint,
 		APIKey:                  apiKey,

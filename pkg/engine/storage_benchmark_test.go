@@ -16,7 +16,7 @@ func createBenchmarkSampleFlag(key string) domain.FeatureFlag {
 		ProjectID: store.DefaultProjectID,
 		Key:       key,
 		Name:      "Benchmark Feature Flag",
-		Type: "boolean",
+		Type:      "boolean",
 		Environments: map[domain.Environment]domain.EnvironmentConfig{
 			domain.EnvProduction: {
 				Enabled:    true,
