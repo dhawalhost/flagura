@@ -25,7 +25,7 @@ from flagura import FlaguraClient, EvaluationContext
 
 # Initialize client with real-time SSE streaming
 client = FlaguraClient(
-    endpoint="https://flagura.dhawalhost.com",
+    endpoint="https://flagura.dev",
     api_key="your-api-key",
     project_id="proj_default", # optional: project scoping
     default_environment="production",
@@ -61,7 +61,7 @@ from flagura.openfeature_provider import FlaguraOpenFeatureProvider
 
 # Register Flagura as OpenFeature provider
 api.set_provider(FlaguraOpenFeatureProvider(
-    endpoint="https://flagura.dhawalhost.com",
+    endpoint="https://flagura.dev",
     api_key="your-api-key",
     enable_streaming=True,
 ))

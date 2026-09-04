@@ -35,6 +35,6 @@ Every mutating action in Flagura is logged with:
 - **Via Console**: Click the **Audit Logs** button in the dashboard to open the audit trail modal.
 - **Via REST API**:
   ```bash
-  curl -s https://flagura.dhawalhost.com/api/v1/audit-logs \
+  curl -s https://flagura.dev/api/v1/audit-logs \
     -H "Authorization: Bearer <TOKEN>"
   ```

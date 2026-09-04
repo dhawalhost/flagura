@@ -28,7 +28,7 @@ yarn add flagura-sdk
 import { FlaguraClient } from 'flagura-sdk';
 
 const client = new FlaguraClient({
-  endpoint: 'https://flagura.dhawalhost.com',
+  endpoint: 'https://flagura.dev',
   apiKey: process.env.FLAGURA_API_KEY,
   projectId: 'proj_default', // optional: project scoping
   defaultEnvironment: 'production',
@@ -66,7 +66,7 @@ import { FlaguraOpenFeatureProvider } from 'flagura-sdk';
 
 // Register Flagura as OpenFeature provider
 const provider = new FlaguraOpenFeatureProvider({
-  endpoint: 'https://flagura.dhawalhost.com',
+  endpoint: 'https://flagura.dev',
   apiKey: process.env.FLAGURA_API_KEY,
   enableStreaming: true,
 });

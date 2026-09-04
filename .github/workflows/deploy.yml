@@ -17,7 +17,7 @@ jobs:
     # Requires Owner / Maintainer manual approval in GitHub Environments ('Production')
     environment:
       name: Production
-      url: https://flagura.dhawalhost.com
+      url: https://flagura.dev
 
     steps:
       - name: Checkout Code

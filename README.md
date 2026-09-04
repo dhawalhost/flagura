@@ -248,7 +248,7 @@ import (
 
 func main() {
 	// 1. Initialize Flagura client with Real-Time Streaming, Offline Snapshot, and Project Scoping
-	flaguraClient := client.New("https://flagura.dhawalhost.com",
+	flaguraClient := client.New("https://flagura.dev",
 		client.WithProject("proj_default"),                  // Project scope (optional)
 		client.WithLocalEvaluation(30*time.Second),
 		client.WithStreaming(true),                          // <5ms instant updates via SSE
@@ -280,7 +280,7 @@ import { FlaguraOpenFeatureProvider } from "flagura-sdk";
 
 // 1. Initialize and register Flagura OpenFeature provider
 const provider = new FlaguraOpenFeatureProvider({
-  endpoint: "https://flagura.dhawalhost.com",
+  endpoint: "https://flagura.dev",
   apiKey: process.env.FLAGURA_API_KEY,
   enableStreaming: true, // <5ms live flag sync
 });
@@ -305,7 +305,7 @@ from flagura.openfeature_provider import FlaguraOpenFeatureProvider
 
 # 1. Register Flagura OpenFeature provider
 api.set_provider(FlaguraOpenFeatureProvider(
-    endpoint="https://flagura.dhawalhost.com",
+    endpoint="https://flagura.dev",
     api_key="your-api-key",
     enable_streaming=True, # <5ms live flag sync
 ))
@@ -373,7 +373,7 @@ Connect Flagura to your APM and monitoring infrastructure (**Datadog, Sentry, Pr
 
 ```bash
 # Example: Automated rollback webhook from Datadog alert or CI/CD
-curl -X POST "https://flagura.dhawalhost.com/api/v1/webhooks/kill-switch/ai-smart-search?env=production" \
+curl -X POST "https://flagura.dev/api/v1/webhooks/kill-switch/ai-smart-search?env=production" \
   -H "Content-Type: application/json"
 ```
 
@@ -386,7 +386,7 @@ When an alert triggers, Flagura instantly flips the master kill-switch and broad
 Debug complex targeting rules and multivariate splits using the on-demand trace engine:
 
 ```bash
-curl -X POST "https://flagura.dhawalhost.com/api/v1/evaluate?trace=true" \
+curl -X POST "https://flagura.dev/api/v1/evaluate?trace=true" \
   -H "Content-Type: application/json" \
   -d '{
     "flags": ["ai-smart-search"],
@@ -435,7 +435,7 @@ curl -X POST "https://flagura.dhawalhost.com/api/v1/evaluate?trace=true" \
 Promote verified rules and multivariate traffic allocations from Staging to Production in 1-click via the Dashboard or API:
 
 ```bash
-curl -X POST "https://flagura.dhawalhost.com/api/v1/flags/ai-smart-search/promote?from=staging&to=production" \
+curl -X POST "https://flagura.dev/api/v1/flags/ai-smart-search/promote?from=staging&to=production" \
   -H "Cookie: flagura_session=..."
 ```
 
@@ -506,7 +506,7 @@ import (
 
 func main() {
 	// Initialize Flagura client with in-memory caching and offline snapshot
-	c := client.New("https://flagura.dhawalhost.com",
+	c := client.New("https://flagura.dev",
 		client.WithLocalEvaluation(30*time.Second),
 		client.WithSnapshotFile("/tmp/flagura-cache.json"),
 	)
@@ -552,7 +552,7 @@ export async function evaluateFlag(
     role?: string;
     environment?: string;
   },
-  endpoint = "https://flagura.dhawalhost.com",
+  endpoint = "https://flagura.dev",
 ): Promise<FlagEvaluation> {
   const res = await fetch(`${endpoint}/api/v1/evaluate`, {
     method: "POST",
@@ -591,7 +591,7 @@ if (flag.enabled) {
 ```python
 import requests
 
-def evaluate_flag(flag_key: str, user_id: str, email: str = "", endpoint: str = "https://flagura.dhawalhost.com") -> bool:
+def evaluate_flag(flag_key: str, user_id: str, email: str = "", endpoint: str = "https://flagura.dev") -> bool:
     try:
         response = requests.post(f"{endpoint}/api/v1/evaluate", json={
             "flags": [flag_key],
@@ -618,7 +618,7 @@ if evaluate_flag("ai-smart-search", user_id="usr_dhawal_01", email="dhawal@flagu
 ### 4. cURL / REST API
 
 ```bash
-curl -X POST https://flagura.dhawalhost.com/api/v1/evaluate \
+curl -X POST https://flagura.dev/api/v1/evaluate \
   -H "Content-Type: application/json" \
   -d '{
     "flags": ["ai-smart-search"],

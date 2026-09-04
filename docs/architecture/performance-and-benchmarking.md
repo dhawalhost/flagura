@@ -56,7 +56,7 @@ Includes JSON request body parsing, context extraction, deterministic evaluation
 | :--- | :---: | :---: | :--- |
 | **Local In-Memory SDK (`pkg/client`)** | **`123 ns`** (0.00012 ms) | **`380 ns`** | In-process cache with zero network hops. |
 | **Localhost HTTP REST API** | **`145 µs`** (0.145 ms) | **`320 µs`** | Measured via `BenchmarkHTTPEvaluateEndpoint`. |
-| **Vercel Edge Network (`https://flagura.dhawalhost.com`)** | **`1.8 ms`** | **`4.8 ms`** | Live global edge request including TLS handshake. |
+| **Vercel Edge Network (`https://flagura.dev`)** | **`1.8 ms`** | **`4.8 ms`** | Live global edge request including TLS handshake. |
 | **Traditional SaaS Feature Flag Provider** | **`25 ms`** – `45 ms` | **`90 ms`** – `150 ms` | Remote SaaS API call with database roundtrips. |
 
 ---

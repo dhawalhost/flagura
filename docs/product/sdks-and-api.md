@@ -28,7 +28,7 @@ import (
 
 func main() {
 	// Initialize client with SSE streaming, offline snapshot disk cache, project scoping, and circuit breaking
-	c := client.New("https://flagura.dhawalhost.com",
+	c := client.New("https://flagura.dev",
 		client.WithProject("proj_default"),                  // scope to project (optional)
 		client.WithEnvironment(domain.EnvProduction),        // default environment scope
 		client.WithLocalEvaluation(30*time.Second),
@@ -95,7 +95,7 @@ interface FlagEvaluation {
 export async function evaluateFlag(
   flagKey: string,
   context: { userId: string; email?: string; country?: string; role?: string; tier?: string; environment?: string },
-  endpoint = "https://flagura.dhawalhost.com"
+  endpoint = "https://flagura.dev"
 ): Promise<FlagEvaluation> {
   const res = await fetch(`${endpoint}/api/v1/evaluate`, {
     method: "POST",
@@ -157,7 +157,7 @@ from flagura import FlaguraClient, EvaluationContext
 
 # Initialize client with real-time SSE streaming
 client = FlaguraClient(
-    endpoint="https://flagura.dhawalhost.com",
+    endpoint="https://flagura.dev",
     api_key="your-api-key",
     enable_streaming=True, # <5ms live flag updates
 )
@@ -190,12 +190,12 @@ _ = of.SetProviderAndWait(flaguraOF.NewProvider(flaguraClient))
 
 ```typescript
 // TypeScript OpenFeature
-await OpenFeature.setProviderAndWait(new FlaguraOpenFeatureProvider({ endpoint: "https://flagura.dhawalhost.com", enableStreaming: true }));
+await OpenFeature.setProviderAndWait(new FlaguraOpenFeatureProvider({ endpoint: "https://flagura.dev", enableStreaming: true }));
 ```
 
 ```python
 # Python OpenFeature
-api.set_provider(FlaguraOpenFeatureProvider(endpoint="https://flagura.dhawalhost.com", enable_streaming=True))
+api.set_provider(FlaguraOpenFeatureProvider(endpoint="https://flagura.dev", enable_streaming=True))
 ```
 
 ---
@@ -214,7 +214,7 @@ use flagura::{FlaguraClient, EvaluationContext};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = FlaguraClient::new("https://flagura.dhawalhost.com");
+    let client = FlaguraClient::new("https://flagura.dev");
     let ctx = EvaluationContext::new("usr_alex_42").with_email("alex@company.com");
 
     if client.is_enabled("ai-smart-search", &ctx).await {
@@ -284,7 +284,7 @@ enabled = client.get_boolean_value("ai-smart-search", False, ctx)
 
 ### 1. Evaluate Flags with Execution Trace (`POST /api/v1/evaluate?trace=true`)
 ```bash
-curl -X POST "https://flagura.dhawalhost.com/api/v1/evaluate?trace=true" \
+curl -X POST "https://flagura.dev/api/v1/evaluate?trace=true" \
   -H "Content-Type: application/json" \
   -d '{
     "flags": ["ai-smart-search"],
@@ -298,7 +298,7 @@ curl -X POST "https://flagura.dhawalhost.com/api/v1/evaluate?trace=true" \
 
 ### 2. A/B Experiment Metric Ingestion (`POST /api/v1/events`)
 ```bash
-curl -X POST "https://flagura.dhawalhost.com/api/v1/events" \
+curl -X POST "https://flagura.dev/api/v1/events" \
   -H "Content-Type: application/json" \
   -d '{
     "event": {
@@ -314,12 +314,12 @@ curl -X POST "https://flagura.dhawalhost.com/api/v1/events" \
 
 ### 3. A/B Experiment Statistical Significance Report (`GET /api/v1/experiments/:key`)
 ```bash
-curl "https://flagura.dhawalhost.com/api/v1/experiments/checkout-v2?metric=purchase_completed&control=control"
+curl "https://flagura.dev/api/v1/experiments/checkout-v2?metric=purchase_completed&control=control"
 ```
 
 ### 4. Progressive Canary Auto-Ramp (`POST /api/v1/flags/:key/canary`)
 ```bash
-curl -X POST "https://flagura.dhawalhost.com/api/v1/flags/search-v2/canary" \
+curl -X POST "https://flagura.dev/api/v1/flags/search-v2/canary" \
   -H "Content-Type: application/json" \
   -H "Cookie: flagura_session=..." \
   -d '{
@@ -338,7 +338,7 @@ curl -X POST "https://flagura.dhawalhost.com/api/v1/flags/search-v2/canary" \
 
 ### 5. 4-Eyes Governance Change Request (`POST /api/v1/change-requests`)
 ```bash
-curl -X POST "https://flagura.dhawalhost.com/api/v1/change-requests" \
+curl -X POST "https://flagura.dev/api/v1/change-requests" \
   -H "Content-Type: application/json" \
   -H "Cookie: flagura_session=..." \
   -d '{
@@ -355,7 +355,7 @@ curl -X POST "https://flagura.dhawalhost.com/api/v1/change-requests" \
 
 ### 6. Automated Webhook Kill-Switch (`POST /api/v1/webhooks/kill-switch/:key`)
 ```bash
-curl -X POST "https://flagura.dhawalhost.com/api/v1/webhooks/kill-switch/ai-smart-search?env=production"
+curl -X POST "https://flagura.dev/api/v1/webhooks/kill-switch/ai-smart-search?env=production"
 ```
 
 ### 7. API Key & Service Account Management (`POST /api/v1/api-keys`, `GET /api/v1/api-keys`, `DELETE /api/v1/api-keys/:id`)
@@ -364,7 +364,7 @@ Flagura supports cryptographically secure (`2^256` bits CSPRNG) API service acco
 
 #### Create API Key:
 ```bash
-curl -X POST "https://flagura.dhawalhost.com/api/v1/api-keys" \
+curl -X POST "https://flagura.dev/api/v1/api-keys" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <session-or-admin-token>" \
   -d '{
@@ -392,13 +392,13 @@ curl -X POST "https://flagura.dhawalhost.com/api/v1/api-keys" \
 
 #### List API Keys (Tokens are redacted for security):
 ```bash
-curl "https://flagura.dhawalhost.com/api/v1/api-keys" \
+curl "https://flagura.dev/api/v1/api-keys" \
   -H "Authorization: Bearer <token>"
 ```
 
 #### Revoke API Key:
 ```bash
-curl -X DELETE "https://flagura.dhawalhost.com/api/v1/api-keys/key_1788085710350701000_b3f8c993" \
+curl -X DELETE "https://flagura.dev/api/v1/api-keys/key_1788085710350701000_b3f8c993" \
   -H "Authorization: Bearer <token>"
 ```
 
