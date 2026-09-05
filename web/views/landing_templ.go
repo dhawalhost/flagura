@@ -110,9 +110,9 @@ const { enabled, variant } = await client.evaluate('ai-smart-search', {
   email: 'alex@company.com',
 });
 
-console.log({ enabled, variant });`)
+// Evaluated result: { enabled, variant }`)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/landing.templ`, Line: 328, Col: 35}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/landing.templ`, Line: 328, Col: 42}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {

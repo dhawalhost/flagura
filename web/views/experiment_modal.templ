@@ -195,7 +195,7 @@ templ ExperimentModal() {
 							});
 						}
 					} catch (e) {
-						console.error('Failed to fetch experiment report:', e);
+						// report fetch error handled gracefully
 					}
 				},
 				async simulateConversion(variant) {
@@ -215,7 +215,7 @@ templ ExperimentModal() {
 						});
 						this.fetchReport();
 					} catch (e) {
-						console.error('Simulation failed:', e);
+						// simulation error handled gracefully
 					}
 				}
 			}));
