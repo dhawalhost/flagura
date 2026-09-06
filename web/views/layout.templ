@@ -83,6 +83,14 @@ templ Layout(title string) {
 					return { bucket: Number(bucket.toFixed(2)), hashRaw: hash.toString(16).padStart(16, '0') };
 				}
 
+				let globalToastHandler = null;
+				function showToast(msg, type = 'info') {
+					if (globalToastHandler) {
+						globalToastHandler(msg, type);
+					}
+				}
+				window.showToast = showToast;
+
 				document.addEventListener('alpine:init', () => {
 					// Global App Root State
 					Alpine.data('globalApp', () => ({
@@ -224,6 +232,8 @@ templ Layout(title string) {
 							}
 						},
 						init() {
+							globalToastHandler = (msg, type = 'info') => this.showToast(msg, type);
+							window.showToast = globalToastHandler;
 							this.checkAuth();
 						}
 					}));
@@ -865,7 +875,7 @@ templ Layout(title string) {
 							if (this.sdkLanguage === 'go') {
 								code = 'package main\n\nimport (\n    "context"\n    "fmt"\n    flagura "github.com/dhawalhost/flagura/sdks/go"\n)\n\nfunc main() {\n    client := flagura.NewClient("https://api.flagura.dev", "flg_live_secret", flagura.WithLocalEvaluation(true))\n    defer client.Close()\n    res, _ := client.Evaluate(context.Background(), "ai-smart-search", flagura.Context{UserID: "usr_alex_42", Email: "alex@company.com"})\n    fmt.Printf("Enabled: %v | Latency: %v ns\\n", res.Enabled, res.EvaluationLatencyNs)\n}';
 							} else if (this.sdkLanguage === 'ts') {
-								code = 'import { FlaguraClient } from \'@flagura/sdk\';\n\nconst client = new FlaguraClient({ endpoint: \'https://api.flagura.dev\', apiKey: \'flg_live_secret\' });\nconst { enabled, variant } = await client.evaluate(\'ai-smart-search\', { user_id: \'usr_alex_42\', email: \'alex@company.com\' });\n// Result: enabled=' + enabled + ', variant=' + variant;';
+								code = 'import { FlaguraClient } from \'@flagura/sdk\';\n\nconst client = new FlaguraClient({ endpoint: \'https://api.flagura.dev\', apiKey: \'flg_live_secret\' });\nconst { enabled, variant } = await client.evaluate(\'ai-smart-search\', { user_id: \'usr_alex_42\', email: \'alex@company.com\' });\n// Result: enabled=${enabled}, variant=${variant}';
 							} else if (this.sdkLanguage === 'python') {
 								code = 'from flagura import FlaguraClient, EvaluationContext\n\nclient = FlaguraClient("https://api.flagura.dev", api_key="flg_live_secret")\nres = client.evaluate("ai-smart-search", EvaluationContext(user_id="usr_alex_42", email="alex@company.com"))\nprint(res.enabled, res.variant)';
 							} else if (this.sdkLanguage === 'rust') {
@@ -877,6 +887,9 @@ templ Layout(title string) {
 							this.codeCopied = true;
 							this.showToast('Code snippet copied to clipboard');
 							setTimeout(() => this.codeCopied = false, 2000);
+						},
+						showToast(msg, type = 'info') {
+							showToast(msg, type);
 						},
 						async runBrowserBenchmark(isSilent = false) {
 							this.benchRunning = true;
