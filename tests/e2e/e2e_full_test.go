@@ -677,6 +677,7 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 			"FLAGURA_ENDPOINT="+ts.URL,
 			"FLAGURA_API_KEY="+apiKey,
 			"PYTHONPATH="+pythonPath,
+			"PYTHONDONTWRITEBYTECODE=1",
 		)
 		out, err := cmd.CombinedOutput()
 		t.Logf("Python SDK E2E Output:\n%s", string(out))

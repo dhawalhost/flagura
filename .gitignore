@@ -13,3 +13,8 @@ coverage.txt
 coverage.out
 target/
 **/target/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
