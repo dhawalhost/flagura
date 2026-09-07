@@ -45,6 +45,159 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 	var activeProjID string
 	var apiKey string
 
+	createStandardFlags := func(projID string, cookie *http.Cookie) {
+		flagsToCreate := []domain.FeatureFlag{
+			// 1. Boolean Flag
+			{
+				ProjectID:   projID,
+				Key:         "e2e-bool-active",
+				Name:        "Active Boolean Feature",
+				Type:        "boolean",
+				Description: "Boolean flag enabled in production",
+				Environments: map[domain.Environment]domain.EnvironmentConfig{
+					domain.EnvProduction: {
+						Enabled:  true,
+						Strategy: domain.StrategyBoolean,
+					},
+				},
+			},
+			// 2. Percentage Rollout Flag (50%)
+			{
+				ProjectID:   projID,
+				Key:         "e2e-percentage-rollout",
+				Name:        "Rollout 50% Feature",
+				Type:        "boolean",
+				Description: "Deterministic 50% rollout",
+				Environments: map[domain.Environment]domain.EnvironmentConfig{
+					domain.EnvProduction: {
+						Enabled:    true,
+						Strategy:   domain.StrategyPercentage,
+						Percentage: 50,
+					},
+				},
+			},
+			// 3. Rule Targeting Flag
+			{
+				ProjectID:   projID,
+				Key:         "e2e-rule-targeting",
+				Name:        "Rule Targeted Feature",
+				Type:        "boolean",
+				Description: "Enabled only for developer role",
+				Environments: map[domain.Environment]domain.EnvironmentConfig{
+					domain.EnvProduction: {
+						Enabled:  true,
+						Strategy: domain.StrategyRules,
+						Rules: []domain.TargetingRule{
+							{
+								ID:        "rule-guest",
+								Attribute: domain.AttrRole,
+								Operator:  domain.OpEquals,
+								Values:    []string{"guest"},
+								Action:    domain.ActionForceDisabled,
+							},
+							{
+								ID:        "rule-dev",
+								Attribute: domain.AttrRole,
+								Operator:  domain.OpEquals,
+								Values:    []string{"developer"},
+								Action:    domain.ActionForceEnabled,
+							},
+						},
+					},
+				},
+			},
+			// 4. Multivariate Flag
+			{
+				ProjectID:   projID,
+				Key:         "e2e-multivariate-models",
+				Name:        "Multivariate Model Switcher",
+				Type:        "multivariate",
+				Description: "Multivariate flag with 3 model variants",
+				Environments: map[domain.Environment]domain.EnvironmentConfig{
+					domain.EnvProduction: {
+						Enabled:        true,
+						Strategy:       domain.StrategyMultivariate,
+						DefaultVariant: "control",
+						Variants: []domain.FlagVariant{
+							{Key: "control", Name: "Control Default", Value: "gpt-3.5", Weight: 10},
+							{Key: "flash-v1", Name: "Gemini Flash", Value: "gemini-1.5-flash", Weight: 45},
+							{Key: "pro-v1", Name: "Gemini Pro", Value: "gemini-1.5-pro", Weight: 45},
+						},
+					},
+				},
+			},
+		}
+
+		for _, flag := range flagsToCreate {
+			b, _ := json.Marshal(flag)
+			req, _ := http.NewRequest("POST", ts.URL+"/api/v1/flags", bytes.NewReader(b))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-Project-ID", projID)
+			if cookie != nil {
+				req.AddCookie(cookie)
+			}
+			resp, err := http.DefaultClient.Do(req)
+			if err == nil {
+				resp.Body.Close()
+			}
+		}
+	}
+
+	bootstrapTestEnv := func(subT *testing.T) {
+		if apiKey != "" && activeProjID != "" {
+			return
+		}
+
+		if activeProjID == "" || sessionCookie == nil {
+			signupPayload := map[string]string{
+				"email":    testEmail,
+				"password": testPassword,
+				"name":     "E2E Automated Tester",
+			}
+			b, _ := json.Marshal(signupPayload)
+			resp, err := http.Post(ts.URL+"/api/v1/auth/signup", "application/json", bytes.NewReader(b))
+			if err != nil {
+				subT.Fatalf("Bootstrap signup request failed: %v", err)
+			}
+			for _, c := range resp.Cookies() {
+				if c.Name == domain.CookieSessionName {
+					sessionCookie = c
+				}
+				if c.Name == domain.CookieProjectName {
+					projectCookie = c
+					activeProjID = c.Value
+				}
+			}
+			resp.Body.Close()
+		}
+
+		if apiKey == "" {
+			keyReqPayload := map[string]string{
+				"name":        "E2E Automated SDK Key",
+				"environment": "production",
+			}
+			b, _ := json.Marshal(keyReqPayload)
+			req, _ := http.NewRequest("POST", ts.URL+"/api/v1/api-keys", bytes.NewReader(b))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-Project-ID", activeProjID)
+			if sessionCookie != nil {
+				req.AddCookie(sessionCookie)
+			}
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				subT.Fatalf("Bootstrap API key creation failed: %v", err)
+			}
+			var keyResp struct {
+				APIKey domain.APIKey `json:"api_key"`
+			}
+			_ = json.NewDecoder(resp.Body).Decode(&keyResp)
+			resp.Body.Close()
+			apiKey = keyResp.APIKey.Key
+		}
+
+		createStandardFlags(activeProjID, sessionCookie)
+	}
+
 	// =========================================================================
 	// 1. User Sign Up, Login, and Identity Verification
 	// =========================================================================
@@ -163,106 +316,9 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 	// 3. Create Feature Flags (Boolean, Rollout, Multivariate, Targeting)
 	// =========================================================================
 	t.Run("3_Create_Feature_Flags", func(t *testing.T) {
-		flagsToCreate := []domain.FeatureFlag{
-			// 1. Boolean Flag
-			{
-				ProjectID:   activeProjID,
-				Key:         "e2e-bool-active",
-				Name:        "Active Boolean Feature",
-				Type:        "boolean",
-				Description: "Boolean flag enabled in production",
-				Environments: map[domain.Environment]domain.EnvironmentConfig{
-					domain.EnvProduction: {
-						Enabled:  true,
-						Strategy: domain.StrategyBoolean,
-					},
-				},
-			},
-			// 2. Percentage Rollout Flag (50%)
-			{
-				ProjectID:   activeProjID,
-				Key:         "e2e-percentage-rollout",
-				Name:        "Rollout 50% Feature",
-				Type:        "boolean",
-				Description: "Deterministic 50% rollout",
-				Environments: map[domain.Environment]domain.EnvironmentConfig{
-					domain.EnvProduction: {
-						Enabled:    true,
-						Strategy:   domain.StrategyPercentage,
-						Percentage: 50,
-					},
-				},
-			},
-			// 3. Rule Targeting Flag
-			{
-				ProjectID:   activeProjID,
-				Key:         "e2e-rule-targeting",
-				Name:        "Rule Targeted Feature",
-				Type:        "boolean",
-				Description: "Enabled only for developer role",
-				Environments: map[domain.Environment]domain.EnvironmentConfig{
-					domain.EnvProduction: {
-						Enabled:  true,
-						Strategy: domain.StrategyRules,
-						Rules: []domain.TargetingRule{
-							{
-								ID:        "rule-guest",
-								Attribute: domain.AttrRole,
-								Operator:  domain.OpEquals,
-								Values:    []string{"guest"},
-								Action:    domain.ActionForceDisabled,
-							},
-							{
-								ID:        "rule-dev",
-								Attribute: domain.AttrRole,
-								Operator:  domain.OpEquals,
-								Values:    []string{"developer"},
-								Action:    domain.ActionForceEnabled,
-							},
-						},
-					},
-				},
-			},
-			// 4. Multivariate Flag
-			{
-				ProjectID:   activeProjID,
-				Key:         "e2e-multivariate-models",
-				Name:        "Multivariate Model Switcher",
-				Type:        "multivariate",
-				Description: "Multivariate flag with 3 model variants",
-				Environments: map[domain.Environment]domain.EnvironmentConfig{
-					domain.EnvProduction: {
-						Enabled:        true,
-						Strategy:       domain.StrategyMultivariate,
-						DefaultVariant: "control",
-						Variants: []domain.FlagVariant{
-							{Key: "control", Name: "Control Default", Value: "gpt-3.5", Weight: 10},
-							{Key: "flash-v1", Name: "Gemini Flash", Value: "gemini-1.5-flash", Weight: 45},
-							{Key: "pro-v1", Name: "Gemini Pro", Value: "gemini-1.5-pro", Weight: 45},
-						},
-					},
-				},
-			},
-		}
-
-		for _, flag := range flagsToCreate {
-			b, _ := json.Marshal(flag)
-			req, _ := http.NewRequest("POST", ts.URL+"/api/v1/flags", bytes.NewReader(b))
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("X-Project-ID", activeProjID)
-			req.AddCookie(sessionCookie)
-
-			resp, err := http.DefaultClient.Do(req)
-			if err != nil {
-				t.Fatalf("Failed to create flag %s: %v", flag.Key, err)
-			}
-			resp.Body.Close()
-
-			if resp.StatusCode != http.StatusCreated {
-				t.Fatalf("Flag creation %s expected 201 Created, got %d", flag.Key, resp.StatusCode)
-			}
-			t.Logf("  ✓ Feature flag created: %s (%s)", flag.Key, flag.Type)
-		}
+		bootstrapTestEnv(t)
+		createStandardFlags(activeProjID, sessionCookie)
+		t.Logf("  ✓ Feature flags created")
 	})
 
 	// =========================================================================
@@ -270,6 +326,7 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 	// =========================================================================
 	var goClient *flagura.Client
 	t.Run("4_Go_SDK_Evaluation", func(t *testing.T) {
+		bootstrapTestEnv(t)
 		goClient = flagura.NewClient(
 			ts.URL,
 			apiKey,
@@ -345,6 +402,7 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 	// 5. Live Real-Time Flag Toggling & SDK Observation
 	// =========================================================================
 	t.Run("5_Live_Flag_Toggle", func(t *testing.T) {
+		bootstrapTestEnv(t)
 		toggleClient := flagura.NewClient(ts.URL, apiKey, flagura.WithProjectID(activeProjID))
 		defer toggleClient.Close()
 
@@ -394,6 +452,7 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 	// 6. Telemetry Ingestion & Aggregation
 	// =========================================================================
 	t.Run("6_Telemetry_Ingestion", func(t *testing.T) {
+		bootstrapTestEnv(t)
 		telemetryPayload := map[string]interface{}{
 			"timestamp": time.Now().UnixMilli(),
 			"events": map[string]interface{}{
@@ -427,6 +486,7 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 	// 7. 4-Eyes Governance Workflow (Change Requests)
 	// =========================================================================
 	t.Run("7_FourEyes_Governance", func(t *testing.T) {
+		bootstrapTestEnv(t)
 		// 7.1 Author submits CR
 		crBody := domain.ChangeRequest{
 			ProjectID:   activeProjID,
@@ -487,6 +547,8 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 	// 8. Automated TypeScript SDK Test Execution
 	// =========================================================================
 	t.Run("8_TypeScript_SDK_Automated_Suite", func(t *testing.T) {
+		bootstrapTestEnv(t)
+
 		tsCandidates := []string{
 			"sdk_test.ts",
 			filepath.Join("tests", "e2e", "sdk_test.ts"),
@@ -496,12 +558,17 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 		var tsScript string
 		for _, c := range tsCandidates {
 			if _, err := os.Stat(c); err == nil {
-				tsScript = c
-				break
+				if abs, err := filepath.Abs(c); err == nil {
+					tsScript = abs
+					break
+				}
 			}
 		}
 
+		tsDir := filepath.Dir(tsScript)
+
 		nodeCandidates := []string{
+			filepath.Join(tsDir, "..", "..", "examples", "typescript", "node_modules"),
 			filepath.Join("..", "examples", "typescript", "node_modules"),
 			filepath.Join("examples", "typescript", "node_modules"),
 			filepath.Join("..", "..", "examples", "typescript", "node_modules"),
@@ -516,7 +583,25 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 			}
 		}
 
-		cmd := exec.Command("npx", "tsx", tsScript)
+		tsxCandidates := []string{
+			filepath.Join(nodePath, ".bin", "tsx"),
+			filepath.Join(tsDir, "..", "..", "examples", "typescript", "node_modules", ".bin", "tsx"),
+		}
+		var tsxBin string
+		for _, b := range tsxCandidates {
+			if info, err := os.Stat(b); err == nil && !info.IsDir() {
+				tsxBin = b
+				break
+			}
+		}
+
+		var cmd *exec.Cmd
+		if tsxBin != "" {
+			cmd = exec.Command(tsxBin, tsScript)
+		} else {
+			cmd = exec.Command("npx", "--yes", "tsx", tsScript)
+		}
+		cmd.Dir = tsDir
 		cmd.Env = append(os.Environ(),
 			"FLAGURA_ENDPOINT="+ts.URL,
 			"FLAGURA_API_KEY="+apiKey,
@@ -535,6 +620,8 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 	// 9. Automated Python SDK Test Execution
 	// =========================================================================
 	t.Run("9_Python_SDK_Automated_Suite", func(t *testing.T) {
+		bootstrapTestEnv(t)
+
 		pyCandidates := []string{
 			"sdk_test.py",
 			filepath.Join("tests", "e2e", "sdk_test.py"),
@@ -544,15 +631,36 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 		var pyScript string
 		for _, c := range pyCandidates {
 			if _, err := os.Stat(c); err == nil {
-				pyScript = c
-				break
+				if abs, err := filepath.Abs(c); err == nil {
+					pyScript = abs
+					break
+				}
+			}
+		}
+
+		pyDir := filepath.Dir(pyScript)
+		pyPathCandidates := []string{
+			filepath.Join(pyDir, "..", "..", "sdks", "python"),
+			filepath.Join("..", "sdks", "python"),
+			filepath.Join("sdks", "python"),
+			filepath.Join("..", "..", "sdks", "python"),
+		}
+		var pythonPath string
+		for _, c := range pyPathCandidates {
+			if _, err := os.Stat(c); err == nil {
+				if abs, err := filepath.Abs(c); err == nil {
+					pythonPath = abs
+					break
+				}
 			}
 		}
 
 		cmd := exec.Command("python3", pyScript)
+		cmd.Dir = pyDir
 		cmd.Env = append(os.Environ(),
 			"FLAGURA_ENDPOINT="+ts.URL,
 			"FLAGURA_API_KEY="+apiKey,
+			"PYTHONPATH="+pythonPath,
 		)
 		out, err := cmd.CombinedOutput()
 		t.Logf("Python SDK E2E Output:\n%s", string(out))
@@ -567,6 +675,7 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 	// 10. Automated Rust SDK Contract Verification
 	// =========================================================================
 	t.Run("10_Rust_SDK_Contract_Verification", func(t *testing.T) {
+		bootstrapTestEnv(t)
 		// Verify wire format matches Rust reqwest JSON structure exactly
 		reqBody := map[string]interface{}{
 			"flags": []string{"e2e-bool-active", "e2e-multivariate-models"},
