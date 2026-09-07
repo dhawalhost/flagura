@@ -45,22 +45,22 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 
 ## ⚖️ Capability Matrix
 
-| Feature / Capability              | ⚡ Flagura                         | OpenFeature Native | Self-Hosted Support |
-| :-------------------------------- | :--------------------------------- | :----------------: | :-----------------: |
-| **Local In-Process Evaluation**   | ✅ Sub-microsecond (~85-135ns)     |       ✅ Yes       |       ✅ Yes        |
-| **Durable ACID Persistence**      | ✅ PostgreSQL & SQLite Embedded    |        N/A         |       ✅ Yes        |
-| **Zero Flag Debt & Hygiene**      | ✅ Stale Flag Detection & Auditing |        N/A         |       ✅ Yes        |
-| **Zero Customer PII Egress**      | ✅ In-Process (No PII Leaves Infra)|       ✅ Yes       |       ✅ Yes        |
-| **Standard OpenFeature SDKs**     | ✅ Go, TypeScript, Python, Rust    |       ✅ Yes       |       ✅ Yes        |
-| **Flat Predictable Cost**         | ✅ No Per-MAU or Seat Penalties    |        N/A         |       ✅ Yes        |
-| **Multi-Tenant Organizations**    | ✅ Isolated Projects & Keys        |        N/A         |       ✅ Yes        |
-| **Real-Time Streaming Sync**      | ✅ Project-Scoped SSE Channels     |       ✅ Yes       |       ✅ Yes        |
-| **Offline Snapshot Resilience**   | ✅ Local Cold-Start Disk Cache     |       ✅ Yes       |       ✅ Yes        |
-| **4-Eyes Change Governance**      | ✅ Peer Approval Pipeline          |        N/A         |       ✅ Yes        |
-| **Config Version Reconciliation** | ✅ Monotonic `config_version`      |        N/A         |       ✅ Yes        |
-| **Automated Webhook Kill-Switch** | ✅ Token-Authenticated             |        N/A         |       ✅ Yes        |
-| **A/B Experiment Statistics**     | ✅ Two-Tailed Z-Score & P-Values   |       ✅ Yes       |       ✅ Yes        |
-| **Native Prometheus Metrics**     | ✅ `/metrics` Standard Exporter    |        N/A         |       ✅ Yes        |
+| Feature / Capability              | ⚡ Flagura                          | OpenFeature Native | Self-Hosted Support |
+| :-------------------------------- | :---------------------------------- | :----------------: | :-----------------: |
+| **Local In-Process Evaluation**   | ✅ Sub-microsecond (~85-135ns)      |       ✅ Yes       |       ✅ Yes        |
+| **Durable ACID Persistence**      | ✅ PostgreSQL & SQLite Embedded     |        N/A         |       ✅ Yes        |
+| **Zero Flag Debt & Hygiene**      | ✅ Stale Flag Detection & Auditing  |        N/A         |       ✅ Yes        |
+| **Zero Customer PII Egress**      | ✅ In-Process (No PII Leaves Infra) |       ✅ Yes       |       ✅ Yes        |
+| **Standard OpenFeature SDKs**     | ✅ Go, TypeScript, Python, Rust     |       ✅ Yes       |       ✅ Yes        |
+| **Flat Predictable Cost**         | ✅ No Per-MAU or Seat Penalties     |        N/A         |       ✅ Yes        |
+| **Multi-Tenant Organizations**    | ✅ Isolated Projects & Keys         |        N/A         |       ✅ Yes        |
+| **Real-Time Streaming Sync**      | ✅ Project-Scoped SSE Channels      |       ✅ Yes       |       ✅ Yes        |
+| **Offline Snapshot Resilience**   | ✅ Local Cold-Start Disk Cache      |       ✅ Yes       |       ✅ Yes        |
+| **4-Eyes Change Governance**      | ✅ Peer Approval Pipeline           |        N/A         |       ✅ Yes        |
+| **Config Version Reconciliation** | ✅ Monotonic `config_version`       |        N/A         |       ✅ Yes        |
+| **Automated Webhook Kill-Switch** | ✅ Token-Authenticated              |        N/A         |       ✅ Yes        |
+| **A/B Experiment Statistics**     | ✅ Two-Tailed Z-Score & P-Values    |       ✅ Yes       |       ✅ Yes        |
+| **Native Prometheus Metrics**     | ✅ `/metrics` Standard Exporter     |        N/A         |       ✅ Yes        |
 
 ---
 
@@ -98,14 +98,14 @@ go test -bench=. -benchmem ./pkg/engine
 
 **Measured Baseline (Apple M3 Pro, Go 1.27):**
 
-| Benchmark Suite | Operations | Latency | Memory / Op | Allocations |
-| :--- | :--- | :--- | :--- | :--- |
-| `BenchmarkFNV1a_HashOnly` | 85,126,504 | **13.6 ns/op** | 0 B/op | 0 allocs/op |
-| `BenchmarkGetStickyBucket` | 21,710,713 | **53.6 ns/op** | 16 B/op | 1 allocs/op |
-| `BenchmarkEvaluateFlag_TargetingRuleMatch` | 12,105,712 | **99.2 ns/op** | 16 B/op | 1 allocs/op |
-| `BenchmarkEvaluateFlag_PercentageRollout` | 9,617,580 | **111.5 ns/op** | 32 B/op | 2 allocs/op |
-| `BenchmarkInProcessEvaluation_FromMemoryStore` | 9,339,138 | **123.4 ns/op** | 32 B/op | 2 allocs/op |
-| `BenchmarkInProcessEvaluation_FromSQLiteStore` | 9,059,486 | **137.4 ns/op** | 32 B/op | 2 allocs/op |
+| Benchmark Suite                                | Operations | Latency         | Memory / Op | Allocations |
+| :--------------------------------------------- | :--------- | :-------------- | :---------- | :---------- |
+| `BenchmarkFNV1a_HashOnly`                      | 85,126,504 | **13.6 ns/op**  | 0 B/op      | 0 allocs/op |
+| `BenchmarkGetStickyBucket`                     | 21,710,713 | **53.6 ns/op**  | 16 B/op     | 1 allocs/op |
+| `BenchmarkEvaluateFlag_TargetingRuleMatch`     | 12,105,712 | **99.2 ns/op**  | 16 B/op     | 1 allocs/op |
+| `BenchmarkEvaluateFlag_PercentageRollout`      | 9,617,580  | **111.5 ns/op** | 32 B/op     | 2 allocs/op |
+| `BenchmarkInProcessEvaluation_FromMemoryStore` | 9,339,138  | **123.4 ns/op** | 32 B/op     | 2 allocs/op |
+| `BenchmarkInProcessEvaluation_FromSQLiteStore` | 9,059,486  | **137.4 ns/op** | 32 B/op     | 2 allocs/op |
 
 ---
 
@@ -147,6 +147,7 @@ make dev
 ---
 
 Open your browser to:
+
 - **Developer Console:** [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
 - **Product Landing:** [http://localhost:3000](http://localhost:3000)
 
@@ -169,7 +170,7 @@ curl -X POST http://localhost:3000/api/v1/evaluate \
     "flags": ["ai-smart-search", "new-checkout-flow"],
     "context": {
       "user_id": "usr_dhawal_01",
-      "email": "dhawal@flagship.dev",
+      "email": "dhawal@flagura.dev",
       "country": "US",
       "role": "admin",
       "tier": "enterprise",
@@ -215,38 +216,38 @@ curl -X POST http://localhost:3000/api/v1/evaluate \
 
 ### 2. Flag Management & API Endpoints
 
-| Method   | Endpoint                              | Description                                                           |
-| :------- | :------------------------------------ | :-------------------------------------------------------------------- |
-| `GET`    | `/healthz` / `/livez`                 | Kubernetes liveness health probe                                      |
-| `GET`    | `/readyz`                             | Kubernetes readiness probe (checks storage availability)              |
-| `GET`    | `/metrics`                            | Prometheus metrics exposition (`flagura_evaluations_total`, etc.)     |
-| `GET`    | `/api/v1/organizations`               | List all organizations (Admin only)                                   |
-| `POST`   | `/api/v1/organizations`               | Create new organization (Admin only)                                  |
-| `GET`    | `/api/v1/projects`                    | List projects in active or queried organization                       |
-| `POST`   | `/api/v1/projects`                    | Create new project in organization                                    |
-| `POST`   | `/api/v1/projects/active`             | Switch active project session context                                 |
-| `GET`    | `/api/v1/flags/stream`                | Real-time HTTP/2 Server-Sent Events (SSE) flag synchronization stream |
-| `GET`    | `/api/v1/flags`                       | List feature flags in active project scope                            |
-| `GET`    | `/api/v1/flags/:key`                  | Retrieve configuration and rules for a specific flag                  |
-| `POST`   | `/api/v1/flags`                       | Create or update a feature flag configuration                         |
-| `PATCH`  | `/api/v1/flags/:key/toggle`           | Instant 1-click toggle for master kill-switch                         |
-| `PATCH`  | `/api/v1/flags/:key/rollout`          | Dynamically update percentage rollout (0–100%)                        |
-| `POST`   | `/api/v1/flags/:key/promote`          | Promote flag configuration (e.g. `?from=staging&to=production`)       |
-| `POST`   | `/api/v1/webhooks/kill-switch/:key`   | Automated kill-switch endpoint for APM alerts (Datadog/Sentry)        |
-| `GET`    | `/api/v1/change-requests`             | List 4-Eyes change requests in project (`?status=PENDING`, etc.)      |
-| `POST`   | `/api/v1/change-requests`             | Submit a 4-Eyes change request for proposed flag modification         |
-| `GET`    | `/api/v1/change-requests/:id`         | Retrieve change request details, proposed diff, and review status     |
-| `POST`   | `/api/v1/change-requests/:id/review`  | Peer review (approve/reject) change request (blocks author self-review)|
-| `POST`   | `/api/v1/change-requests/:id/apply`   | Apply approved change request mutations to production flag state      |
-| `GET`    | `/api/v1/api-keys`                    | List provisioned SDK client & service account API keys               |
-| `POST`   | `/api/v1/api-keys`                    | Provision cryptographically secure (`2^256` bits) API key            |
-| `DELETE` | `/api/v1/api-keys/:id`                | Immediately revoke API key token                                      |
-| `POST`   | `/api/v1/telemetry/events`            | Ingest batched evaluation counts from client SDKs                     |
-| `GET`    | `/api/v1/telemetry/stats`             | Query 24h evaluation velocity and variant distribution                |
-| `DELETE` | `/api/v1/flags/:key`                  | Permanently remove a feature flag (Requires Admin role)               |
-| `POST`   | `/api/v1/evaluate`                    | Evaluate flags (`?trace=true` returns visual execution trace)         |
-| `POST`   | `/api/v1/benchmark`                   | Execute live in-process latency stress test                           |
-| `GET`    | `/api/v1/audit-logs`                  | Fetch immutable audit trail history for active project                |
+| Method   | Endpoint                             | Description                                                             |
+| :------- | :----------------------------------- | :---------------------------------------------------------------------- |
+| `GET`    | `/healthz` / `/livez`                | Kubernetes liveness health probe                                        |
+| `GET`    | `/readyz`                            | Kubernetes readiness probe (checks storage availability)                |
+| `GET`    | `/metrics`                           | Prometheus metrics exposition (`flagura_evaluations_total`, etc.)       |
+| `GET`    | `/api/v1/organizations`              | List all organizations (Admin only)                                     |
+| `POST`   | `/api/v1/organizations`              | Create new organization (Admin only)                                    |
+| `GET`    | `/api/v1/projects`                   | List projects in active or queried organization                         |
+| `POST`   | `/api/v1/projects`                   | Create new project in organization                                      |
+| `POST`   | `/api/v1/projects/active`            | Switch active project session context                                   |
+| `GET`    | `/api/v1/flags/stream`               | Real-time HTTP/2 Server-Sent Events (SSE) flag synchronization stream   |
+| `GET`    | `/api/v1/flags`                      | List feature flags in active project scope                              |
+| `GET`    | `/api/v1/flags/:key`                 | Retrieve configuration and rules for a specific flag                    |
+| `POST`   | `/api/v1/flags`                      | Create or update a feature flag configuration                           |
+| `PATCH`  | `/api/v1/flags/:key/toggle`          | Instant 1-click toggle for master kill-switch                           |
+| `PATCH`  | `/api/v1/flags/:key/rollout`         | Dynamically update percentage rollout (0–100%)                          |
+| `POST`   | `/api/v1/flags/:key/promote`         | Promote flag configuration (e.g. `?from=staging&to=production`)         |
+| `POST`   | `/api/v1/webhooks/kill-switch/:key`  | Automated kill-switch endpoint for APM alerts (Datadog/Sentry)          |
+| `GET`    | `/api/v1/change-requests`            | List 4-Eyes change requests in project (`?status=PENDING`, etc.)        |
+| `POST`   | `/api/v1/change-requests`            | Submit a 4-Eyes change request for proposed flag modification           |
+| `GET`    | `/api/v1/change-requests/:id`        | Retrieve change request details, proposed diff, and review status       |
+| `POST`   | `/api/v1/change-requests/:id/review` | Peer review (approve/reject) change request (blocks author self-review) |
+| `POST`   | `/api/v1/change-requests/:id/apply`  | Apply approved change request mutations to production flag state        |
+| `GET`    | `/api/v1/api-keys`                   | List provisioned SDK client & service account API keys                  |
+| `POST`   | `/api/v1/api-keys`                   | Provision cryptographically secure (`2^256` bits) API key               |
+| `DELETE` | `/api/v1/api-keys/:id`               | Immediately revoke API key token                                        |
+| `POST`   | `/api/v1/telemetry/events`           | Ingest batched evaluation counts from client SDKs                       |
+| `GET`    | `/api/v1/telemetry/stats`            | Query 24h evaluation velocity and variant distribution                  |
+| `DELETE` | `/api/v1/flags/:key`                 | Permanently remove a feature flag (Requires Admin role)                 |
+| `POST`   | `/api/v1/evaluate`                   | Evaluate flags (`?trace=true` returns visual execution trace)           |
+| `POST`   | `/api/v1/benchmark`                  | Execute live in-process latency stress test                             |
+| `GET`    | `/api/v1/audit-logs`                 | Fetch immutable audit trail history for active project                  |
 
 > **Multi-Tenancy Note:** All evaluation, flag, and audit endpoints accept the `X-Project-ID` request header or `?project_id=...` parameter to scope operations to a specific project (defaults to `proj_default`).
 
@@ -354,12 +355,12 @@ is_enabled = client.get_boolean_value("ai-smart-search", False, ctx)
 
 Self-contained, working applications demonstrating Flagura Native and OpenFeature integrations:
 
-| Language | Directory | Description |
-| :--- | :--- | :--- |
-| **Go** | [`examples/go/`](examples/go/main.go) | Native Go client (<85ns) + CNCF `openfeature.FeatureProvider`. |
-| **TypeScript** | [`examples/typescript/`](examples/typescript/index.ts) | Server-side Node / TypeScript with `@openfeature/server-sdk`. |
-| **Python** | [`examples/python/`](examples/python/example.py) | Standard `openfeature` evaluation + native Python client. |
-| **Rust** | [`examples/rust/`](examples/rust/src/main.rs) | Async Tokio-based evaluation with microsecond execution. |
+| Language       | Directory                                              | Description                                                    |
+| :------------- | :----------------------------------------------------- | :------------------------------------------------------------- |
+| **Go**         | [`examples/go/`](examples/go/main.go)                  | Native Go client (<85ns) + CNCF `openfeature.FeatureProvider`. |
+| **TypeScript** | [`examples/typescript/`](examples/typescript/index.ts) | Server-side Node / TypeScript with `@openfeature/server-sdk`.  |
+| **Python**     | [`examples/python/`](examples/python/example.py)       | Standard `openfeature` evaluation + native Python client.      |
+| **Rust**       | [`examples/rust/`](examples/rust/src/main.rs)          | Async Tokio-based evaluation with microsecond execution.       |
 
 👉 **[Read Examples Quickstart Guide](examples/README.md)**
 

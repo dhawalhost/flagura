@@ -24,7 +24,7 @@ func sampleRuleFlag() domain.FeatureFlag {
 						Name:      "Staff Domain",
 						Attribute: domain.AttrEmail,
 						Operator:  domain.OpEndsWith,
-						Values:    []string{"@flagship.dev"},
+						Values:    []string{"@flagura.dev"},
 						Action:    domain.ActionForceEnabled,
 					},
 					{
@@ -81,7 +81,7 @@ func TestEvaluateFlag(t *testing.T) {
 			flag: ruleFlag,
 			ctx: domain.EvaluationContext{
 				UserID:      "usr_1",
-				Email:       "alice@flagship.dev",
+				Email:       "alice@flagura.dev",
 				Environment: domain.EnvProduction,
 			},
 			expectedEnabled: true,
@@ -179,7 +179,7 @@ func BenchmarkEvaluateFlag_TargetingRuleMatch(b *testing.B) {
 	flag := sampleRuleFlag()
 	ctx := domain.EvaluationContext{
 		UserID:      "bench_usr_staff",
-		Email:       "alice@flagship.dev",
+		Email:       "alice@flagura.dev",
 		Environment: domain.EnvProduction,
 	}
 
@@ -248,7 +248,7 @@ func TestEvaluateFlagWithTrace(t *testing.T) {
 			flag: ruleFlag,
 			ctx: domain.EvaluationContext{
 				UserID:      "usr_1",
-				Email:       "alice@flagship.dev",
+				Email:       "alice@flagura.dev",
 				Environment: domain.EnvProduction,
 			},
 			expectedEnabled: true,
@@ -259,7 +259,7 @@ func TestEvaluateFlagWithTrace(t *testing.T) {
 			flag: disabledFlag,
 			ctx: domain.EvaluationContext{
 				UserID:      "usr_1",
-				Email:       "alice@flagship.dev",
+				Email:       "alice@flagura.dev",
 				Environment: domain.EnvProduction,
 			},
 			expectedEnabled: false,
