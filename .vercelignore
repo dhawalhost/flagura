@@ -9,7 +9,9 @@ bin/
 dist/
 docs/
 examples/
-sdks/
+sdks/js/
+sdks/python/
+sdks/rust/
 deploy/
 supabase/
 Dockerfile*
