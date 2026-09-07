@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -123,6 +124,13 @@ func (s *Server) handleIngestTelemetry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// 1. Try standard evaluation aggregator format (map of flags)
 	var req struct {
 		Timestamp int64 `json:"timestamp"`
 		Events    map[string]struct {
@@ -131,21 +139,43 @@ func (s *Server) handleIngestTelemetry(w http.ResponseWriter, r *http.Request) {
 		} `json:"events"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	if err := json.Unmarshal(bodyBytes, &req); err == nil && req.Events != nil {
+		count := 0
+		if s.telemetry != nil {
+			count = s.telemetry.Ingest(req.Events)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":        "ok",
+			"flags_updated": count,
+		})
 		return
 	}
 
-	count := 0
-	if s.telemetry != nil {
-		count = s.telemetry.Ingest(req.Events)
+	// 2. Try SDK track/conversion event array format
+	var trackReq struct {
+		Events []struct {
+			FlagKey     string      `json:"flag_key"`
+			Variant     string      `json:"variant"`
+			MetricName  string      `json:"metric_name"`
+			Value       interface{} `json:"value"`
+			UserID      string      `json:"user_id"`
+			Environment string      `json:"environment"`
+			Timestamp   interface{} `json:"timestamp"`
+		} `json:"events"`
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":        "ok",
-		"flags_updated": count,
-	})
+	if err := json.Unmarshal(bodyBytes, &trackReq); err == nil && len(trackReq.Events) > 0 {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":          "ok",
+			"events_ingested": len(trackReq.Events),
+		})
+		return
+	}
+
+	http.Error(w, "Invalid telemetry payload format", http.StatusBadRequest)
 }
 
 // handleGetTelemetryStats returns evaluation telemetry statistics for the UI.
