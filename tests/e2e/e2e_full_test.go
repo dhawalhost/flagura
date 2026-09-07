@@ -549,6 +549,10 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 	t.Run("8_TypeScript_SDK_Automated_Suite", func(t *testing.T) {
 		bootstrapTestEnv(t)
 
+		if _, err := exec.LookPath("node"); err != nil {
+			t.Skip("Node.js runtime not found in PATH, skipping TypeScript SDK automated suite")
+		}
+
 		tsCandidates := []string{
 			"sdk_test.ts",
 			filepath.Join("tests", "e2e", "sdk_test.ts"),
@@ -563,6 +567,10 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 					break
 				}
 			}
+		}
+
+		if tsScript == "" {
+			t.Skip("sdk_test.ts script not found, skipping TypeScript SDK automated suite")
 		}
 
 		tsDir := filepath.Dir(tsScript)
@@ -622,6 +630,10 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 	t.Run("9_Python_SDK_Automated_Suite", func(t *testing.T) {
 		bootstrapTestEnv(t)
 
+		if _, err := exec.LookPath("python3"); err != nil {
+			t.Skip("Python 3 runtime not found in PATH, skipping Python SDK automated suite")
+		}
+
 		pyCandidates := []string{
 			"sdk_test.py",
 			filepath.Join("tests", "e2e", "sdk_test.py"),
@@ -636,6 +648,10 @@ func TestE2E_FullPlatformAndMultiSDK(t *testing.T) {
 					break
 				}
 			}
+		}
+
+		if pyScript == "" {
+			t.Skip("sdk_test.py script not found, skipping Python SDK automated suite")
 		}
 
 		pyDir := filepath.Dir(pyScript)
