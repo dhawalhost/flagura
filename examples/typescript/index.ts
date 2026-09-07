@@ -11,7 +11,7 @@ import { FlaguraOpenFeatureProvider } from '../../sdks/js/src/openfeature';
 import { OpenFeature } from '@openfeature/server-sdk';
 
 async function main() {
-  const endpoint = process.env.FLAGURA_ENDPOINT || 'http://localhost:3000';
+  const endpoint = process.env.FLAGURA_ENDPOINT || 'https://flagura.dev';
   const apiKey = process.env.FLAGURA_API_KEY || 'flg_live_demo_key_example';
 
   console.log('🚀 Flagura TypeScript Integration Example (Native + OpenFeature)');
@@ -36,12 +36,19 @@ async function main() {
     tier: 'enterprise',
   };
 
-  const evalResult = await client.evaluate('ai-smart-search', userContext);
-  console.log(`Flag: ${evalResult.flag_key}`);
-  console.log(`Enabled: ${evalResult.enabled}`);
-  console.log(`Variant: ${evalResult.variant}`);
-  console.log(`Reason: ${evalResult.reason}`);
-  console.log(`Bucket: ${evalResult.bucket}%\n`);
+  try {
+    const evalResult = await client.evaluate('ai-smart-search', userContext);
+    console.log(`Flag: ${evalResult.flag_key}`);
+    console.log(`Enabled: ${evalResult.enabled}`);
+    console.log(`Variant: ${evalResult.variant}`);
+    console.log(`Reason: ${evalResult.reason}`);
+    console.log(`Bucket: ${evalResult.bucket !== undefined ? evalResult.bucket + '%' : 'N/A'}\n`);
+  } catch (err: any) {
+    console.log(`Flag: ai-smart-search`);
+    console.log(`Enabled: false`);
+    console.log(`Variant: off`);
+    console.log(`Reason: safe fallback (${err.message})\n`);
+  }
 
   // =========================================================================
   // 2. CNCF OpenFeature Provider Integration

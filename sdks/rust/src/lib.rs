@@ -59,6 +59,11 @@ impl EvaluationContext {
         self
     }
 
+    pub fn with_role(mut self, role: impl Into<String>) -> Self {
+        self.role = Some(role.into());
+        self
+    }
+
     pub fn with_tier(mut self, tier: impl Into<String>) -> Self {
         self.tier = Some(tier.into());
         self
@@ -143,6 +148,22 @@ impl FlaguraClient {
     /// Returns a builder to configure client options.
     pub fn builder() -> FlaguraBuilder {
         FlaguraBuilder::default()
+    }
+
+    /// Sets or updates the API key on the client.
+    pub fn with_api_key(mut self, key: impl Into<String>) -> Self {
+        let mut cfg = (*self.config).clone();
+        cfg.api_key = Some(key.into());
+        self.config = Arc::new(cfg);
+        self
+    }
+
+    /// Sets or updates the project ID on the client.
+    pub fn with_project_id(mut self, project_id: impl Into<String>) -> Self {
+        let mut cfg = (*self.config).clone();
+        cfg.project_id = Some(project_id.into());
+        self.config = Arc::new(cfg);
+        self
     }
 
     /// Evaluates whether a boolean feature flag is enabled.

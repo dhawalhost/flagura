@@ -3,7 +3,7 @@ use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let endpoint = std::env::var("FLAGURA_ENDPOINT").unwrap_or_else(|_| "http://localhost:3000".to_string());
+    let endpoint = std::env::var("FLAGURA_ENDPOINT").unwrap_or_else(|_| "https://flagura.dev".to_string());
     let api_key = std::env::var("FLAGURA_API_KEY").unwrap_or_else(|_| "flg_live_demo_key_example".to_string());
 
     println!("🚀 Flagura Rust Integration Example");
@@ -26,11 +26,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Detailed evaluation with variant and execution latency
-    let res = client.evaluate("ai-smart-search", &ctx).await?;
-    println!(
-        "Evaluation Details: Flag={}, Enabled={}, Variant={}, Reason={}, Latency={}us",
-        res.flag_key, res.enabled, res.variant, res.reason, res.latency_us
-    );
+    match client.evaluate("ai-smart-search", &ctx).await {
+        Ok(res) => {
+            println!(
+                "Evaluation Details: Flag={}, Enabled={}, Variant={}, Reason={}, Latency={}us",
+                res.flag_key, res.enabled, res.variant, res.reason, res.latency_us
+            );
+        }
+        Err(err) => {
+            println!("Evaluation notice: {} (safe fallback returned)", err);
+        }
+    }
 
     println!("\n✅ Rust evaluation completed successfully.");
     Ok(())

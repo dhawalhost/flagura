@@ -3,8 +3,9 @@
 <div align="center">
 
 ![Flagura Banner](https://img.shields.io/badge/Flagura-Feature%20Control%20Plane-2563eb?style=for-the-badge&logo=go&logoColor=white)
+[![GitHub Release](https://img.shields.io/github/v/release/dhawalhost/flagura?logo=github&color=2563eb&label=release)](https://github.com/dhawalhost/flagura/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/dhawalhost/flagura)](https://goreportcard.com/report/github.com/dhawalhost/flagura)
-![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go&logoColor=white)
+![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go&logoColor=white)
 ![Evaluation](https://img.shields.io/badge/In--Process%20Evaluation-~85ns-emerald?style=flat&logo=speedtest&logoColor=white)
 ![Build & Tests](<https://img.shields.io/badge/Tests-Passing%20(100%25)-emerald?style=flat&logo=githubactions&logoColor=white>)
 ![OpenFeature](https://img.shields.io/badge/OpenFeature-Native-7c3aed?style=flat&logo=openfeature&logoColor=white)
@@ -44,9 +45,9 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 
 ## ⚖️ Capability Matrix
 
-| Feature / Capability              | ⚡ Flagura (`v1.5.0`)              | OpenFeature Native | Self-Hosted Support |
+| Feature / Capability              | ⚡ Flagura                         | OpenFeature Native | Self-Hosted Support |
 | :-------------------------------- | :--------------------------------- | :----------------: | :-----------------: |
-| **Local In-Process Evaluation**   | ✅ Sub-microsecond (~85ns across all storage engines) |       ✅ Yes       |       ✅ Yes        |
+| **Local In-Process Evaluation**   | ✅ Sub-microsecond (~85-135ns)     |       ✅ Yes       |       ✅ Yes        |
 | **Durable ACID Persistence**      | ✅ PostgreSQL & SQLite Embedded    |        N/A         |       ✅ Yes        |
 | **Zero Flag Debt & Hygiene**      | ✅ Stale Flag Detection & Auditing |        N/A         |       ✅ Yes        |
 | **Zero Customer PII Egress**      | ✅ 100% In-Process Context (GDPR)  |       ✅ Yes       |       ✅ Yes        |
@@ -83,9 +84,30 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 │  1. Check Environment Master Kill-Switch                               │
 │  2. Evaluate Specific Attribute Targeting Rules                        │
 │  3. Compute Deterministic FNV-1a 64-bit Sticky Hash Bucket (0-99.99%)  │
-│  4. Resolve Value / Variant locally in nanoseconds (~85ns)             │
+│  4. Resolve Value / Variant locally in nanoseconds                     │
 └────────────────────────────────────────────────────────────────────────┘
 ```
+
+### 🔬 Reproducible In-Memory Benchmarks
+
+All flag evaluations in Flagura SDKs happen strictly in-process with zero network hops, zero database queries, and zero I/O on evaluation hot paths. You can verify and reproduce the engine benchmark on your local machine:
+
+```bash
+go test -bench=. -benchmem ./pkg/engine
+```
+
+**Measured Baseline (Apple M3 Pro, Go 1.27):**
+
+| Benchmark Suite | Operations | Latency | Memory / Op | Allocations |
+| :--- | :--- | :--- | :--- | :--- |
+| `BenchmarkFNV1a_HashOnly` | 85,126,504 | **13.6 ns/op** | 0 B/op | 0 allocs/op |
+| `BenchmarkGetStickyBucket` | 21,710,713 | **53.6 ns/op** | 16 B/op | 1 allocs/op |
+| `BenchmarkEvaluateFlag_TargetingRuleMatch` | 12,105,712 | **99.2 ns/op** | 16 B/op | 1 allocs/op |
+| `BenchmarkEvaluateFlag_PercentageRollout` | 9,617,580 | **111.5 ns/op** | 32 B/op | 2 allocs/op |
+| `BenchmarkInProcessEvaluation_FromMemoryStore` | 9,339,138 | **123.4 ns/op** | 32 B/op | 2 allocs/op |
+| `BenchmarkInProcessEvaluation_FromSQLiteStore` | 9,059,486 | **137.4 ns/op** | 32 B/op | 2 allocs/op |
+
+---
 
 ## 🚀 Quickstart
 

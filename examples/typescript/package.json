@@ -4,13 +4,14 @@
   "description": "Runnable TypeScript example for Flagura Native and OpenFeature SDK",
   "main": "index.ts",
   "scripts": {
-    "start": "ts-node index.ts"
+    "start": "tsx index.ts"
   },
   "dependencies": {
     "@openfeature/server-sdk": "^1.14.0"
   },
   "devDependencies": {
-    "ts-node": "^10.9.2",
+    "@types/node": "^26.4.1",
+    "tsx": "^4.19.0",
     "typescript": "^5.4.5"
   }
 }

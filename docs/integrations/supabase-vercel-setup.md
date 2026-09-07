@@ -45,12 +45,16 @@ Supabase provides enterprise-grade PostgreSQL with automated connection pooling 
 2. Click **New Query**.
 3. Copy the complete SQL script from [`supabase/schema.sql`](../../supabase/schema.sql) and paste it into the editor.
 4. Click **Run** (or press `Ctrl/Cmd + Enter`).
-5. Verify in **Table Editor** that the 5 tables are created:
-   - `users` (with unique email index)
-   - `sessions` (with user relation and expiration indexes)
-   - `feature_flags` (with unique flag key index)
-   - `audit_logs` (with timestamp index)
-   - `api_keys` (with key index)
+5. Verify in **Table Editor** that all tables are created:
+   - `organizations` & `projects` (multi-tenancy hierarchy with default seed)
+   - `users` & `sessions` (authentication and user sessions)
+   - `org_members` & `org_invitations` (team membership & invite tokens)
+   - `feature_flags` (project-scoped flags with monotonic config versioning)
+   - `audit_logs` (immutable change log)
+   - `experiment_events` (A/B testing telemetry)
+   - `change_requests` (4-eyes dual review governance)
+   - `api_keys` (environment & project-scoped API keys)
+   - `password_reset_tokens` (account recovery)
 
 ---
 

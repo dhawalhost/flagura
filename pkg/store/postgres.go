@@ -124,6 +124,8 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 	CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 
+	ALTER TABLE projects ADD COLUMN IF NOT EXISTS config_version BIGINT NOT NULL DEFAULT 1;
+
 	CREATE TABLE IF NOT EXISTS feature_flags (
 		id TEXT PRIMARY KEY,
 		project_id TEXT NOT NULL DEFAULT 'proj_default',
@@ -139,6 +141,9 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 		UNIQUE(project_id, key)
 	);
+	ALTER TABLE feature_flags ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
+	ALTER TABLE feature_flags ADD COLUMN IF NOT EXISTS config_version BIGINT NOT NULL DEFAULT 1;
+
 	CREATE INDEX IF NOT EXISTS idx_feature_flags_key ON feature_flags(key);
 	CREATE INDEX IF NOT EXISTS idx_feature_flags_proj ON feature_flags(project_id, key);
 
@@ -152,6 +157,8 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 		details TEXT NOT NULL,
 		timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
 	);
+	ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
+
 	CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
 	CREATE INDEX IF NOT EXISTS idx_audit_logs_proj ON audit_logs(project_id, timestamp DESC);
 
@@ -167,6 +174,8 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 		environment TEXT NOT NULL DEFAULT 'production',
 		timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
 	);
+	ALTER TABLE experiment_events ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
+
 	CREATE INDEX IF NOT EXISTS idx_exp_events_flag ON experiment_events(flag_key, metric_name, timestamp DESC);
 
 	CREATE TABLE IF NOT EXISTS change_requests (
@@ -189,6 +198,8 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 		reviewed_at TIMESTAMPTZ,
 		applied_at TIMESTAMPTZ
 	);
+	ALTER TABLE change_requests ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
+
 	CREATE INDEX IF NOT EXISTS idx_change_requests_status ON change_requests(status, created_at DESC);
 
 	CREATE TABLE IF NOT EXISTS api_keys (
@@ -204,7 +215,32 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 		last_used_at TIMESTAMPTZ,
 		revoked BOOLEAN NOT NULL DEFAULT FALSE
 	);
-	CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
+	ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
+	ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS environment TEXT NOT NULL DEFAULT 'production';
+	ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS key_prefix TEXT NOT NULL DEFAULT '';
+	ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS key_hash TEXT;
+	ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'developer';
+	ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS created_by TEXT NOT NULL DEFAULT 'admin';
+	ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS revoked BOOLEAN NOT NULL DEFAULT FALSE;
+
+	DO $$
+	BEGIN
+		IF EXISTS (
+			SELECT 1 FROM information_schema.columns 
+			WHERE table_name = 'api_keys' AND column_name = 'key'
+		) THEN
+			UPDATE api_keys
+			SET 
+				key_hash = encode(sha256(key::bytea), 'hex'),
+				key_prefix = LEFT(key, 8)
+			WHERE key_hash IS NULL AND key IS NOT NULL;
+		END IF;
+	END $$;
+
+	UPDATE api_keys SET key_hash = md5(id || clock_timestamp()::text) WHERE key_hash IS NULL;
+
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
+	CREATE INDEX IF NOT EXISTS idx_api_keys_proj ON api_keys(project_id, created_at DESC);
 	CREATE INDEX IF NOT EXISTS idx_api_keys_created ON api_keys(created_at DESC);
 
 	CREATE TABLE IF NOT EXISTS password_reset_tokens (
@@ -242,17 +278,6 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_org_invitations_token ON org_invitations(token);
 	CREATE INDEX IF NOT EXISTS idx_org_invitations_org ON org_invitations(organization_id);
-
-	-- Add project_id, config_version, and environment columns to existing tables if needed
-	ALTER TABLE feature_flags ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
-	ALTER TABLE feature_flags ADD COLUMN IF NOT EXISTS config_version BIGINT NOT NULL DEFAULT 1;
-	ALTER TABLE projects ADD COLUMN IF NOT EXISTS config_version BIGINT NOT NULL DEFAULT 1;
-	ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
-	ALTER TABLE change_requests ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
-	ALTER TABLE experiment_events ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
-	ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
-	ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS environment TEXT NOT NULL DEFAULT 'production';
-	
 	`
 	if _, err := s.db.ExecContext(ctx, schema); err != nil {
 		return err

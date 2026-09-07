@@ -18,11 +18,15 @@ This guide covers setting up **Supabase PostgreSQL** for persistent storage and 
 2. Navigate to **SQL Editor** in the left sidebar.
 3. Paste the contents of [`schema.sql`](./schema.sql) and click **Run**.
 4. This initializes:
-   - `users` table (with bcrypt authentication hashes)
-   - `sessions` table (with 7-day secure tokens)
-   - `feature_flags` table (multi-environment JSONB configurations)
-   - `audit_logs` table (timestamped immutable audit events)
-   - `api_keys` table (environment-scoped SDK access keys)
+   - `organizations` & `projects` (multi-tenant workspaces and project hierarchies)
+   - `users` & `sessions` (with bcrypt authentication and 7-day secure sessions)
+   - `org_members` & `org_invitations` (team member RBAC and invite tokens)
+   - `feature_flags` (project-scoped flags with monotonic config versioning)
+   - `audit_logs` (timestamped immutable audit events)
+   - `experiment_events` (A/B testing telemetry event streams)
+   - `change_requests` (4-eyes dual review governance workflows)
+   - `api_keys` (environment & project-scoped SDK access tokens)
+   - `password_reset_tokens` (secure password recovery)
 
 ### Step 3: Copy Connection String
 1. Go to **Project Settings** $\rightarrow$ **Database**.

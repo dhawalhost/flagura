@@ -1,7 +1,7 @@
 # Flagura Engine & Developer CLI Makefile
 # High-performance, GitOps-native feature flag & experimentation platform.
 
-.PHONY: all help dev build build-server build-cli templ templ-watch test test-race test-bench test-cover lint sec docker-up docker-down clean
+.PHONY: all help dev build build-server build-cli templ templ-watch test test-e2e test-race test-bench test-cover lint sec docker-up docker-down clean
 
 # Default binary output directory
 BIN_DIR := bin
@@ -9,7 +9,7 @@ SERVER_BIN := $(BIN_DIR)/flagura-server
 CLI_BIN := $(BIN_DIR)/flagura
 
 # Version & Build Flags
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "v1.6.0")
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "v1.6.1")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 LDFLAGS := -s -w \
@@ -78,6 +78,10 @@ templ-watch:
 test: templ
 	@echo "🧪 Running workspace tests..."
 	go test -v ./...
+
+## Run comprehensive end-to-end platform tests and multi-language SDK automation
+test-e2e: templ
+	@bash ./scripts/test_e2e.sh
 
 ## Run complete test suite with Go data race detector enabled
 test-race: templ

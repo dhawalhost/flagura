@@ -4,7 +4,7 @@ export interface OpenFeatureResolutionDetails<T> {
   value: T;
   variant?: string;
   reason?: 'STATIC' | 'DEFAULT' | 'TARGETING_MATCH' | 'SPLIT' | 'DISABLED' | 'ERROR' | string;
-  errorCode?: string;
+  errorCode?: any;
   errorMessage?: string;
 }
 

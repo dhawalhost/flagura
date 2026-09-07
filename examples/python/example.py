@@ -19,7 +19,7 @@ from flagura import FlaguraClient, EvaluationContext
 from flagura.openfeature_provider import FlaguraOpenFeatureProvider
 
 def main():
-    endpoint = os.getenv("FLAGURA_ENDPOINT", "http://localhost:3000")
+    endpoint = os.getenv("FLAGURA_ENDPOINT", "https://flagura.dev")
     api_key = os.getenv("FLAGURA_API_KEY", "flg_live_demo_key_example")
 
     print("🚀 Flagura Python Integration Example (Native + OpenFeature)")
@@ -47,13 +47,16 @@ def main():
 
     is_enabled = client.is_enabled("ai-smart-search", user_ctx)
     variant = client.get_variant("ai-smart-search", user_ctx)
-    details = client.evaluate("ai-smart-search", user_ctx)
-
     print(f"Flag: ai-smart-search")
     print(f"Enabled: {is_enabled}")
     print(f"Variant: {variant}")
-    print(f"Reason: {details.reason}")
-    print(f"Bucket: {details.bucket}%\n")
+
+    try:
+        details = client.evaluate("ai-smart-search", user_ctx)
+        print(f"Reason: {details.reason}")
+        print(f"Bucket: {details.bucket}%\n")
+    except Exception as e:
+        print(f"Reason: safe fallback ({e})\n")
 
     # =========================================================================
     # 2. CNCF OpenFeature Provider

@@ -8,7 +8,7 @@ This directory contains clean, runnable, copy-paste ready integration examples d
 
 | Directory | Language / Runtime | Features Demonstrated |
 | :--- | :--- | :--- |
-| [`go/`](./go) | **Go 1.22+** | Native in-process evaluator (`<85ns`), SSE streaming synchronization, `openfeature.FeatureProvider`. |
+| [`go/`](./go) | **Go 1.25+** | Native in-process evaluator (`<85ns`), SSE streaming synchronization, `openfeature.FeatureProvider`. |
 | [`typescript/`](./typescript) | **TypeScript / Node.js** | Native typed client, `@openfeature/server-sdk` provider, context mapping. |
 | [`python/`](./python) | **Python 3.10+** | Native `FlaguraClient`, `openfeature` standard API, variant resolution. |
 | [`rust/`](./rust) | **Rust 1.70+** | Async Tokio client, zero-allocation context building, microsecond evaluation. |
@@ -18,11 +18,14 @@ This directory contains clean, runnable, copy-paste ready integration examples d
 ## 🏃‍♂️ Quickstart
 
 ### Prerequisites
-Make sure your Flagura server is running locally:
+By default, all examples connect out-of-the-box to the hosted demo at `https://flagura.dev` (with automatic fallback).
+
+To run against a local instance instead:
 ```bash
 # In the repository root
 make dev
-# Server listening at http://localhost:3000
+# Export the local endpoint before running examples:
+export FLAGURA_ENDPOINT=http://localhost:3000
 ```
 
 ---
@@ -30,7 +33,7 @@ make dev
 ### 1. Go Example (Native + OpenFeature)
 ```bash
 cd examples/go
-go run main.go
+go run .
 ```
 Expected output:
 ```text

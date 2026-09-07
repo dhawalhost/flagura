@@ -31,9 +31,13 @@ Flagura provides a secure, manual dispatch workflow ([`.github/workflows/publish
 ### 🕹️ How to Trigger:
 1. Navigate to **GitHub ➔ Actions ➔ Publish SDKs (Manual Dispatch)**.
 2. Click **Run workflow**:
-   - **Target SDK**: Choose `javascript`, `python`, `rust`, `go`, or `all`.
-   - **Semantic Version**: Specify the version to publish (e.g. `1.0.0` or `1.5.0`).
-   - **Dry run**: Enable to test building, bundling, and packaging without publishing to registries.
+   - **Target SDKs (Multi-Select)**: Check/uncheck individual SDKs as needed:
+     - `📦 JavaScript/TypeScript SDK (@flagura/sdk)` *(default: enabled)*
+     - `🐍 Python SDK (flagura)` *(default: enabled)*
+     - `🦀 Rust SDK (flagura)` *(default: enabled)*
+     - `🐹 Go SDK (sdks/go submodule tag)` *(default: disabled — tag only when Go API changes)*
+   - **Semantic Version**: Specify the version to publish (e.g. `1.1.1`).
+   - **Dry run**: Check to test building, bundling, and packaging without publishing to registries.
 3. Click **Run workflow**.
 
 ---

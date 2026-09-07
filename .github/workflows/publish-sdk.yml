@@ -3,25 +3,34 @@ name: Publish SDKs (Manual Dispatch)
 on:
   workflow_dispatch:
     inputs:
-      language:
-        description: 'Target SDK to publish'
-        required: true
-        default: 'javascript'
-        type: choice
-        options:
-          - 'javascript'
-          - 'python'
-          - 'rust'
-          - 'go'
-          - 'all'
+      publish_js:
+        description: '📦 JavaScript/TypeScript SDK (@flagura/sdk)'
+        required: false
+        default: true
+        type: boolean
+      publish_python:
+        description: '🐍 Python SDK (flagura)'
+        required: false
+        default: true
+        type: boolean
+      publish_rust:
+        description: '🦀 Rust SDK (flagura)'
+        required: false
+        default: true
+        type: boolean
+      publish_go:
+        description: '🐹 Go SDK (sdks/go module tag)'
+        required: false
+        default: false
+        type: boolean
       version:
-        description: 'Semantic Version to publish (e.g. 1.0.0 or 1.5.0)'
+        description: 'Semantic Version to publish (e.g. 1.1.1)'
         required: true
-        default: '1.0.0'
+        default: '1.1.1'
         type: string
       dry_run:
         description: 'Dry run (validate build and packaging without publishing to registries)'
-        required: true
+        required: false
         default: false
         type: boolean
 
@@ -47,10 +56,27 @@ jobs:
           fi
           echo "✅ Authorization confirmed for '${{ github.actor }}'."
 
+      - name: Validate SDK Selection
+        run: |
+          echo "Selected SDK targets for release v${{ github.event.inputs.version }}:"
+          echo "  - JavaScript/TypeScript: ${{ github.event.inputs.publish_js }}"
+          echo "  - Python:                ${{ github.event.inputs.publish_python }}"
+          echo "  - Rust:                  ${{ github.event.inputs.publish_rust }}"
+          echo "  - Go (Submodule Tag):    ${{ github.event.inputs.publish_go }}"
+          echo "  - Dry Run Mode:          ${{ github.event.inputs.dry_run }}"
+
+          if [ "${{ github.event.inputs.publish_js }}" != "true" ] && \
+             [ "${{ github.event.inputs.publish_python }}" != "true" ] && \
+             [ "${{ github.event.inputs.publish_rust }}" != "true" ] && \
+             [ "${{ github.event.inputs.publish_go }}" != "true" ]; then
+            echo "::error::No SDK was selected. Please select at least one SDK checkbox to publish."
+            exit 1
+          fi
+
   publish-javascript:
     name: 📦 Publish JavaScript/TypeScript SDK (NPM)
     needs: authorize
-    if: ${{ github.event.inputs.language == 'javascript' || github.event.inputs.language == 'all' }}
+    if: ${{ github.event.inputs.publish_js == 'true' || github.event.inputs.publish_js == true }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -88,8 +114,9 @@ jobs:
           git add sdks/js/package.json sdks/js/package-lock.json 2>/dev/null || git add sdks/js/package.json
           if ! git diff --cached --quiet; then
             git commit -m "chore(release): bump javascript sdk to v${CLEAN_VERSION} [skip ci]"
-            git pull --rebase origin ${{ github.ref_name }}
-            git push origin HEAD:${{ github.ref_name }}
+            for i in {1..5}; do
+              git pull --rebase origin ${{ github.ref_name }} && git push origin HEAD:${{ github.ref_name }} && break || sleep 2
+            done
             echo "✅ JS version bump committed and pushed to ${{ github.ref_name }}"
           fi
 
@@ -115,7 +142,7 @@ jobs:
   publish-python:
     name: 🐍 Publish Python SDK (PyPI)
     needs: authorize
-    if: ${{ github.event.inputs.language == 'python' || github.event.inputs.language == 'all' }}
+    if: ${{ github.event.inputs.publish_python == 'true' || github.event.inputs.publish_python == true }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -169,8 +196,9 @@ jobs:
           git add sdks/python/pyproject.toml sdks/python/flagura/__init__.py 2>/dev/null || git add sdks/python/pyproject.toml
           if ! git diff --cached --quiet; then
             git commit -m "chore(release): bump python sdk to v${CLEAN_VERSION} [skip ci]"
-            git pull --rebase origin ${{ github.ref_name }}
-            git push origin HEAD:${{ github.ref_name }}
+            for i in {1..5}; do
+              git pull --rebase origin ${{ github.ref_name }} && git push origin HEAD:${{ github.ref_name }} && break || sleep 2
+            done
             echo "✅ Python version bump committed and pushed to ${{ github.ref_name }}"
           fi
 
@@ -195,7 +223,7 @@ jobs:
   publish-rust:
     name: 🦀 Publish Rust SDK (Crates.io)
     needs: authorize
-    if: ${{ github.event.inputs.language == 'rust' || github.event.inputs.language == 'all' }}
+    if: ${{ github.event.inputs.publish_rust == 'true' || github.event.inputs.publish_rust == true }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -229,8 +257,9 @@ jobs:
           git add sdks/rust/Cargo.toml sdks/rust/Cargo.lock 2>/dev/null || git add sdks/rust/Cargo.toml
           if ! git diff --cached --quiet; then
             git commit -m "chore(release): bump rust sdk to v${CLEAN_VERSION} [skip ci]"
-            git pull --rebase origin ${{ github.ref_name }}
-            git push origin HEAD:${{ github.ref_name }}
+            for i in {1..5}; do
+              git pull --rebase origin ${{ github.ref_name }} && git push origin HEAD:${{ github.ref_name }} && break || sleep 2
+            done
             echo "✅ Rust version bump committed and pushed to ${{ github.ref_name }}"
           fi
 
@@ -256,7 +285,7 @@ jobs:
   publish-go:
     name: 🐹 Publish Go SDK (Go Module Proxy)
     needs: authorize
-    if: ${{ github.event.inputs.language == 'go' || github.event.inputs.language == 'all' }}
+    if: ${{ github.event.inputs.publish_go == 'true' || github.event.inputs.publish_go == true }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository (Full History for Tags)
