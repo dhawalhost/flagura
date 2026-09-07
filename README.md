@@ -34,7 +34,7 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 - **⚡ Local-First In-Process Evaluation:** Connected SDKs evaluate flags in-memory with deterministic sticky bucketing and zero database I/O on evaluation hot paths (~85ns across SQLite, PostgreSQL, and In-Memory modes).
 - **🧹 Zero Flag Debt & Active Hygiene:** Automated detection of 100% rolled-out flags, longevity tracking, and safe deprecation workflows to eliminate dead code rot.
 - **🛡️ 4-Eyes Change Governance:** Configurable environment protection requiring peer review and dual authorization before production flag mutations are applied.
-- **🔒 Zero Customer PII Egress:** Targeting rules are compiled and distributed to SDKs; customer emails, IDs, and IP addresses never leave process memory (GDPR/HIPAA ready).
+- **🔒 Zero Customer PII Egress:** Targeting rules are compiled and distributed to SDKs; customer emails, IDs, and IP addresses never leave process memory—no user PII leaves your infrastructure.
 - **💰 Predictable Infrastructure (No MAU Penalties):** Single 15MB Go binary with embedded SQLite or PostgreSQL. Evaluate millions of flags at flat cost without punitive monthly active user (MAU) billing tiers.
 - **🌐 OpenFeature Native:** Built-in standard OpenFeature providers for Go, TypeScript, Python, and Rust—switch or adopt Flagura with zero proprietary code lock-in.
 - **🏢 Strict Multi-Tenant Isolation:** Complete organization and project-level separation across storage, API credentials, and real-time SSE streaming channels.
@@ -50,7 +50,7 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 | **Local In-Process Evaluation**   | ✅ Sub-microsecond (~85-135ns)     |       ✅ Yes       |       ✅ Yes        |
 | **Durable ACID Persistence**      | ✅ PostgreSQL & SQLite Embedded    |        N/A         |       ✅ Yes        |
 | **Zero Flag Debt & Hygiene**      | ✅ Stale Flag Detection & Auditing |        N/A         |       ✅ Yes        |
-| **Zero Customer PII Egress**      | ✅ 100% In-Process Context (GDPR)  |       ✅ Yes       |       ✅ Yes        |
+| **Zero Customer PII Egress**      | ✅ In-Process (No PII Leaves Infra)|       ✅ Yes       |       ✅ Yes        |
 | **Standard OpenFeature SDKs**     | ✅ Go, TypeScript, Python, Rust    |       ✅ Yes       |       ✅ Yes        |
 | **Flat Predictable Cost**         | ✅ No Per-MAU or Seat Penalties    |        N/A         |       ✅ Yes        |
 | **Multi-Tenant Organizations**    | ✅ Isolated Projects & Keys        |        N/A         |       ✅ Yes        |
@@ -215,30 +215,38 @@ curl -X POST http://localhost:3000/api/v1/evaluate \
 
 ### 2. Flag Management & API Endpoints
 
-| Method   | Endpoint                            | Description                                                           |
-| :------- | :---------------------------------- | :-------------------------------------------------------------------- |
-| `GET`    | `/healthz` / `/livez`               | Kubernetes liveness health probe                                      |
-| `GET`    | `/readyz`                           | Kubernetes readiness probe (checks storage availability)              |
-| `GET`    | `/metrics`                          | Prometheus metrics exposition (`flagura_evaluations_total`, etc.)     |
-| `GET`    | `/api/v1/organizations`             | List all organizations (Admin only)                                   |
-| `POST`   | `/api/v1/organizations`             | Create new organization (Admin only)                                  |
-| `GET`    | `/api/v1/projects`                  | List projects in active or queried organization                       |
-| `POST`   | `/api/v1/projects`                  | Create new project in organization                                    |
-| `POST`   | `/api/v1/projects/active`           | Switch active project session context                                 |
-| `GET`    | `/api/v1/flags/stream`              | Real-time HTTP/2 Server-Sent Events (SSE) flag synchronization stream |
-| `GET`    | `/api/v1/flags`                     | List feature flags in active project scope                            |
-| `GET`    | `/api/v1/flags/:key`                | Retrieve configuration and rules for a specific flag                  |
-| `POST`   | `/api/v1/flags`                     | Create or update a feature flag configuration                         |
-| `PATCH`  | `/api/v1/flags/:key/toggle`         | Instant 1-click toggle for master kill-switch                         |
-| `PATCH`  | `/api/v1/flags/:key/rollout`        | Dynamically update percentage rollout (0–100%)                        |
-| `POST`   | `/api/v1/flags/:key/promote`        | Promote flag configuration (e.g. `?from=staging&to=production`)       |
-| `POST`   | `/api/v1/webhooks/kill-switch/:key` | Automated kill-switch endpoint for APM alerts (Datadog/Sentry)        |
-| `POST`   | `/api/v1/telemetry/events`          | Ingest batched evaluation counts from client SDKs                     |
-| `GET`    | `/api/v1/telemetry/stats`           | Query 24h evaluation velocity and variant distribution                |
-| `DELETE` | `/api/v1/flags/:key`                | Permanently remove a feature flag (Requires Admin role)               |
-| `POST`   | `/api/v1/evaluate`                  | Evaluate flags (`?trace=true` returns visual execution trace)         |
-| `POST`   | `/api/v1/benchmark`                 | Execute live in-process latency stress test                           |
-| `GET`    | `/api/v1/audit-logs`                | Fetch immutable audit trail history for active project                |
+| Method   | Endpoint                              | Description                                                           |
+| :------- | :------------------------------------ | :-------------------------------------------------------------------- |
+| `GET`    | `/healthz` / `/livez`                 | Kubernetes liveness health probe                                      |
+| `GET`    | `/readyz`                             | Kubernetes readiness probe (checks storage availability)              |
+| `GET`    | `/metrics`                            | Prometheus metrics exposition (`flagura_evaluations_total`, etc.)     |
+| `GET`    | `/api/v1/organizations`               | List all organizations (Admin only)                                   |
+| `POST`   | `/api/v1/organizations`               | Create new organization (Admin only)                                  |
+| `GET`    | `/api/v1/projects`                    | List projects in active or queried organization                       |
+| `POST`   | `/api/v1/projects`                    | Create new project in organization                                    |
+| `POST`   | `/api/v1/projects/active`             | Switch active project session context                                 |
+| `GET`    | `/api/v1/flags/stream`                | Real-time HTTP/2 Server-Sent Events (SSE) flag synchronization stream |
+| `GET`    | `/api/v1/flags`                       | List feature flags in active project scope                            |
+| `GET`    | `/api/v1/flags/:key`                  | Retrieve configuration and rules for a specific flag                  |
+| `POST`   | `/api/v1/flags`                       | Create or update a feature flag configuration                         |
+| `PATCH`  | `/api/v1/flags/:key/toggle`           | Instant 1-click toggle for master kill-switch                         |
+| `PATCH`  | `/api/v1/flags/:key/rollout`          | Dynamically update percentage rollout (0–100%)                        |
+| `POST`   | `/api/v1/flags/:key/promote`          | Promote flag configuration (e.g. `?from=staging&to=production`)       |
+| `POST`   | `/api/v1/webhooks/kill-switch/:key`   | Automated kill-switch endpoint for APM alerts (Datadog/Sentry)        |
+| `GET`    | `/api/v1/change-requests`             | List 4-Eyes change requests in project (`?status=PENDING`, etc.)      |
+| `POST`   | `/api/v1/change-requests`             | Submit a 4-Eyes change request for proposed flag modification         |
+| `GET`    | `/api/v1/change-requests/:id`         | Retrieve change request details, proposed diff, and review status     |
+| `POST`   | `/api/v1/change-requests/:id/review`  | Peer review (approve/reject) change request (blocks author self-review)|
+| `POST`   | `/api/v1/change-requests/:id/apply`   | Apply approved change request mutations to production flag state      |
+| `GET`    | `/api/v1/api-keys`                    | List provisioned SDK client & service account API keys               |
+| `POST`   | `/api/v1/api-keys`                    | Provision cryptographically secure (`2^256` bits) API key            |
+| `DELETE` | `/api/v1/api-keys/:id`                | Immediately revoke API key token                                      |
+| `POST`   | `/api/v1/telemetry/events`            | Ingest batched evaluation counts from client SDKs                     |
+| `GET`    | `/api/v1/telemetry/stats`             | Query 24h evaluation velocity and variant distribution                |
+| `DELETE` | `/api/v1/flags/:key`                  | Permanently remove a feature flag (Requires Admin role)               |
+| `POST`   | `/api/v1/evaluate`                    | Evaluate flags (`?trace=true` returns visual execution trace)         |
+| `POST`   | `/api/v1/benchmark`                   | Execute live in-process latency stress test                           |
+| `GET`    | `/api/v1/audit-logs`                  | Fetch immutable audit trail history for active project                |
 
 > **Multi-Tenancy Note:** All evaluation, flag, and audit endpoints accept the `X-Project-ID` request header or `?project_id=...` parameter to scope operations to a specific project (defaults to `proj_default`).
 
