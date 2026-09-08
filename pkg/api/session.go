@@ -142,6 +142,11 @@ func (s *Server) getUserFromRequest(r *http.Request) (*domain.User, error) {
 	}
 
 	if sess.User == nil {
+		if sess.UserID != "" {
+			if u, err := s.store.GetUserByID(r.Context(), sess.UserID); err == nil && u != nil {
+				return u, nil
+			}
+		}
 		return nil, domain.ErrUserNotFound
 	}
 

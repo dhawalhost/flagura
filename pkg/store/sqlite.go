@@ -1034,6 +1034,12 @@ func (s *SQLiteStore) GetSession(ctx context.Context, token string) (*domain.Ses
 		return nil, errors.New("session expired")
 	}
 
+	// Fetch user
+	user, err := s.GetUserByID(ctx, sess.UserID)
+	if err == nil {
+		sess.User = user
+	}
+
 	return &sess, nil
 }
 
@@ -1424,6 +1430,56 @@ func (s *SQLiteStore) GetExperimentEvents(ctx context.Context, flagKey string, l
 	return events, nil
 }
 
+func (s *SQLiteStore) GetExperimentEventsByProject(ctx context.Context, projectID, flagKey string, limit int) ([]domain.ExperimentEvent, error) {
+	if limit <= 0 || limit > 5000 {
+		limit = 1000
+	}
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	var rows *sql.Rows
+	var err error
+	if flagKey != "" {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, project_id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp
+			FROM experiment_events
+			WHERE project_id = ? AND flag_key = ?
+			ORDER BY timestamp DESC
+			LIMIT ?
+		`, projectID, flagKey, limit)
+	} else {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, project_id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp
+			FROM experiment_events
+			WHERE project_id = ?
+			ORDER BY timestamp DESC
+			LIMIT ?
+		`, projectID, limit)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []domain.ExperimentEvent
+	for rows.Next() {
+		var ev domain.ExperimentEvent
+		var envStr, tsStr string
+		if err := rows.Scan(
+			&ev.ID, &ev.ProjectID, &ev.FlagKey, &ev.Variant, &ev.MetricName,
+			&ev.EventType, &ev.Value, &ev.UserID, &envStr, &tsStr,
+		); err != nil {
+			return nil, err
+		}
+		ev.Environment = domain.Environment(envStr)
+		ev.Timestamp, _ = time.Parse(time.RFC3339, tsStr)
+		events = append(events, ev)
+	}
+	return events, nil
+}
+
+
 // --- CHANGE REQUESTS (4-EYES GOVERNANCE) ---
 
 func (s *SQLiteStore) CreateChangeRequest(ctx context.Context, cr domain.ChangeRequest) (*domain.ChangeRequest, error) {
@@ -1613,8 +1669,8 @@ func (s *SQLiteStore) ApplyChangeRequest(ctx context.Context, id string, actor s
 	_, err = s.db.ExecContext(ctx, `
 		UPDATE feature_flags
 		SET environments = ?, config_version = config_version + 1, updated_at = ?
-		WHERE id = ?
-	`, string(envsBytes), flag.UpdatedAt.Format(time.RFC3339), flag.ID)
+		WHERE id = ? AND project_id = ?
+	`, string(envsBytes), flag.UpdatedAt.Format(time.RFC3339), flag.ID, cr.ProjectID)
 	if err != nil {
 		return nil, nil, nil, err
 	}

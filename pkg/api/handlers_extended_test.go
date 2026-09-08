@@ -461,6 +461,7 @@ func TestHandlers_ExtendedEdgeCases(t *testing.T) {
 				},
 			},
 			cookie:         authCookie,
+			headers:        map[string]string{domain.HeaderProjectID: proj.ID},
 			expectedStatus: http.StatusCreated,
 		},
 		{
@@ -468,6 +469,7 @@ func TestHandlers_ExtendedEdgeCases(t *testing.T) {
 			method:         http.MethodGet,
 			url:            "/api/v1/flags/" + flagKey + "/canary",
 			cookie:         authCookie,
+			headers:        map[string]string{domain.HeaderProjectID: proj.ID},
 			expectedStatus: http.StatusOK,
 		},
 		{
@@ -475,6 +477,7 @@ func TestHandlers_ExtendedEdgeCases(t *testing.T) {
 			method:         http.MethodDelete,
 			url:            "/api/v1/flags/" + flagKey + "/canary",
 			cookie:         authCookie,
+			headers:        map[string]string{domain.HeaderProjectID: proj.ID},
 			expectedStatus: http.StatusOK,
 		},
 	}

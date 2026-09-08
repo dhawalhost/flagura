@@ -438,6 +438,80 @@ func TestMemoryStore_ChangeRequestsAndGovernance(t *testing.T) {
 	}
 }
 
+func TestMemoryStore_ApplyChangeRequest_MultiTenantIsolation(t *testing.T) {
+	memStore := NewMemoryStore()
+	ctx := context.Background()
+
+	projA := "proj_alpha"
+	projB := "proj_beta"
+	sharedKey := "rate-limiter-v2"
+
+	// Create flag in projA (Enabled: false)
+	_, _ = memStore.SaveFlag(ctx, domain.FeatureFlag{
+		ID:        "f_alpha_cr",
+		ProjectID: projA,
+		Key:       sharedKey,
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {Enabled: false},
+		},
+	}, "test")
+
+	// Create flag in projB (Enabled: false)
+	_, _ = memStore.SaveFlag(ctx, domain.FeatureFlag{
+		ID:        "f_beta_cr",
+		ProjectID: projB,
+		Key:       sharedKey,
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {Enabled: false},
+		},
+	}, "test")
+
+	// Create CR in projA to enable the flag
+	cr, err := memStore.CreateChangeRequest(ctx, domain.ChangeRequest{
+		ProjectID:    projA,
+		FlagKey:      sharedKey,
+		Environment:  domain.EnvProduction,
+		Title:        "Enable in Proj A",
+		AuthorUserID: "usr_alice",
+		AuthorEmail:  "alice@flagura.dev",
+		AuthorName:   "Alice",
+		ProposedConfig: domain.EnvironmentConfig{
+			Enabled: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateChangeRequest failed: %v", err)
+	}
+
+	// Review & Approve CR
+	_, err = memStore.ReviewChangeRequest(ctx, cr.ID, "usr_bob", "bob@flagura.dev", "Bob", true, "Approved")
+	if err != nil {
+		t.Fatalf("ReviewChangeRequest failed: %v", err)
+	}
+
+	// Apply CR
+	appliedFlag, _, _, err := memStore.ApplyChangeRequest(ctx, cr.ID, "usr_bob")
+	if err != nil {
+		t.Fatalf("ApplyChangeRequest failed: %v", err)
+	}
+
+	if appliedFlag.ProjectID != projA {
+		t.Fatalf("expected applied flag to belong to %s, got %s", projA, appliedFlag.ProjectID)
+	}
+	if !appliedFlag.Environments[domain.EnvProduction].Enabled {
+		t.Fatalf("expected projA flag to be enabled")
+	}
+
+	// Verify projB flag was completely unaffected!
+	flagB, err := memStore.GetFlagByProject(ctx, projB, sharedKey)
+	if err != nil {
+		t.Fatalf("GetFlagByProject for projB failed: %v", err)
+	}
+	if flagB.Environments[domain.EnvProduction].Enabled {
+		t.Fatalf("CR applied in projA unexpectedly modified projB's flag! Multi-tenant breach!")
+	}
+}
+
 func TestMemoryStore_APIKeysAndServiceTokens(t *testing.T) {
 	memStore := NewMemoryStore()
 	ctx := context.Background()

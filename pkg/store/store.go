@@ -73,6 +73,7 @@ type Store interface {
 	// Experiments & A/B Testing
 	RecordExperimentEvents(ctx context.Context, events []domain.ExperimentEvent) error
 	GetExperimentEvents(ctx context.Context, flagKey string, limit int) ([]domain.ExperimentEvent, error)
+	GetExperimentEventsByProject(ctx context.Context, projectID, flagKey string, limit int) ([]domain.ExperimentEvent, error)
 
 	// Governance & 4-Eyes Change Approvals
 	CreateChangeRequest(ctx context.Context, cr domain.ChangeRequest) (*domain.ChangeRequest, error)

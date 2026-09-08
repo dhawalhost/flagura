@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
@@ -29,27 +30,79 @@ func (s *Server) handleCanaryRoutes(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		s.handleCanaryRollback(w, r, flagKey)
+
+		// Authenticate: caller must have valid user/API key session OR matching FLAGURA_WEBHOOK_SECRET
+		webhookSecret := os.Getenv("FLAGURA_WEBHOOK_SECRET")
+		isWebhookAuthed := false
+		if webhookSecret != "" {
+			if r.Header.Get("X-Webhook-Secret") == webhookSecret ||
+				r.URL.Query().Get("token") == webhookSecret ||
+				strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ") == webhookSecret {
+				isWebhookAuthed = true
+			}
+		}
+
+		user, _ := s.getUserFromRequest(r)
+		if !isWebhookAuthed && user == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":   "Unauthorized",
+				"message": "Authentication required. Provide a valid session, Bearer token, or X-Webhook-Secret.",
+			})
+			return
+		}
+
+		var projectID string
+		if user != nil {
+			var err error
+			projectID, err = s.resolveAndAuthorizeProjectID(r)
+			if err != nil {
+				s.writeError(w, r, err)
+				return
+			}
+		} else {
+			projectID = s.resolveProjectID(r)
+		}
+
+		s.handleCanaryRollback(w, r, projectID, flagKey)
 		return
 	}
 
 	switch r.Method {
 	case http.MethodPost:
 		s.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
-			s.handleCreateCanary(w, r, flagKey)
+			projectID, err := s.resolveAndAuthorizeProjectID(r)
+			if err != nil {
+				s.writeError(w, r, err)
+				return
+			}
+			s.handleCreateCanary(w, r, projectID, flagKey)
 		})(w, r)
 	case http.MethodGet:
-		s.handleGetCanary(w, r, flagKey)
+		s.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+			projectID, err := s.resolveAndAuthorizeProjectID(r)
+			if err != nil {
+				s.writeError(w, r, err)
+				return
+			}
+			s.handleGetCanary(w, r, projectID, flagKey)
+		})(w, r)
 	case http.MethodDelete:
 		s.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
-			s.handleDeleteCanary(w, r, flagKey)
+			projectID, err := s.resolveAndAuthorizeProjectID(r)
+			if err != nil {
+				s.writeError(w, r, err)
+				return
+			}
+			s.handleDeleteCanary(w, r, projectID, flagKey)
 		})(w, r)
 	default:
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func (s *Server) handleCreateCanary(w http.ResponseWriter, r *http.Request, flagKey string) {
+func (s *Server) handleCreateCanary(w http.ResponseWriter, r *http.Request, projectID, flagKey string) {
 	if s.canary == nil {
 		http.Error(w, "Canary scheduler not initialized", http.StatusInternalServerError)
 		return
@@ -61,6 +114,7 @@ func (s *Server) handleCreateCanary(w http.ResponseWriter, r *http.Request, flag
 		return
 	}
 	req.FlagKey = flagKey
+	req.ProjectID = projectID
 
 	sched, err := s.canary.SubmitSchedule(r.Context(), req)
 	if err != nil {
@@ -73,13 +127,13 @@ func (s *Server) handleCreateCanary(w http.ResponseWriter, r *http.Request, flag
 	_ = json.NewEncoder(w).Encode(sched)
 }
 
-func (s *Server) handleGetCanary(w http.ResponseWriter, r *http.Request, flagKey string) {
+func (s *Server) handleGetCanary(w http.ResponseWriter, r *http.Request, projectID, flagKey string) {
 	if s.canary == nil {
 		http.Error(w, "Canary scheduler not initialized", http.StatusInternalServerError)
 		return
 	}
 
-	sched, ok := s.canary.GetSchedule(flagKey)
+	sched, ok := s.canary.GetSchedule(projectID, flagKey)
 	if !ok {
 		http.Error(w, "No active canary schedule for flag "+flagKey, http.StatusNotFound)
 		return
@@ -89,13 +143,13 @@ func (s *Server) handleGetCanary(w http.ResponseWriter, r *http.Request, flagKey
 	_ = json.NewEncoder(w).Encode(sched)
 }
 
-func (s *Server) handleDeleteCanary(w http.ResponseWriter, r *http.Request, flagKey string) {
+func (s *Server) handleDeleteCanary(w http.ResponseWriter, r *http.Request, projectID, flagKey string) {
 	if s.canary == nil {
 		http.Error(w, "Canary scheduler not initialized", http.StatusInternalServerError)
 		return
 	}
 
-	cancelled := s.canary.CancelSchedule(flagKey)
+	cancelled := s.canary.CancelSchedule(projectID, flagKey)
 	if !cancelled {
 		http.Error(w, "No active canary schedule found to cancel", http.StatusNotFound)
 		return
@@ -108,7 +162,7 @@ func (s *Server) handleDeleteCanary(w http.ResponseWriter, r *http.Request, flag
 	})
 }
 
-func (s *Server) handleCanaryRollback(w http.ResponseWriter, r *http.Request, flagKey string) {
+func (s *Server) handleCanaryRollback(w http.ResponseWriter, r *http.Request, projectID, flagKey string) {
 	if s.canary == nil {
 		http.Error(w, "Canary scheduler not initialized", http.StatusInternalServerError)
 		return
@@ -122,15 +176,16 @@ func (s *Server) handleCanaryRollback(w http.ResponseWriter, r *http.Request, fl
 		req.Reason = "External APM Alert Triggered Rollback"
 	}
 
-	if err := s.canary.TriggerHealthRollback(r.Context(), flagKey, req.Reason); err != nil {
+	if err := s.canary.TriggerHealthRollback(r.Context(), projectID, flagKey, req.Reason); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
-		"status":   "rolled_back",
-		"flag_key": flagKey,
-		"reason":   req.Reason,
+		"status":     "rolled_back",
+		"project_id": projectID,
+		"flag_key":   flagKey,
+		"reason":     req.Reason,
 	})
 }

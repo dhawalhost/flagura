@@ -160,7 +160,7 @@ func TestCanaryHealthRollbackTrigger(t *testing.T) {
 				},
 			})
 
-			err := scheduler.TriggerHealthRollback(ctx, tt.flagKey, tt.reason)
+			err := scheduler.TriggerHealthRollback(ctx, store.DefaultProjectID, tt.flagKey, tt.reason)
 			if err != nil {
 				t.Fatalf("failed to trigger health rollback: %v", err)
 			}
@@ -170,7 +170,7 @@ func TestCanaryHealthRollbackTrigger(t *testing.T) {
 				t.Errorf("expected percentage %f after rollback, got %f", tt.expectedPct, flag.Environments[domain.EnvProduction].Percentage)
 			}
 
-			sched, ok := scheduler.GetSchedule(tt.flagKey)
+			sched, ok := scheduler.GetSchedule(store.DefaultProjectID, tt.flagKey)
 			if !ok || sched.Status != tt.expectedStatus {
 				t.Errorf("expected schedule status %s, got %s", tt.expectedStatus, sched.Status)
 			}
@@ -194,17 +194,17 @@ func TestCanaryScheduler_EdgeCases(t *testing.T) {
 	}
 
 	// 2. Get non-existent schedule
-	if s, ok := scheduler.GetSchedule("non-existent"); ok || s != nil {
+	if s, ok := scheduler.GetSchedule(store.DefaultProjectID, "non-existent"); ok || s != nil {
 		t.Errorf("expected nil for non-existent schedule")
 	}
 
 	// 3. Cancel non-existent schedule
-	if ok := scheduler.CancelSchedule("non-existent"); ok {
+	if ok := scheduler.CancelSchedule(store.DefaultProjectID, "non-existent"); ok {
 		t.Errorf("expected false when cancelling non-existent schedule")
 	}
 
 	// 4. Trigger rollback on non-existent schedule
-	if err := scheduler.TriggerHealthRollback(ctx, "non-existent", "test"); err == nil {
+	if err := scheduler.TriggerHealthRollback(ctx, store.DefaultProjectID, "non-existent", "test"); err == nil {
 		t.Errorf("expected error rolling back non-existent schedule")
 	}
 
@@ -215,11 +215,73 @@ func TestCanaryScheduler_EdgeCases(t *testing.T) {
 			{Index: 0, TargetPercentage: 10, DurationSec: 100},
 		},
 	})
-	if ok := scheduler.CancelSchedule("test-cancel"); !ok {
+	if ok := scheduler.CancelSchedule(store.DefaultProjectID, "test-cancel"); !ok {
 		t.Errorf("expected true when cancelling existing schedule")
 	}
 
 	// 6. Test StartBackgroundLoop
 	scheduler.StartBackgroundLoop(5 * time.Millisecond)
 	time.Sleep(15 * time.Millisecond)
+}
+
+func TestCanaryScheduler_MultiTenantIsolation(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	scheduler := NewCanaryScheduler(memStore, &mockBroadcaster{})
+	defer scheduler.Close()
+	ctx := context.Background()
+
+	projA := "proj_alpha"
+	projB := "proj_beta"
+	flagKey := "shared-flag-name"
+
+	// Create flag in both projects
+	_, _ = memStore.SaveFlag(ctx, domain.FeatureFlag{
+		ID:        "f_alpha",
+		ProjectID: projA,
+		Key:       flagKey,
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {Enabled: true, Percentage: 0},
+		},
+	}, "test")
+	_, _ = memStore.SaveFlag(ctx, domain.FeatureFlag{
+		ID:        "f_beta",
+		ProjectID: projB,
+		Key:       flagKey,
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {Enabled: true, Percentage: 0},
+		},
+	}, "test")
+
+	// Submit schedule for projA only
+	_, err := scheduler.SubmitSchedule(ctx, domain.CanarySchedule{
+		ProjectID:   projA,
+		FlagKey:     flagKey,
+		Environment: domain.EnvProduction,
+		Stages: []domain.CanaryStage{
+			{Index: 0, TargetPercentage: 20, DurationSec: 100},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SubmitSchedule failed: %v", err)
+	}
+
+	// projA should have active schedule, projB should have none
+	schedA, okA := scheduler.GetSchedule(projA, flagKey)
+	if !okA || schedA == nil {
+		t.Errorf("expected schedule in projA")
+	}
+	schedB, okB := scheduler.GetSchedule(projB, flagKey)
+	if okB || schedB != nil {
+		t.Errorf("expected NO schedule in projB")
+	}
+
+	// Verify projA flag was updated, projB flag untouched
+	flagA, _ := memStore.GetFlagByProject(ctx, projA, flagKey)
+	if flagA.Environments[domain.EnvProduction].Percentage != 20 {
+		t.Errorf("expected projA percentage 20, got %f", flagA.Environments[domain.EnvProduction].Percentage)
+	}
+	flagB, _ := memStore.GetFlagByProject(ctx, projB, flagKey)
+	if flagB.Environments[domain.EnvProduction].Percentage != 0 {
+		t.Errorf("expected projB percentage 0, got %f", flagB.Environments[domain.EnvProduction].Percentage)
+	}
 }
