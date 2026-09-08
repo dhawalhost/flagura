@@ -34,6 +34,7 @@ type CanaryGuardrails struct {
 // CanarySchedule holds the full multi-stage schedule and health gate configuration.
 type CanarySchedule struct {
 	ID              string           `json:"id"`
+	ProjectID       string           `json:"project_id"`
 	FlagKey         string           `json:"flag_key"`
 	Environment     Environment      `json:"environment"`
 	Status          CanaryStatus     `json:"status"`

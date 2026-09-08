@@ -42,7 +42,7 @@ type LoginRequest struct {
 
 type AuthResponse struct {
 	User    *User  `json:"user"`
-	Token   string `json:"token"`
+	Token   string `json:"token,omitempty"`
 	Message string `json:"message"`
 }
 

@@ -78,10 +78,12 @@ func (s *Server) handleWebhookKillSwitch(w http.ResponseWriter, r *http.Request)
 	}
 
 	authenticated := false
+	webhookSecretAuth := false
 
 	// Check if matching webhook secret
 	if webhookSecret != "" && providedToken != "" && subtle.ConstantTimeCompare([]byte(providedToken), []byte(webhookSecret)) == 1 {
 		authenticated = true
+		webhookSecretAuth = true
 	} else if providedToken != "" && webhookSecret == "" {
 		// If no secret configured in env, verify against a valid user session or API token
 		if sess, err := s.store.GetSession(r.Context(), providedToken); err == nil && sess != nil && !sess.IsExpired() {
@@ -89,11 +91,14 @@ func (s *Server) handleWebhookKillSwitch(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	// Also check if caller has an active authenticated session cookie
-	if !authenticated {
-		if user, err := s.getUserFromRequest(r); err == nil && user != nil {
-			authenticated = true
-		}
+	apiKey := s.getAPIKeyFromRequest(r)
+	if apiKey != nil {
+		authenticated = true
+	}
+
+	user, _ := s.getUserFromRequest(r)
+	if user != nil {
+		authenticated = true
 	}
 
 	if !authenticated {
@@ -119,12 +124,38 @@ func (s *Server) handleWebhookKillSwitch(w http.ResponseWriter, r *http.Request)
 	}
 	env := domain.Environment(envStr)
 
-	disabled := false
-	actor := "webhook-alert-automation"
+	// Multi-tenant project resolution and authorization
+	var projectID string
+	if webhookSecretAuth {
+		projectID = s.resolveProjectID(r)
+		if projectID == "" {
+			projectID = domain.DefaultProjectID
+		}
+	} else {
+		var err error
+		projectID, err = s.resolveAndAuthorizeProjectID(r)
+		if err != nil {
+			s.writeError(w, r, err)
+			return
+		}
+	}
 
-	flag, log, err := s.store.ToggleFlag(r.Context(), key, env, &disabled, actor)
+	if apiKey != nil && !apiKey.AllowsEnvironment(env) {
+		s.writeError(w, r, domain.NewAppError(
+			domain.ErrCodeEnvironmentRestricted,
+			fmt.Sprintf("API key is scoped to environment '%s' and cannot modify '%s'", apiKey.Environment, env),
+			http.StatusForbidden,
+			domain.ErrEnvironmentRestricted,
+		))
+		return
+	}
+
+	disabled := false
+	actor := s.getActorFromRequest(r, "webhook-alert-automation")
+
+	flag, log, err := s.store.ToggleFlagByProject(r.Context(), projectID, key, env, &disabled, actor)
 	if err != nil {
-		http.Error(w, "Flag not found or failed to disable: "+err.Error(), http.StatusNotFound)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeFlagNotFound, "Flag not found or failed to disable: "+err.Error(), http.StatusNotFound, domain.ErrFlagNotFound))
 		return
 	}
 

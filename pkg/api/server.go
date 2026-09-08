@@ -100,7 +100,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/metrics", s.handleMetrics)
 	s.mux.HandleFunc("/api/v1/flags/stream", s.handleFlagsStream)
 	s.mux.HandleFunc("/api/v1/telemetry/events", s.apiLimiter.LimitHandler(s.handleIngestTelemetry))
-	s.mux.HandleFunc("/api/v1/telemetry/stats", s.handleGetTelemetryStats)
+	s.mux.HandleFunc("/api/v1/telemetry/stats", s.apiLimiter.LimitHandler(s.handleGetTelemetryStats))
 	s.mux.HandleFunc("/api/v1/webhooks/kill-switch/", s.apiLimiter.LimitHandler(s.handleWebhookKillSwitch))
 
 	// Flag Management API Routes
@@ -118,7 +118,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/flags/", s.apiLimiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.Contains(path, "/canary") {
-			s.RequireAuth(s.handleCanaryRoutes)(w, r)
+			s.handleCanaryRoutes(w, r)
 			return
 		}
 		if strings.HasSuffix(path, "/toggle") {

@@ -3,10 +3,15 @@ package api
 import (
 	"encoding/json"
 	"io"
+	"math"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/dhawalhost/flagura/pkg/domain"
 )
+
+const maxFlagsPerProject = 1000
 
 // FlagAggregatedMetric holds accumulated runtime metrics for a single flag.
 type FlagAggregatedMetric struct {
@@ -15,28 +20,52 @@ type FlagAggregatedMetric struct {
 	LastEvaluatedAt  int64             `json:"last_evaluated_at"`
 }
 
-// TelemetryAggregator stores and aggregates runtime evaluations from connected client SDKs.
-type TelemetryAggregator struct {
-	mu           sync.RWMutex
+// ProjectTelemetry holds telemetry metrics scoped to a single tenant project.
+type ProjectTelemetry struct {
 	flagMetrics  map[string]*FlagAggregatedMetric
 	totalEvals   uint64
 	hourlyPoints [24]uint64
 }
 
+// TelemetryAggregator stores and aggregates runtime evaluations from connected client SDKs scoped by project.
+type TelemetryAggregator struct {
+	mu       sync.RWMutex
+	projects map[string]*ProjectTelemetry
+}
+
 // NewTelemetryAggregator creates a new thread-safe TelemetryAggregator.
 func NewTelemetryAggregator() *TelemetryAggregator {
 	return &TelemetryAggregator{
-		flagMetrics: make(map[string]*FlagAggregatedMetric),
+		projects: make(map[string]*ProjectTelemetry),
 	}
 }
 
-// Ingest merges incoming client telemetry batches into the server's aggregated state.
-func (ta *TelemetryAggregator) Ingest(events map[string]struct {
+func (ta *TelemetryAggregator) getOrCreateProjectLocked(projectID string) *ProjectTelemetry {
+	if projectID == "" {
+		projectID = domain.DefaultProjectID
+	}
+	proj, ok := ta.projects[projectID]
+	if !ok {
+		proj = &ProjectTelemetry{
+			flagMetrics: make(map[string]*FlagAggregatedMetric),
+		}
+		ta.projects[projectID] = proj
+	}
+	return proj
+}
+
+// Ingest merges incoming client telemetry batches into the server's aggregated state for the given project.
+func (ta *TelemetryAggregator) Ingest(projectID string, events map[string]struct {
 	Evaluations uint64            `json:"evaluations"`
 	Variants    map[string]uint64 `json:"variants"`
 }) int {
 	ta.mu.Lock()
 	defer ta.mu.Unlock()
+
+	if projectID == "" {
+		projectID = domain.DefaultProjectID
+	}
+	proj := ta.getOrCreateProjectLocked(projectID)
 
 	now := time.Now().UTC()
 	hourIdx := now.Hour()
@@ -47,18 +76,33 @@ func (ta *TelemetryAggregator) Ingest(events map[string]struct {
 			continue
 		}
 
-		m, exists := ta.flagMetrics[flagKey]
+		m, exists := proj.flagMetrics[flagKey]
 		if !exists {
+			// Bounded memory enforcement: evict oldest evaluated flag if capacity exceeded
+			if len(proj.flagMetrics) >= maxFlagsPerProject {
+				var oldestKey string
+				var oldestTime int64 = math.MaxInt64
+				for k, v := range proj.flagMetrics {
+					if v.LastEvaluatedAt < oldestTime {
+						oldestTime = v.LastEvaluatedAt
+						oldestKey = k
+					}
+				}
+				if oldestKey != "" {
+					delete(proj.flagMetrics, oldestKey)
+				}
+			}
+
 			m = &FlagAggregatedMetric{
 				Variants: make(map[string]uint64),
 			}
-			ta.flagMetrics[flagKey] = m
+			proj.flagMetrics[flagKey] = m
 		}
 
 		m.TotalEvaluations += metric.Evaluations
 		m.LastEvaluatedAt = now.UnixMilli()
-		ta.totalEvals += metric.Evaluations
-		ta.hourlyPoints[hourIdx] += metric.Evaluations
+		proj.totalEvals += metric.Evaluations
+		proj.hourlyPoints[hourIdx] += metric.Evaluations
 
 		for vKey, vCount := range metric.Variants {
 			m.Variants[vKey] += vCount
@@ -69,13 +113,25 @@ func (ta *TelemetryAggregator) Ingest(events map[string]struct {
 	return updatedCount
 }
 
-// Stats returns a snapshot of evaluation statistics for the dashboard.
-func (ta *TelemetryAggregator) Stats(flagKey string) map[string]interface{} {
+// Stats returns a snapshot of evaluation statistics for the project and dashboard.
+func (ta *TelemetryAggregator) Stats(projectID string, flagKey string) map[string]interface{} {
 	ta.mu.RLock()
 	defer ta.mu.RUnlock()
 
+	if projectID == "" {
+		projectID = domain.DefaultProjectID
+	}
+	proj, ok := ta.projects[projectID]
+	if !ok {
+		return map[string]interface{}{
+			"total_evaluations": 0,
+			"flags":             map[string]FlagAggregatedMetric{},
+			"hourly_points":     [24]uint64{},
+		}
+	}
+
 	if flagKey != "" && flagKey != "all" {
-		if m, ok := ta.flagMetrics[flagKey]; ok {
+		if m, ok := proj.flagMetrics[flagKey]; ok {
 			varCopy := make(map[string]uint64, len(m.Variants))
 			for k, v := range m.Variants {
 				varCopy[k] = v
@@ -85,7 +141,7 @@ func (ta *TelemetryAggregator) Stats(flagKey string) map[string]interface{} {
 				"total_evaluations": m.TotalEvaluations,
 				"variants":          varCopy,
 				"last_evaluated_at": m.LastEvaluatedAt,
-				"hourly_points":     ta.hourlyPoints,
+				"hourly_points":     proj.hourlyPoints,
 			}
 		}
 		return map[string]interface{}{
@@ -93,12 +149,12 @@ func (ta *TelemetryAggregator) Stats(flagKey string) map[string]interface{} {
 			"total_evaluations": 0,
 			"variants":          map[string]uint64{},
 			"last_evaluated_at": 0,
-			"hourly_points":     ta.hourlyPoints,
+			"hourly_points":     proj.hourlyPoints,
 		}
 	}
 
-	flagsCopy := make(map[string]FlagAggregatedMetric, len(ta.flagMetrics))
-	for k, v := range ta.flagMetrics {
+	flagsCopy := make(map[string]FlagAggregatedMetric, len(proj.flagMetrics))
+	for k, v := range proj.flagMetrics {
 		varCopy := make(map[string]uint64, len(v.Variants))
 		for vk, vv := range v.Variants {
 			varCopy[vk] = vv
@@ -111,9 +167,9 @@ func (ta *TelemetryAggregator) Stats(flagKey string) map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"total_evaluations": ta.totalEvals,
+		"total_evaluations": proj.totalEvals,
 		"flags":             flagsCopy,
-		"hourly_points":     ta.hourlyPoints,
+		"hourly_points":     proj.hourlyPoints,
 	}
 }
 
@@ -121,6 +177,12 @@ func (ta *TelemetryAggregator) Stats(flagKey string) map[string]interface{} {
 func (s *Server) handleIngestTelemetry(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	projectID, err := s.resolveAndAuthorizeProjectID(r)
+	if err != nil {
+		s.writeError(w, r, err)
 		return
 	}
 
@@ -142,7 +204,7 @@ func (s *Server) handleIngestTelemetry(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(bodyBytes, &req); err == nil && req.Events != nil {
 		count := 0
 		if s.telemetry != nil {
-			count = s.telemetry.Ingest(req.Events)
+			count = s.telemetry.Ingest(projectID, req.Events)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -178,13 +240,19 @@ func (s *Server) handleIngestTelemetry(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Invalid telemetry payload format", http.StatusBadRequest)
 }
 
-// handleGetTelemetryStats returns evaluation telemetry statistics for the UI.
+// handleGetTelemetryStats returns evaluation telemetry statistics for the authorized project.
 func (s *Server) handleGetTelemetryStats(w http.ResponseWriter, r *http.Request) {
+	projectID, err := s.resolveAndAuthorizeProjectID(r)
+	if err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+
 	flagKey := r.URL.Query().Get("flag")
 
 	var stats map[string]interface{}
 	if s.telemetry != nil {
-		stats = s.telemetry.Stats(flagKey)
+		stats = s.telemetry.Stats(projectID, flagKey)
 	} else {
 		stats = map[string]interface{}{
 			"total_evaluations": 0,

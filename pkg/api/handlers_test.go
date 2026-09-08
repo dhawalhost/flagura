@@ -373,6 +373,7 @@ func TestHandlers_ComprehensiveSuite(t *testing.T) {
 		b, _ := json.Marshal(schedPayload)
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/flags/canary-api-flag/canary", bytes.NewReader(b))
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set(domain.HeaderProjectID, domain.DefaultProjectID)
 		req.AddCookie(authCookie)
 		w := httptest.NewRecorder()
 		srv.ServeHTTP(w, req)
@@ -383,6 +384,7 @@ func TestHandlers_ComprehensiveSuite(t *testing.T) {
 
 		// Get Canary
 		getReq := httptest.NewRequest(http.MethodGet, "/api/v1/flags/canary-api-flag/canary", nil)
+		getReq.Header.Set(domain.HeaderProjectID, domain.DefaultProjectID)
 		getReq.AddCookie(authCookie)
 		getW := httptest.NewRecorder()
 		srv.ServeHTTP(getW, getReq)
@@ -396,6 +398,7 @@ func TestHandlers_ComprehensiveSuite(t *testing.T) {
 		rbBytes, _ := json.Marshal(rbPayload)
 		rbReq := httptest.NewRequest(http.MethodPost, "/api/v1/flags/canary-api-flag/canary/rollback", bytes.NewReader(rbBytes))
 		rbReq.Header.Set("Content-Type", "application/json")
+		rbReq.Header.Set(domain.HeaderProjectID, domain.DefaultProjectID)
 		rbReq.AddCookie(authCookie)
 		rbW := httptest.NewRecorder()
 		srv.ServeHTTP(rbW, rbReq)
@@ -477,6 +480,8 @@ func TestHandlers_ComprehensiveSuite(t *testing.T) {
 		b, _ := json.Marshal(eventsPayload)
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/events", bytes.NewReader(b))
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Project-ID", domain.DefaultProjectID)
+		req.AddCookie(authCookie)
 		w := httptest.NewRecorder()
 		srv.ServeHTTP(w, req)
 
@@ -486,6 +491,7 @@ func TestHandlers_ComprehensiveSuite(t *testing.T) {
 
 		// Get Experiment Report
 		repReq := httptest.NewRequest(http.MethodGet, "/api/v1/experiments/canary-api-flag?metric=checkout_success", nil)
+		repReq.Header.Set("X-Project-ID", domain.DefaultProjectID)
 		repReq.AddCookie(authCookie)
 		repW := httptest.NewRecorder()
 		srv.ServeHTTP(repW, repReq)

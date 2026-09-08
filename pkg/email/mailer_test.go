@@ -482,3 +482,37 @@ func TestSMTPMailer_LiveDelivery(t *testing.T) {
 		t.Errorf("unauthMailer.SendPasswordReset failed: %v", err)
 	}
 }
+
+func TestMailer_CRLFInjectionPrevention(t *testing.T) {
+	cfg := Config{
+		Host:         "localhost",
+		Port:         25,
+		FromEmail:    "noreply@flagura.dev",
+		BrandName:    "Flagura\r\nBcc: evil@attacker.com",
+		SupportEmail: "support@flagura.dev",
+	}
+	mailer := NewSMTPMailer(cfg)
+
+	// 1. Invalid email with CRLF injection attempt in recipient address should fail validation
+	err := mailer.SendPasswordReset("victim@example.com\r\nBcc: evil@attacker.com", "Alice", "http://localhost:3000/reset")
+	if err == nil {
+		t.Fatalf("expected error when recipient address contains CRLF injection attempt")
+	}
+
+	// 2. Malformed recipient address
+	err = mailer.SendWelcomeEmail("not-an-email", "Alice", "http://localhost:3000")
+	if err == nil {
+		t.Fatalf("expected error for malformed recipient email")
+	}
+
+	// 3. sanitizeHeader utility check
+	dirty := "Flagura Support\r\nBcc: hacker@example.com\r\nSubject: Injected"
+	clean := sanitizeHeader(dirty)
+	if strings.Contains(clean, "\r") || strings.Contains(clean, "\n") {
+		t.Fatalf("sanitizeHeader did not strip CRLF: %q", clean)
+	}
+	expected := "Flagura SupportBcc: hacker@example.comSubject: Injected"
+	if clean != expected {
+		t.Fatalf("expected %q, got %q", expected, clean)
+	}
+}

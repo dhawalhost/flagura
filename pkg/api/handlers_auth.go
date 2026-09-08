@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -31,7 +32,12 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	req.Name = strings.TrimSpace(req.Name)
 
-	if req.Email == "" || !strings.Contains(req.Email, "@") {
+	if req.Email == "" || strings.ContainsAny(req.Email, "\r\n") {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "A valid email address is required", http.StatusBadRequest, domain.ErrInvalidInput))
+		return
+	}
+	parsedMail, err := mail.ParseAddress(req.Email)
+	if err != nil || parsedMail.Address != req.Email || !strings.Contains(req.Email, ".") {
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "A valid email address is required", http.StatusBadRequest, domain.ErrInvalidInput))
 		return
 	}
@@ -213,7 +219,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	s.writeJSON(w, http.StatusOK, domain.AuthResponse{
 		User:    user,
-		Token:   token,
+		Token:   "", // Security: Session token transmitted solely via HttpOnly cookie
 		Message: "Login successful",
 	})
 }

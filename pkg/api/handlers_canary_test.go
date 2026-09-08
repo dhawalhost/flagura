@@ -126,3 +126,69 @@ func TestCanaryApiLifecycle(t *testing.T) {
 		t.Fatalf("expected 0%% rollout after rollback, got %f", flag.Environments[domain.EnvProduction].Percentage)
 	}
 }
+
+func TestCanaryAuthAndWebhookSecret(t *testing.T) {
+	t.Setenv("FLAGURA_WEBHOOK_SECRET", "super-secret-apm-webhook-key")
+
+	memStore := store.NewMemoryStore()
+	flagKey := "canary-auth-flag"
+	_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
+		ID:        "flag_canary_auth",
+		ProjectID: store.DefaultProjectID,
+		Key:       flagKey,
+		Type:      "boolean",
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {
+				Enabled:    true,
+				Strategy:   domain.StrategyPercentage,
+				Percentage: 25,
+			},
+		},
+	}, "test")
+
+	server, err := NewServer(memStore)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	// 1. Unauthenticated GET /canary -> 401 Unauthorized
+	unauthGet := httptest.NewRequest(http.MethodGet, "/api/v1/flags/"+flagKey+"/canary", nil)
+	rec1 := httptest.NewRecorder()
+	server.ServeHTTP(rec1, unauthGet)
+	if rec1.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized for unauthenticated GET canary, got %d", rec1.Code)
+	}
+
+	// 2. Unauthenticated POST rollback -> 401 Unauthorized
+	unauthRb := httptest.NewRequest(http.MethodPost, "/api/v1/flags/"+flagKey+"/canary/rollback", bytes.NewReader([]byte(`{"reason":"unauthed alert"}`)))
+	rec2 := httptest.NewRecorder()
+	server.ServeHTTP(rec2, unauthRb)
+	if rec2.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized for unauthenticated rollback, got %d", rec2.Code)
+	}
+
+	// Submit schedule so there is an active canary to rollback
+	_, _ = server.canary.SubmitSchedule(context.Background(), domain.CanarySchedule{
+		FlagKey:     flagKey,
+		ProjectID:   store.DefaultProjectID,
+		Environment: domain.EnvProduction,
+		Stages: []domain.CanaryStage{
+			{Index: 0, TargetPercentage: 25, DurationSec: 100},
+		},
+	})
+
+	// 3. Webhook secret authorized POST rollback (via X-Webhook-Secret) -> 200 OK
+	webhookRb := httptest.NewRequest(http.MethodPost, "/api/v1/flags/"+flagKey+"/canary/rollback", bytes.NewReader([]byte(`{"reason":"Datadog APM alert"}`)))
+	webhookRb.Header.Set("X-Webhook-Secret", "super-secret-apm-webhook-key")
+	rec3 := httptest.NewRecorder()
+	server.ServeHTTP(rec3, webhookRb)
+	if rec3.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for webhook secret rollback, got %d (body: %s)", rec3.Code, rec3.Body.String())
+	}
+
+	// Verify rollback took effect
+	flag, _ := memStore.GetFlag(context.Background(), flagKey)
+	if flag.Environments[domain.EnvProduction].Percentage != 0.0 {
+		t.Fatalf("expected 0%% rollout after webhook rollback, got %f", flag.Environments[domain.EnvProduction].Percentage)
+	}
+}
