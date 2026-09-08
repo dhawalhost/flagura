@@ -230,11 +230,11 @@ func TestPostgresStore_FlagOperations(t *testing.T) {
 		WithArgs("proj_default", "ai-smart-search").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
 			AddRow(sampleFlag.ID, sampleFlag.ProjectID, 1, sampleFlag.Key, sampleFlag.Name, sampleFlag.Description, sampleFlag.Type, "{ai,search}", envJSON, sampleFlag.CreatedAt, sampleFlag.UpdatedAt))
-	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, config_version = config_version \+ 1, updated_at = \$2 WHERE id = \$3`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sampleFlag.ID).
+	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, config_version = config_version \+ 1, updated_at = \$2 WHERE id = \$3 AND project_id = \$4`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sampleFlag.ID, "proj_default").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), "ai-smart-search", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), "proj_default", "ai-smart-search", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	newVal := false
@@ -248,11 +248,11 @@ func TestPostgresStore_FlagOperations(t *testing.T) {
 		WithArgs("proj_default", "ai-smart-search").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
 			AddRow(sampleFlag.ID, sampleFlag.ProjectID, 1, sampleFlag.Key, sampleFlag.Name, sampleFlag.Description, sampleFlag.Type, "{ai,search}", envJSON, sampleFlag.CreatedAt, sampleFlag.UpdatedAt))
-	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, config_version = config_version \+ 1, updated_at = \$2 WHERE id = \$3`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sampleFlag.ID).
+	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, config_version = config_version \+ 1, updated_at = \$2 WHERE id = \$3 AND project_id = \$4`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sampleFlag.ID, "proj_default").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), "ai-smart-search", "ROLLOUT_CHANGED", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), "proj_default", "ai-smart-search", "ROLLOUT_CHANGED", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	_, _, err = st.UpdateRollout(ctx, "ai-smart-search", domain.EnvProduction, 85.0, "admin@flagura.dev")
@@ -265,11 +265,11 @@ func TestPostgresStore_FlagOperations(t *testing.T) {
 		WithArgs("proj_default", "ai-smart-search").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
 			AddRow(sampleFlag.ID, sampleFlag.ProjectID, 1, sampleFlag.Key, sampleFlag.Name, sampleFlag.Description, sampleFlag.Type, "{ai,search}", envJSON, sampleFlag.CreatedAt, sampleFlag.UpdatedAt))
-	mock.ExpectExec(`DELETE FROM feature_flags WHERE id = \$1 OR key = \$1`).
-		WithArgs("ai-smart-search").
+	mock.ExpectExec(`DELETE FROM feature_flags WHERE \(id = \$1 OR key = \$1\) AND project_id = \$2`).
+		WithArgs("ai-smart-search", "proj_default").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), "ai-smart-search", "FLAG_DELETED", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), "proj_default", sampleFlag.Key, "FLAG_DELETED", "all", "admin@flagura.dev", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	delLog, err := st.DeleteFlag(ctx, "ai-smart-search", "admin@flagura.dev")
@@ -623,12 +623,12 @@ func TestPostgresStore_FlagMutationsAndUserOperations(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
 			AddRow(testFlag.ID, testFlag.ProjectID, 1, testFlag.Key, testFlag.Name, testFlag.Description, testFlag.Type, "{}", envsJSON, now, now))
 
-	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, config_version = config_version \+ 1, updated_at = \$2 WHERE id = \$3`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), testFlag.ID).
+	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, config_version = config_version \+ 1, updated_at = \$2 WHERE id = \$3 AND project_id = \$4`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), testFlag.ID, DefaultProjectID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), testFlag.Key, "KILL_SWITCH_TOGGLED", sqlmock.AnyArg(), "admin@flagura.dev", sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), DefaultProjectID, testFlag.Key, "KILL_SWITCH_TOGGLED", sqlmock.AnyArg(), "admin@flagura.dev", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	toggled, _, err := st.ToggleFlag(ctx, "mutate-feat", domain.EnvProduction, nil, "admin@flagura.dev")
@@ -642,12 +642,12 @@ func TestPostgresStore_FlagMutationsAndUserOperations(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
 			AddRow(testFlag.ID, testFlag.ProjectID, 1, testFlag.Key, testFlag.Name, testFlag.Description, testFlag.Type, "{}", envsJSON, now, now))
 
-	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, config_version = config_version \+ 1, updated_at = \$2 WHERE id = \$3`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), testFlag.ID).
+	mock.ExpectExec(`UPDATE feature_flags SET environments = \$1, config_version = config_version \+ 1, updated_at = \$2 WHERE id = \$3 AND project_id = \$4`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), testFlag.ID, DefaultProjectID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), testFlag.Key, "ROLLOUT_CHANGED", sqlmock.AnyArg(), "admin@flagura.dev", sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), DefaultProjectID, testFlag.Key, "ROLLOUT_CHANGED", sqlmock.AnyArg(), "admin@flagura.dev", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	rolled, _, err := st.UpdateRollout(ctx, "mutate-feat", domain.EnvProduction, 80, "admin@flagura.dev")
@@ -661,12 +661,12 @@ func TestPostgresStore_FlagMutationsAndUserOperations(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "config_version", "key", "name", "description", "type", "tags", "environments", "created_at", "updated_at"}).
 			AddRow(testFlag.ID, testFlag.ProjectID, 1, testFlag.Key, testFlag.Name, testFlag.Description, testFlag.Type, "{}", envsJSON, now, now))
 
-	mock.ExpectExec(`DELETE FROM feature_flags WHERE id = \$1 OR key = \$1`).
-		WithArgs("mutate-feat").
+	mock.ExpectExec(`DELETE FROM feature_flags WHERE \(id = \$1 OR key = \$1\) AND project_id = \$2`).
+		WithArgs("mutate-feat", DefaultProjectID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), testFlag.Key, "FLAG_DELETED", "all", "admin@flagura.dev", sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), DefaultProjectID, testFlag.Key, "FLAG_DELETED", "all", "admin@flagura.dev", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	delLog, err := st.DeleteFlag(ctx, "mutate-feat", "admin@flagura.dev")

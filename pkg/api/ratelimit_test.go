@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"golang.org/x/time/rate"
@@ -57,21 +58,37 @@ func TestIPRateLimiter(t *testing.T) {
 }
 
 func TestGetClientIP(t *testing.T) {
-	// 1. X-Forwarded-For
+	// 1. Without proxy trust (default secure behavior)
+	_ = os.Setenv("FLAGURA_TRUST_PROXY", "false")
+	reqSpoofed := httptest.NewRequest(http.MethodGet, "/", nil)
+	reqSpoofed.RemoteAddr = "192.0.2.1:45678"
+	reqSpoofed.Header.Set("X-Forwarded-For", "203.0.113.195, 70.41.3.18")
+	reqSpoofed.Header.Set("X-Real-IP", "198.51.100.1")
+	if ip := GetClientIP(reqSpoofed); ip != "192.0.2.1" {
+		t.Errorf("expected remote addr '192.0.2.1' when proxy trust is disabled, got '%s'", ip)
+	}
+
+	// 2. With proxy trust enabled
+	_ = os.Setenv("FLAGURA_TRUST_PROXY", "true")
+	defer os.Unsetenv("FLAGURA_TRUST_PROXY")
+
+	// 2a. X-Forwarded-For
 	reqXFF := httptest.NewRequest(http.MethodGet, "/", nil)
+	reqXFF.RemoteAddr = "192.0.2.1:45678"
 	reqXFF.Header.Set("X-Forwarded-For", "203.0.113.195, 70.41.3.18")
 	if ip := GetClientIP(reqXFF); ip != "203.0.113.195" {
 		t.Errorf("expected IP '203.0.113.195', got '%s'", ip)
 	}
 
-	// 2. X-Real-IP
+	// 2b. X-Real-IP
 	reqReal := httptest.NewRequest(http.MethodGet, "/", nil)
+	reqReal.RemoteAddr = "192.0.2.1:45678"
 	reqReal.Header.Set("X-Real-IP", "198.51.100.1")
 	if ip := GetClientIP(reqReal); ip != "198.51.100.1" {
 		t.Errorf("expected IP '198.51.100.1', got '%s'", ip)
 	}
 
-	// 3. RemoteAddr with port
+	// 2c. Fallback to RemoteAddr with port
 	reqRemote := httptest.NewRequest(http.MethodGet, "/", nil)
 	reqRemote.RemoteAddr = "192.0.2.1:45678"
 	if ip := GetClientIP(reqRemote); ip != "192.0.2.1" {

@@ -192,6 +192,30 @@ func (s *Server) handleInvitations(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Security: Validate that the caller has administrative permissions for this organization
+		if user.Role != domain.RoleAdmin {
+			members, err := s.store.ListOrgMembers(r.Context(), org.ID)
+			if err != nil {
+				s.writeError(w, r, domain.NewAppError(domain.ErrCodeInternal, err.Error(), http.StatusInternalServerError, err))
+				return
+			}
+			var callerRole string
+			for _, m := range members {
+				if m.UserID == user.ID {
+					callerRole = m.Role
+					break
+				}
+			}
+			if callerRole != "owner" && callerRole != "admin" {
+				s.writeError(w, r, domain.NewAppError(domain.ErrCodeForbidden, "Only organization owners and admins can invite new members", http.StatusForbidden, domain.ErrForbidden))
+				return
+			}
+			if callerRole != "owner" && (req.Role == "admin" || req.Role == "owner") {
+				s.writeError(w, r, domain.NewAppError(domain.ErrCodeForbidden, "Only organization owners can invite admins or owners", http.StatusForbidden, domain.ErrForbidden))
+				return
+			}
+		}
+
 		inv := domain.OrgInvitation{
 			OrganizationID: org.ID,
 			OrgName:        org.Name,
@@ -251,6 +275,17 @@ func (s *Server) handleAcceptInvitation(w http.ResponseWriter, r *http.Request) 
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, err))
+		return
+	}
+
+	inv, err := s.store.GetOrgInvitation(r.Context(), req.Token)
+	if err != nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeNotFound, err.Error(), http.StatusNotFound, err))
+		return
+	}
+
+	if inv.Email != "" && user.Email != "" && !strings.EqualFold(user.Email, inv.Email) {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeForbidden, fmt.Sprintf("Invitation was issued for %s, but accepted by %s", inv.Email, user.Email), http.StatusForbidden, domain.ErrForbidden))
 		return
 	}
 

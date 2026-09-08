@@ -60,11 +60,9 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectID := s.resolveProjectID(r)
-
 	// Fetch user's organizations and associated projects
 	orgs, _ := s.store.ListUserOrganizations(r.Context(), user.ID)
-	if len(orgs) == 0 {
+	if len(orgs) == 0 && user.Role == domain.RoleAdmin {
 		allOrgs, _ := s.store.ListOrganizations(r.Context())
 		if len(allOrgs) > 0 {
 			orgs = allOrgs
@@ -78,8 +76,15 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 				projects = append(projects, projs...)
 			}
 		}
-	} else {
+	} else if user.Role == domain.RoleAdmin {
 		projects, _ = s.store.ListProjects(r.Context(), "")
+	}
+
+	projectID, err := s.resolveAndAuthorizeProjectID(r)
+	if err != nil && len(projects) > 0 {
+		projectID = projects[0].ID
+	} else if err != nil {
+		projectID = domain.DefaultProjectID
 	}
 
 	if len(projects) > 0 {

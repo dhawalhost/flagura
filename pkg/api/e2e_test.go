@@ -262,6 +262,15 @@ func TestE2E_FullPlatformLifecycle(t *testing.T) {
 			}
 		}
 
+		// Ensure Lead Dev is added as an org member to the workspace organization
+		if leadUser, err := memStore.GetUserByEmail(context.Background(), "lead.dev@flagura-e2e.com"); err == nil && leadUser != nil {
+			_, _ = memStore.CreateOrgMember(context.Background(), domain.OrgMember{
+				OrganizationID: customOrgID,
+				UserID:         leadUser.ID,
+				Role:           string(domain.RoleDeveloper),
+			})
+		}
+
 		// Author submits CR
 		crBody := domain.ChangeRequest{
 			ProjectID:   customProjID,

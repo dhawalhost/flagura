@@ -189,6 +189,18 @@ func (s *MemoryStore) DeleteSession(ctx context.Context, token string) error {
 	return nil
 }
 
+func (s *MemoryStore) DeleteUserSessions(ctx context.Context, userID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for token, sess := range s.sessions {
+		if sess.UserID == userID {
+			delete(s.sessions, token)
+		}
+	}
+	return nil
+}
+
 // ListFlags retrieves all flags from the current immutable snapshot.
 func (s *MemoryStore) ListFlags(ctx context.Context) ([]domain.FeatureFlag, error) {
 	snap := s.flagsSnapshot.Load()
@@ -202,9 +214,26 @@ func (s *MemoryStore) ListFlags(ctx context.Context) ([]domain.FeatureFlag, erro
 	return result, nil
 }
 
-// GetFlag looks up a flag by key or ID from the default project.
+// GetFlag looks up a flag by key or ID, checking DefaultProjectID first and then falling back to all flags.
 func (s *MemoryStore) GetFlag(ctx context.Context, keyOrID string) (*domain.FeatureFlag, error) {
-	return s.GetFlagByProject(ctx, DefaultProjectID, keyOrID)
+	f, err := s.GetFlagByProject(ctx, DefaultProjectID, keyOrID)
+	if err == nil {
+		return f, nil
+	}
+	snap := s.flagsSnapshot.Load()
+	if snap != nil {
+		if flag, exists := snap.flagsMap[keyOrID]; exists {
+			fCopy := flag.DeepCopy()
+			return &fCopy, nil
+		}
+		for _, f := range snap.flagsList {
+			if f.Key == keyOrID || f.ID == keyOrID {
+				fCopy := f.DeepCopy()
+				return &fCopy, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("flag not found: %s", keyOrID)
 }
 
 func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, actor string) (*domain.AuditLogEntry, error) {
@@ -295,9 +324,20 @@ func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 }
 
 func (s *MemoryStore) DeleteFlag(ctx context.Context, keyOrID string, actor string) (*domain.AuditLogEntry, error) {
+	f, err := s.GetFlag(ctx, keyOrID)
+	if err != nil {
+		return nil, err
+	}
+	return s.DeleteFlagByProject(ctx, f.ProjectID, keyOrID, actor)
+}
+
+func (s *MemoryStore) DeleteFlagByProject(ctx context.Context, projectID, keyOrID string, actor string) (*domain.AuditLogEntry, error) {
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
 	if actor == "" {
 		actor = "admin@flagura.dev"
 	}
@@ -312,7 +352,11 @@ func (s *MemoryStore) DeleteFlag(ctx context.Context, keyOrID string, actor stri
 	found := false
 
 	for _, f := range currentSnap.flagsList {
-		if f.Key == keyOrID || f.ID == keyOrID {
+		fProj := f.ProjectID
+		if fProj == "" {
+			fProj = DefaultProjectID
+		}
+		if fProj == projectID && (f.Key == keyOrID || f.ID == keyOrID) {
 			deletedKey = f.Key
 			found = true
 			continue
@@ -321,17 +365,18 @@ func (s *MemoryStore) DeleteFlag(ctx context.Context, keyOrID string, actor stri
 	}
 
 	if !found {
-		return nil, fmt.Errorf("flag not found: %s", keyOrID)
+		return nil, fmt.Errorf("flag not found in project %s: %s", projectID, keyOrID)
 	}
 
 	log := domain.AuditLogEntry{
 		ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
+		ProjectID:   projectID,
 		Timestamp:   time.Now().UTC(),
 		Actor:       actor,
 		Action:      "FLAG_DELETED",
 		FlagKey:     deletedKey,
 		Environment: "all",
-		Details:     fmt.Sprintf("Permanently removed feature flag '%s'.", deletedKey),
+		Details:     fmt.Sprintf("Permanently removed feature flag '%s' from project '%s'.", deletedKey, projectID),
 	}
 
 	newSnap := newFlagSnapshot(newList)
@@ -345,9 +390,20 @@ func (s *MemoryStore) DeleteFlag(ctx context.Context, keyOrID string, actor stri
 }
 
 func (s *MemoryStore) ToggleFlag(ctx context.Context, keyOrID string, env domain.Environment, enabled *bool, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
+	f, err := s.GetFlag(ctx, keyOrID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.ToggleFlagByProject(ctx, f.ProjectID, keyOrID, env, enabled, actor)
+}
+
+func (s *MemoryStore) ToggleFlagByProject(ctx context.Context, projectID, keyOrID string, env domain.Environment, enabled *bool, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
 	if actor == "" {
 		actor = "admin@flagura.dev"
 	}
@@ -367,7 +423,11 @@ func (s *MemoryStore) ToggleFlag(ctx context.Context, keyOrID string, env domain
 
 	for i, f := range currentSnap.flagsList {
 		flagCopy := f.DeepCopy()
-		if flagCopy.Key == keyOrID || flagCopy.ID == keyOrID {
+		fProj := flagCopy.ProjectID
+		if fProj == "" {
+			fProj = DefaultProjectID
+		}
+		if fProj == projectID && (flagCopy.Key == keyOrID || flagCopy.ID == keyOrID) {
 			cfg := flagCopy.Environments[env]
 			if enabled != nil {
 				cfg.Enabled = *enabled
@@ -388,12 +448,13 @@ func (s *MemoryStore) ToggleFlag(ctx context.Context, keyOrID string, env domain
 
 			log = domain.AuditLogEntry{
 				ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
+				ProjectID:   projectID,
 				Timestamp:   time.Now().UTC(),
 				Actor:       actor,
 				Action:      "KILL_SWITCH_TOGGLED",
 				FlagKey:     flagCopy.Key,
 				Environment: env,
-				Details:     fmt.Sprintf("%s flag for %s environment.", statusText, env),
+				Details:     fmt.Sprintf("%s flag for %s environment in project %s.", statusText, env, projectID),
 			}
 		} else {
 			newList[i] = flagCopy
@@ -401,7 +462,7 @@ func (s *MemoryStore) ToggleFlag(ctx context.Context, keyOrID string, env domain
 	}
 
 	if !found {
-		return nil, nil, fmt.Errorf("flag not found: %s", keyOrID)
+		return nil, nil, fmt.Errorf("flag not found in project %s: %s", projectID, keyOrID)
 	}
 
 	newSnap := newFlagSnapshot(newList)
@@ -415,9 +476,20 @@ func (s *MemoryStore) ToggleFlag(ctx context.Context, keyOrID string, env domain
 }
 
 func (s *MemoryStore) UpdateRollout(ctx context.Context, keyOrID string, env domain.Environment, pct float64, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
+	f, err := s.GetFlag(ctx, keyOrID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.UpdateRolloutByProject(ctx, f.ProjectID, keyOrID, env, pct, actor)
+}
+
+func (s *MemoryStore) UpdateRolloutByProject(ctx context.Context, projectID, keyOrID string, env domain.Environment, pct float64, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
 	if actor == "" {
 		actor = "engineer@flagura.dev"
 	}
@@ -443,7 +515,11 @@ func (s *MemoryStore) UpdateRollout(ctx context.Context, keyOrID string, env dom
 
 	for i, f := range currentSnap.flagsList {
 		flagCopy := f.DeepCopy()
-		if flagCopy.Key == keyOrID || flagCopy.ID == keyOrID {
+		fProj := flagCopy.ProjectID
+		if fProj == "" {
+			fProj = DefaultProjectID
+		}
+		if fProj == projectID && (flagCopy.Key == keyOrID || flagCopy.ID == keyOrID) {
 			cfg := flagCopy.Environments[env]
 			oldPct := cfg.Percentage
 			cfg.Percentage = pct
@@ -459,12 +535,13 @@ func (s *MemoryStore) UpdateRollout(ctx context.Context, keyOrID string, env dom
 
 			log = domain.AuditLogEntry{
 				ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
+				ProjectID:   projectID,
 				Timestamp:   time.Now().UTC(),
 				Actor:       actor,
 				Action:      "ROLLOUT_UPDATED",
 				FlagKey:     flagCopy.Key,
 				Environment: env,
-				Details:     fmt.Sprintf("Updated percentage rollout from %.0f%% to %.0f%% for %s.", oldPct, pct, env),
+				Details:     fmt.Sprintf("Updated percentage rollout from %.0f%% to %.0f%% for %s in project %s.", oldPct, pct, env, projectID),
 			}
 		} else {
 			newList[i] = flagCopy
@@ -472,7 +549,7 @@ func (s *MemoryStore) UpdateRollout(ctx context.Context, keyOrID string, env dom
 	}
 
 	if !found {
-		return nil, nil, fmt.Errorf("flag not found: %s", keyOrID)
+		return nil, nil, fmt.Errorf("flag not found in project %s: %s", projectID, keyOrID)
 	}
 
 	newSnap := newFlagSnapshot(newList)
@@ -750,6 +827,19 @@ func (s *MemoryStore) GetAPIKeyByHash(ctx context.Context, hash string) (*domain
 	return &kCopy, nil
 }
 
+func (s *MemoryStore) GetAPIKeyByID(ctx context.Context, id string) (*domain.APIKey, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	key, exists := s.apiKeys[id]
+	if !exists {
+		return nil, fmt.Errorf("api key not found: %s", id)
+	}
+	kCopy := key
+	kCopy.KeyHash = ""
+	return &kCopy, nil
+}
+
 func (s *MemoryStore) RevokeAPIKey(ctx context.Context, id string, actor string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -771,6 +861,36 @@ func (s *MemoryStore) RevokeAPIKey(ctx context.Context, id string, actor string)
 		Actor:       actor,
 		Timestamp:   time.Now().UTC(),
 		Details:     fmt.Sprintf("Revoked API Key '%s' (%s)", key.Name, key.ID),
+	}
+	s.auditLogs = append([]domain.AuditLogEntry{audit}, s.auditLogs...)
+
+	return nil
+}
+
+func (s *MemoryStore) RevokeAPIKeyByProject(ctx context.Context, projectID, id, actor string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key, exists := s.apiKeys[id]
+	if !exists {
+		return fmt.Errorf("api key not found: %s", id)
+	}
+	if key.ProjectID != projectID {
+		return fmt.Errorf("api key '%s' does not belong to project '%s'", id, projectID)
+	}
+
+	key.Revoked = true
+	s.apiKeys[id] = key
+	delete(s.apiKeysByHash, key.KeyHash)
+
+	audit := domain.AuditLogEntry{
+		ID:          fmt.Sprintf("audit_%d", time.Now().UnixNano()),
+		FlagKey:     "api-keys",
+		Action:      "API_KEY_REVOKED",
+		Environment: "all",
+		Actor:       actor,
+		Timestamp:   time.Now().UTC(),
+		Details:     fmt.Sprintf("Revoked API Key '%s' (%s) in project %s", key.Name, key.ID, projectID),
 	}
 	s.auditLogs = append([]domain.AuditLogEntry{audit}, s.auditLogs...)
 
@@ -868,6 +988,9 @@ func (s *MemoryStore) UpdateUser(ctx context.Context, user domain.User) (*domain
 	if user.Name != "" {
 		existing.Name = user.Name
 	}
+	if user.Role != "" {
+		existing.Role = user.Role
+	}
 	existing.AvatarURL = user.AvatarURL
 	existing.UpdatedAt = time.Now().UTC()
 
@@ -942,6 +1065,14 @@ func (s *MemoryStore) GetOrganization(ctx context.Context, idOrSlug string) (*do
 
 	org, exists := s.orgs[idOrSlug]
 	if !exists {
+		if idOrSlug == DefaultOrgID || idOrSlug == DefaultOrgSlug {
+			return &domain.Organization{
+				ID:          DefaultOrgID,
+				Name:        DefaultOrgName,
+				Slug:        DefaultOrgSlug,
+				Description: "Default workspace organization",
+			}, nil
+		}
 		return nil, fmt.Errorf("organization not found: %s", idOrSlug)
 	}
 	return &org, nil
@@ -1001,6 +1132,15 @@ func (s *MemoryStore) GetProject(ctx context.Context, idOrSlug string) (*domain.
 
 	proj, exists := s.projects[idOrSlug]
 	if !exists {
+		if idOrSlug == DefaultProjectID || idOrSlug == DefaultProjectSlug {
+			return &domain.Project{
+				ID:             DefaultProjectID,
+				OrganizationID: DefaultOrgID,
+				Name:           DefaultProjectName,
+				Slug:           DefaultProjectSlug,
+				Description:    "Default feature flagging project",
+			}, nil
+		}
 		return nil, fmt.Errorf("project not found: %s", idOrSlug)
 	}
 	return &proj, nil
@@ -1245,6 +1385,12 @@ func (s *MemoryStore) AcceptOrgInvitation(ctx context.Context, token, userID str
 	}
 	if inv.IsAccepted() {
 		return nil, fmt.Errorf("invitation already accepted")
+	}
+
+	if user, ok := s.users[userID]; ok && user.Email != "" && inv.Email != "" {
+		if !strings.EqualFold(user.Email, inv.Email) {
+			return nil, fmt.Errorf("invitation was issued for %s, but accepted by %s", inv.Email, user.Email)
+		}
 	}
 
 	now := time.Now().UTC()

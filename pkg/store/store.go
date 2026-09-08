@@ -38,6 +38,9 @@ type Store interface {
 	// Flags & Audit (Project-Scoped)
 	ListFlagsByProject(ctx context.Context, projectID string) ([]domain.FeatureFlag, error)
 	GetFlagByProject(ctx context.Context, projectID, keyOrID string) (*domain.FeatureFlag, error)
+	DeleteFlagByProject(ctx context.Context, projectID, keyOrID string, actor string) (*domain.AuditLogEntry, error)
+	ToggleFlagByProject(ctx context.Context, projectID, keyOrID string, env domain.Environment, enabled *bool, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error)
+	UpdateRolloutByProject(ctx context.Context, projectID, keyOrID string, env domain.Environment, pct float64, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error)
 	ListAuditLogsByProject(ctx context.Context, projectID string, limit int) ([]domain.AuditLogEntry, error)
 
 	// Flags & Audit (Default Project fallback for backward compatibility)
@@ -60,6 +63,7 @@ type Store interface {
 	CreateSession(ctx context.Context, session domain.Session) error
 	GetSession(ctx context.Context, token string) (*domain.Session, error)
 	DeleteSession(ctx context.Context, token string) error
+	DeleteUserSessions(ctx context.Context, userID string) error
 	CreatePasswordResetToken(ctx context.Context, email string, ttl time.Duration) (string, error)
 	GetPasswordResetToken(ctx context.Context, token string) (*domain.PasswordResetToken, error)
 	ResetPasswordWithToken(ctx context.Context, token string, newPasswordHash string) error
@@ -83,5 +87,7 @@ type Store interface {
 	ListAPIKeys(ctx context.Context) ([]domain.APIKey, error)
 	ListAPIKeysByProject(ctx context.Context, projectID string) ([]domain.APIKey, error)
 	GetAPIKeyByHash(ctx context.Context, hash string) (*domain.APIKey, error)
+	GetAPIKeyByID(ctx context.Context, id string) (*domain.APIKey, error)
 	RevokeAPIKey(ctx context.Context, id string, actor string) error
+	RevokeAPIKeyByProject(ctx context.Context, projectID, id, actor string) error
 }

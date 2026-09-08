@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -137,28 +138,34 @@ func GetClientIdentity(r *http.Request) string {
 	return "ip:" + GetClientIP(r)
 }
 
-// GetClientIP extracts the real client IP address from headers or remote connection.
+// GetClientIP extracts the real client IP address. By default, it extracts directly
+// from r.RemoteAddr to prevent header spoofing. If FLAGURA_TRUST_PROXY=true or
+// TRUST_PROXY=true, it parses and validates X-Forwarded-For / X-Real-IP headers.
 func GetClientIP(r *http.Request) string {
-	// Check X-Forwarded-For (proxy/load balancer)
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.Split(xff, ",")
-		if len(parts) > 0 {
-			ip := strings.TrimSpace(parts[0])
-			if ip != "" {
+	trustProxy := strings.EqualFold(os.Getenv("FLAGURA_TRUST_PROXY"), "true") || strings.EqualFold(os.Getenv("TRUST_PROXY"), "true")
+
+	if trustProxy {
+		// Check X-Forwarded-For (proxy/load balancer)
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			parts := strings.Split(xff, ",")
+			if len(parts) > 0 {
+				ip := strings.TrimSpace(parts[0])
+				if net.ParseIP(ip) != nil {
+					return ip
+				}
+			}
+		}
+
+		// Check X-Real-IP
+		if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
+			ip := strings.TrimSpace(xrip)
+			if net.ParseIP(ip) != nil {
 				return ip
 			}
 		}
 	}
 
-	// Check X-Real-IP
-	if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
-		ip := strings.TrimSpace(xrip)
-		if ip != "" {
-			return ip
-		}
-	}
-
-	// Fallback to RemoteAddr
+	// RemoteAddr
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil && host != "" {
 		return host

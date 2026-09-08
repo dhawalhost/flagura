@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -226,11 +227,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
 	} else if origin != "" {
-		// By default only allow localhost in development or same-host origins
-		host := r.Host
-		if strings.Contains(origin, "://"+host) || strings.HasPrefix(origin, "http://localhost") || strings.HasPrefix(origin, "http://127.0.0.1") {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		// By default only allow exact same-host origins or localhost/127.0.0.1 in development
+		if parsed, err := url.Parse(origin); err == nil && parsed.Host != "" {
+			if parsed.Host == r.Host || parsed.Hostname() == "localhost" || parsed.Hostname() == "127.0.0.1" {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			}
 		}
 	}
 

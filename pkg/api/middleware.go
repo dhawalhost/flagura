@@ -192,7 +192,7 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 
 		// Content Security Policy allowing required CDNs and embedded resources
 		csp := "default-src 'self'; " +
-			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; " +
+			"script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; " +
 			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
 			"font-src 'self' https://fonts.gstatic.com data:; " +
 			"img-src 'self' data: https: blob:; " +

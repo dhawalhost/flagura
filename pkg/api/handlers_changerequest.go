@@ -14,10 +14,14 @@ func (s *Server) handleListOrCreateChangeRequests(w http.ResponseWriter, r *http
 	switch r.Method {
 	case http.MethodGet:
 		status := domain.ChangeRequestStatus(r.URL.Query().Get("status"))
-		projectID := s.resolveProjectID(r)
+		projectID, err := s.resolveAndAuthorizeProjectID(r)
+		if err != nil {
+			s.writeError(w, r, err)
+			return
+		}
 		crs, err := s.store.ListChangeRequestsByProject(r.Context(), projectID, status)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -42,19 +46,29 @@ func (s *Server) handleCreateChangeRequest(w http.ResponseWriter, r *http.Reques
 
 	var req domain.ChangeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON payload: "+err.Error(), http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "Invalid JSON payload: "+err.Error(), http.StatusBadRequest, err))
 		return
 	}
 
 	if req.FlagKey == "" {
-		http.Error(w, "flag_key is required", http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "flag_key is required", http.StatusBadRequest, domain.ErrInvalidInput))
 		return
 	}
 	if req.Environment == "" {
 		req.Environment = domain.EnvProduction
 	}
 	if req.ProjectID == "" {
-		req.ProjectID = s.resolveProjectID(r)
+		projectID, err := s.resolveAndAuthorizeProjectID(r)
+		if err != nil {
+			s.writeError(w, r, err)
+			return
+		}
+		req.ProjectID = projectID
+	} else {
+		if err := s.authorizeProjectAccess(r, req.ProjectID); err != nil {
+			s.writeError(w, r, err)
+			return
+		}
 	}
 
 	req.AuthorUserID = user.ID
@@ -125,7 +139,11 @@ func (s *Server) handleChangeRequestItem(w http.ResponseWriter, r *http.Request)
 		if r.Method == http.MethodGet {
 			cr, err := s.store.GetChangeRequest(r.Context(), id)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusNotFound)
+				s.writeError(w, r, domain.NewAppError(domain.ErrCodeNotFound, err.Error(), http.StatusNotFound, err))
+				return
+			}
+			if err := s.authorizeProjectAccess(r, cr.ProjectID); err != nil {
+				s.writeError(w, r, err)
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -166,6 +184,16 @@ func (s *Server) handleReviewChangeRequest(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	cr, err := s.store.GetChangeRequest(r.Context(), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.authorizeProjectAccess(r, cr.ProjectID); err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+
 	var req struct {
 		Approved bool   `json:"approved"`
 		Comments string `json:"comments"`
@@ -194,6 +222,16 @@ func (s *Server) handleApplyChangeRequest(w http.ResponseWriter, r *http.Request
 	actor := "system"
 	if user != nil {
 		actor = user.Email
+	}
+
+	targetCR, err := s.store.GetChangeRequest(r.Context(), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.authorizeProjectAccess(r, targetCR.ProjectID); err != nil {
+		s.writeError(w, r, err)
+		return
 	}
 
 	flag, cr, audit, err := s.store.ApplyChangeRequest(r.Context(), id, actor)

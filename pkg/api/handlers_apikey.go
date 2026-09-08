@@ -38,7 +38,11 @@ func generateRawAPIKey() (string, string, string, error) {
 func (s *Server) handleListOrCreateAPIKeys(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		projectID := s.resolveProjectID(r)
+		projectID, err := s.resolveAndAuthorizeProjectID(r)
+		if err != nil {
+			s.writeError(w, r, err)
+			return
+		}
 		keys, err := s.store.ListAPIKeysByProject(r.Context(), projectID)
 		if err != nil {
 			s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
@@ -96,7 +100,11 @@ func (s *Server) handleListOrCreateAPIKeys(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		projectID := s.resolveProjectID(r)
+		projectID, err := s.resolveAndAuthorizeProjectID(r)
+		if err != nil {
+			s.writeError(w, r, err)
+			return
+		}
 		apiKey := domain.APIKey{
 			ID:          domain.NewID("key"),
 			ProjectID:   projectID,
@@ -140,9 +148,23 @@ func (s *Server) handleRevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 1. Fetch the target key to identify its project
+	key, err := s.store.GetAPIKeyByID(r.Context(), id)
+	if err != nil || key == nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeAPIKeyNotFound, fmt.Sprintf("API key not found: %s", id), http.StatusNotFound, domain.ErrKeyNotFound))
+		return
+	}
+
+	// 2. Security: Verify that caller is authorized to administer this project's keys
+	if err := s.authorizeProjectAccess(r, key.ProjectID); err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+
 	actor := s.getActorFromRequest(r, "admin@flagura.dev")
 
-	if err := s.store.RevokeAPIKey(r.Context(), id, actor); err != nil {
+	// 3. Revoke with project scoping
+	if err := s.store.RevokeAPIKeyByProject(r.Context(), key.ProjectID, id, actor); err != nil {
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeAPIKeyNotFound, err.Error(), http.StatusNotFound, domain.ErrKeyNotFound))
 		return
 	}

@@ -3,6 +3,8 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -24,20 +26,18 @@ func TestRealTimeStreamingSync(t *testing.T) {
 	ts := httptest.NewServer(server)
 	defer ts.Close()
 
-	// Initialize client with long 60s polling interval so we know updates come via SSE stream
-	c := New(ts.URL,
-		WithProjectID("proj_test"),
-		WithLocalEvaluation(60*time.Second),
-		WithStreaming(true),
-	)
-	defer c.Close()
-
-	// Give SSE connection 50ms to establish
-	time.Sleep(50 * time.Millisecond)
-
 	ctx := context.Background()
 
-	// Seed target flag
+	// Seed org, project and target flag
+	_, _ = st.CreateOrganization(ctx, domain.Organization{
+		ID:   domain.DefaultOrgID,
+		Name: "Default Org",
+	})
+	_, _ = st.CreateProject(ctx, domain.Project{
+		ID:             "proj_test",
+		OrganizationID: domain.DefaultOrgID,
+		Name:           "Test Project",
+	})
 	_, _ = st.SaveFlag(ctx, domain.FeatureFlag{
 		ID:        "flag_rate_limiter",
 		ProjectID: "proj_test",
@@ -52,11 +52,41 @@ func TestRealTimeStreamingSync(t *testing.T) {
 		},
 	}, "test")
 
+	apiKeyVal := "flg_live_test_stream_key_secret_12345"
+	h := sha256.Sum256([]byte(apiKeyVal))
+	keyHash := hex.EncodeToString(h[:])
+	_, _ = st.CreateAPIKey(ctx, domain.APIKey{
+		ID:          "key_stream_test",
+		ProjectID:   "proj_test",
+		Key:         apiKeyVal,
+		KeyHash:     keyHash,
+		Name:        "Stream Test Key",
+		Role:        domain.RoleDeveloper,
+		Environment: "production",
+	})
+
+	// Initialize client with long 60s polling interval so we know updates come via SSE stream
+	c := New(ts.URL,
+		WithAPIKey(apiKeyVal),
+		WithProjectID("proj_test"),
+		WithLocalEvaluation(60*time.Second),
+		WithStreaming(true),
+	)
+	defer c.Close()
+
+	// Give SSE connection 50ms to establish
+	time.Sleep(50 * time.Millisecond)
+
 	// Create test authenticated developer user & session
 	devUser, _ := st.CreateUser(ctx, domain.User{
 		Email: "tester@flagura.dev",
 		Name:  "Tester",
 		Role:  domain.RoleDeveloper,
+	})
+	_, _ = st.CreateOrgMember(ctx, domain.OrgMember{
+		OrganizationID: domain.DefaultOrgID,
+		UserID:         devUser.ID,
+		Role:           string(domain.RoleDeveloper),
 	})
 	sessionToken := "test_stream_session_token"
 	_ = st.CreateSession(ctx, domain.Session{

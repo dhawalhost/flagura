@@ -53,6 +53,7 @@ func BenchmarkHTTPEvaluateEndpoint(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/evaluate", bytes.NewReader(payload))
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Project-ID", store.DefaultProjectID)
 		resp, err := client.Do(req)
 		if err != nil {
 			b.Fatalf("HTTP request failed: %v", err)

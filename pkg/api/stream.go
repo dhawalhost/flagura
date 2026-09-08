@@ -195,9 +195,25 @@ func (s *Server) handleFlagsStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Accel-Buffering", "no")
 
 	ctx := r.Context()
-	projectID := s.resolveProjectID(r)
+
+	// Authentication check: streaming raw flag definitions, rules, and rollouts strictly requires valid credentials
+	apiKey := s.getAPIKeyFromRequest(r)
+	user := UserFromContext(ctx)
+	if user == nil {
+		user, _ = s.getUserFromRequest(r)
+	}
+	if apiKey == nil && user == nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeUnauthorized, "Authentication required to stream flag configurations (provide API key or active session)", http.StatusUnauthorized, domain.ErrUnauthorized))
+		return
+	}
+
+	projectID, err := s.resolveAndAuthorizeProjectID(r)
+	if err != nil {
+		s.writeError(w, r, err)
+		return
+	}
 	if projectID == "" {
-		http.Error(w, "project_id is required via X-Project-ID header, project_id query parameter, or API key", http.StatusBadRequest)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectRequired, "project_id is required via X-Project-ID header, project_id query parameter, or API key", http.StatusBadRequest, domain.ErrInvalidInput))
 		return
 	}
 	envParam := r.URL.Query().Get("environment")

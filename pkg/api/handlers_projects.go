@@ -15,7 +15,14 @@ func (s *Server) handleListOrganizations(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	orgs, err := s.store.ListOrganizations(r.Context())
+	user := UserFromContext(r.Context())
+	var orgs []domain.Organization
+	var err error
+	if user != nil && user.Role != domain.RoleAdmin {
+		orgs, err = s.store.ListUserOrganizations(r.Context(), user.ID)
+	} else {
+		orgs, err = s.store.ListOrganizations(r.Context())
+	}
 	if err != nil {
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
 		return
@@ -65,9 +72,55 @@ func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := UserFromContext(r.Context())
 	orgID := r.URL.Query().Get("organization_id")
 	if orgID == "" {
 		orgID = r.URL.Query().Get("org_id")
+	}
+
+	if user != nil && user.Role != domain.RoleAdmin {
+		userOrgs, err := s.store.ListUserOrganizations(r.Context(), user.ID)
+		if err != nil {
+			s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
+			return
+		}
+		userOrgMap := make(map[string]bool)
+		for _, o := range userOrgs {
+			userOrgMap[o.ID] = true
+		}
+
+		if orgID != "" {
+			if !userOrgMap[orgID] {
+				s.writeError(w, r, domain.NewAppError(domain.ErrCodeForbidden, "user not authorized to view projects for this organization", http.StatusForbidden, domain.ErrForbidden))
+				return
+			}
+			projects, err := s.store.ListProjects(r.Context(), orgID)
+			if err != nil {
+				s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
+				return
+			}
+			activeProjectID := s.resolveProjectID(r)
+			s.writeJSON(w, http.StatusOK, map[string]interface{}{
+				"projects":          projects,
+				"count":             len(projects),
+				"active_project_id": activeProjectID,
+			})
+			return
+		}
+
+		var projects []domain.Project
+		for _, o := range userOrgs {
+			if projs, err := s.store.ListProjects(r.Context(), o.ID); err == nil {
+				projects = append(projects, projs...)
+			}
+		}
+		activeProjectID := s.resolveProjectID(r)
+		s.writeJSON(w, http.StatusOK, map[string]interface{}{
+			"projects":          projects,
+			"count":             len(projects),
+			"active_project_id": activeProjectID,
+		})
+		return
 	}
 
 	projects, err := s.store.ListProjects(r.Context(), orgID)
@@ -120,6 +173,22 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := UserFromContext(r.Context())
+	if user != nil && user.Role != domain.RoleAdmin {
+		orgs, _ := s.store.ListUserOrganizations(r.Context(), user.ID)
+		authorized := false
+		for _, o := range orgs {
+			if o.ID == req.OrganizationID {
+				authorized = true
+				break
+			}
+		}
+		if !authorized {
+			s.writeError(w, r, domain.NewAppError(domain.ErrCodeForbidden, "not authorized to create projects in this organization", http.StatusForbidden, domain.ErrForbidden))
+			return
+		}
+	}
+
 	proj := domain.NewProject(req.OrganizationID, req.Name, req.Slug, req.Description)
 
 	created, err := s.store.CreateProject(r.Context(), proj)
@@ -150,6 +219,22 @@ func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectNotFound, err.Error(), http.StatusNotFound, domain.ErrProjectNotFound))
 		return
+	}
+
+	user := UserFromContext(r.Context())
+	if user != nil && user.Role != domain.RoleAdmin {
+		orgs, _ := s.store.ListUserOrganizations(r.Context(), user.ID)
+		authorized := false
+		for _, o := range orgs {
+			if o.ID == proj.OrganizationID {
+				authorized = true
+				break
+			}
+		}
+		if !authorized {
+			s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectAccessDenied, "user not authorized to view this project", http.StatusForbidden, domain.ErrForbidden))
+			return
+		}
 	}
 
 	s.writeJSON(w, http.StatusOK, proj)
@@ -185,6 +270,22 @@ func (s *Server) handleSwitchActiveProject(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectNotFound, "project not found: "+req.ProjectID, http.StatusNotFound, domain.ErrProjectNotFound))
 		return
+	}
+
+	user := UserFromContext(r.Context())
+	if user != nil && user.Role != domain.RoleAdmin {
+		orgs, _ := s.store.ListUserOrganizations(r.Context(), user.ID)
+		authorized := false
+		for _, o := range orgs {
+			if o.ID == proj.OrganizationID {
+				authorized = true
+				break
+			}
+		}
+		if !authorized {
+			s.writeError(w, r, domain.NewAppError(domain.ErrCodeProjectAccessDenied, "user not authorized to switch to this project", http.StatusForbidden, domain.ErrForbidden))
+			return
+		}
 	}
 
 	s.setProjectCookie(w, r, proj.ID, time.Now().Add(30*24*time.Hour))

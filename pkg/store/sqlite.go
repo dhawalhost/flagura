@@ -461,7 +461,9 @@ func (s *SQLiteStore) ListUserOrganizations(ctx context.Context, userID string) 
 		org.UpdatedAt, _ = time.Parse(time.RFC3339, updatedStr)
 		list = append(list, org)
 	}
-	if len(list) == 0 {
+	var role string
+	_ = s.db.QueryRowContext(ctx, "SELECT role FROM users WHERE id = ?", userID).Scan(&role)
+	if role == string(domain.RoleAdmin) {
 		return s.ListOrganizations(ctx)
 	}
 	return list, nil
@@ -696,27 +698,43 @@ func (s *SQLiteStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 }
 
 func (s *SQLiteStore) DeleteFlag(ctx context.Context, keyOrID string, actor string) (*domain.AuditLogEntry, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	flag, err := s.GetFlag(ctx, keyOrID)
 	if err != nil {
 		return nil, err
 	}
+	return s.DeleteFlagByProject(ctx, flag.ProjectID, flag.ID, actor)
+}
 
-	_, err = s.db.ExecContext(ctx, "DELETE FROM feature_flags WHERE id = ? OR (project_id = ? AND key = ?)", flag.ID, flag.ProjectID, flag.Key)
+func (s *SQLiteStore) DeleteFlagByProject(ctx context.Context, projectID, keyOrID string, actor string) (*domain.AuditLogEntry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	flag, err := s.GetFlagByProject(ctx, projectID, keyOrID)
 	if err != nil {
 		return nil, err
 	}
 
+	res, err := s.db.ExecContext(ctx, "DELETE FROM feature_flags WHERE project_id = ? AND (id = ? OR key = ?)", projectID, flag.ID, flag.Key)
+	if err != nil {
+		return nil, err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return nil, domain.ErrFlagNotFound
+	}
+
 	audit := domain.AuditLogEntry{
 		ID:          "audit_" + generateHexToken(12),
-		ProjectID:   flag.ProjectID,
+		ProjectID:   projectID,
 		FlagKey:     flag.Key,
 		Action:      "DELETE_FLAG",
 		Environment: domain.Environment("all"),
 		Actor:       actor,
-		Details:     fmt.Sprintf("Deleted flag %q permanently", flag.Key),
+		Details:     fmt.Sprintf("Deleted flag %q from project %q permanently", flag.Key, projectID),
 		Timestamp:   time.Now().UTC(),
 	}
 	_ = s.insertAuditLog(ctx, audit)
@@ -725,10 +743,22 @@ func (s *SQLiteStore) DeleteFlag(ctx context.Context, keyOrID string, actor stri
 }
 
 func (s *SQLiteStore) ToggleFlag(ctx context.Context, keyOrID string, env domain.Environment, enabled *bool, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
+	flag, err := s.GetFlag(ctx, keyOrID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.ToggleFlagByProject(ctx, flag.ProjectID, flag.ID, env, enabled, actor)
+}
+
+func (s *SQLiteStore) ToggleFlagByProject(ctx context.Context, projectID, keyOrID string, env domain.Environment, enabled *bool, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	flag, err := s.GetFlag(ctx, keyOrID)
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	flag, err := s.GetFlagByProject(ctx, projectID, keyOrID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -752,20 +782,20 @@ func (s *SQLiteStore) ToggleFlag(ctx context.Context, keyOrID string, env domain
 	_, err = s.db.ExecContext(ctx, `
 		UPDATE feature_flags
 		SET environments = ?, config_version = config_version + 1, updated_at = ?
-		WHERE id = ?
-	`, string(envsBytes), flag.UpdatedAt.Format(time.RFC3339), flag.ID)
+		WHERE id = ? AND project_id = ?
+	`, string(envsBytes), flag.UpdatedAt.Format(time.RFC3339), flag.ID, projectID)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	audit := domain.AuditLogEntry{
 		ID:          "audit_" + generateHexToken(12),
-		ProjectID:   flag.ProjectID,
+		ProjectID:   projectID,
 		FlagKey:     flag.Key,
 		Action:      "TOGGLE_FLAG",
 		Environment: env,
 		Actor:       actor,
-		Details:     fmt.Sprintf("Toggled flag %q [%s] -> %v", flag.Key, env, nextState),
+		Details:     fmt.Sprintf("Toggled flag %q [%s] -> %v in project %q", flag.Key, env, nextState, projectID),
 		Timestamp:   flag.UpdatedAt,
 	}
 	_ = s.insertAuditLog(ctx, audit)
@@ -774,10 +804,22 @@ func (s *SQLiteStore) ToggleFlag(ctx context.Context, keyOrID string, env domain
 }
 
 func (s *SQLiteStore) UpdateRollout(ctx context.Context, keyOrID string, env domain.Environment, pct float64, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
+	flag, err := s.GetFlag(ctx, keyOrID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.UpdateRolloutByProject(ctx, flag.ProjectID, flag.ID, env, pct, actor)
+}
+
+func (s *SQLiteStore) UpdateRolloutByProject(ctx context.Context, projectID, keyOrID string, env domain.Environment, pct float64, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	flag, err := s.GetFlag(ctx, keyOrID)
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	flag, err := s.GetFlagByProject(ctx, projectID, keyOrID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -796,20 +838,20 @@ func (s *SQLiteStore) UpdateRollout(ctx context.Context, keyOrID string, env dom
 	_, err = s.db.ExecContext(ctx, `
 		UPDATE feature_flags
 		SET environments = ?, config_version = config_version + 1, updated_at = ?
-		WHERE id = ?
-	`, string(envsBytes), flag.UpdatedAt.Format(time.RFC3339), flag.ID)
+		WHERE id = ? AND project_id = ?
+	`, string(envsBytes), flag.UpdatedAt.Format(time.RFC3339), flag.ID, projectID)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	audit := domain.AuditLogEntry{
 		ID:          "audit_" + generateHexToken(12),
-		ProjectID:   flag.ProjectID,
+		ProjectID:   projectID,
 		FlagKey:     flag.Key,
 		Action:      "UPDATE_ROLLOUT",
 		Environment: env,
 		Actor:       actor,
-		Details:     fmt.Sprintf("Updated rollout for %q [%s] to %.1f%%", flag.Key, env, pct),
+		Details:     fmt.Sprintf("Updated rollout for %q [%s] to %.1f%% in project %q", flag.Key, env, pct, projectID),
 		Timestamp:   flag.UpdatedAt,
 	}
 	_ = s.insertAuditLog(ctx, audit)
@@ -1000,6 +1042,14 @@ func (s *SQLiteStore) DeleteSession(ctx context.Context, token string) error {
 	defer s.mu.Unlock()
 
 	_, err := s.db.ExecContext(ctx, "DELETE FROM sessions WHERE token = ?", token)
+	return err
+}
+
+func (s *SQLiteStore) DeleteUserSessions(ctx context.Context, userID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.db.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ?", userID)
 	return err
 }
 
@@ -1232,6 +1282,12 @@ func (s *SQLiteStore) AcceptOrgInvitation(ctx context.Context, token, userID str
 	}
 	if time.Now().UTC().After(inv.ExpiresAt) {
 		return nil, errors.New("invitation expired")
+	}
+
+	var userEmail string
+	_ = s.db.QueryRowContext(ctx, "SELECT email FROM users WHERE id = ?", userID).Scan(&userEmail)
+	if userEmail != "" && inv.Email != "" && !strings.EqualFold(userEmail, inv.Email) {
+		return nil, fmt.Errorf("invitation was issued for %s, but accepted by %s", inv.Email, userEmail)
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -1721,6 +1777,37 @@ func (s *SQLiteStore) GetAPIKeyByHash(ctx context.Context, hash string) (*domain
 	return &k, nil
 }
 
+func (s *SQLiteStore) GetAPIKeyByID(ctx context.Context, id string) (*domain.APIKey, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, project_id, environment, key_prefix, key_hash, name, role, created_by, created_at, last_used_at, revoked
+		FROM api_keys
+		WHERE id = ?
+	`, id)
+
+	var k domain.APIKey
+	var envStr, createdStr string
+	var lastUsedStr sql.NullString
+	var revokedInt int
+	if err := row.Scan(
+		&k.ID, &k.ProjectID, &envStr, &k.KeyPrefix, &k.KeyHash, &k.Name,
+		&k.Role, &k.CreatedBy, &createdStr, &lastUsedStr, &revokedInt,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("api key not found: %s", id)
+		}
+		return nil, err
+	}
+	k.Environment = envStr
+	k.CreatedAt, _ = time.Parse(time.RFC3339, createdStr)
+	k.Revoked = revokedInt == 1
+	if lastUsedStr.Valid {
+		t, _ := time.Parse(time.RFC3339, lastUsedStr.String)
+		k.LastUsedAt = &t
+	}
+	k.KeyHash = ""
+	return &k, nil
+}
+
 func (s *SQLiteStore) RevokeAPIKey(ctx context.Context, id string, actor string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1738,6 +1825,36 @@ func (s *SQLiteStore) RevokeAPIKey(ctx context.Context, id string, actor string)
 		Actor:       actor,
 		Timestamp:   time.Now().UTC(),
 		Details:     fmt.Sprintf("Revoked API Key %s", id),
+	}
+	_ = s.insertAuditLog(ctx, audit)
+
+	return nil
+}
+
+func (s *SQLiteStore) RevokeAPIKeyByProject(ctx context.Context, projectID, id, actor string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	res, err := s.db.ExecContext(ctx, "UPDATE api_keys SET revoked = 1 WHERE id = ? AND project_id = ?", id, projectID)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("api key not found or not in project: %s", id)
+	}
+
+	audit := domain.AuditLogEntry{
+		ID:          fmt.Sprintf("audit_%d", time.Now().UnixNano()),
+		FlagKey:     "api-keys",
+		Action:      "API_KEY_REVOKED",
+		Environment: domain.Environment("all"),
+		Actor:       actor,
+		Timestamp:   time.Now().UTC(),
+		Details:     fmt.Sprintf("Revoked API Key %s in project %s", id, projectID),
 	}
 	_ = s.insertAuditLog(ctx, audit)
 

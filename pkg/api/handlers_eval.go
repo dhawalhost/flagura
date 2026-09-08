@@ -47,10 +47,14 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 
 	includeTrace := req.Trace || r.URL.Query().Get("trace") == "true"
 
-	projectID := s.resolveProjectID(r)
+	projectID, err := s.resolveAndAuthorizeProjectID(r)
+	if err != nil {
+		s.writeError(w, r, err)
+		return
+	}
 	allFlags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))
 		return
 	}
 
@@ -151,10 +155,14 @@ func (s *Server) handleBenchmark(w http.ResponseWriter, r *http.Request) {
 		req.Environment = domain.EnvProduction
 	}
 
-	projectID := s.resolveProjectID(r)
+	projectID, err := s.resolveAndAuthorizeProjectID(r)
+	if err != nil {
+		s.writeError(w, r, err)
+		return
+	}
 	allFlags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil || len(allFlags) == 0 {
-		http.Error(w, "no flags available for benchmark", http.StatusInternalServerError)
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, "no flags available for benchmark", http.StatusInternalServerError, err))
 		return
 	}
 

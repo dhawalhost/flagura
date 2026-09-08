@@ -77,6 +77,29 @@ func TestFourEyesChangeRequestGovernanceFlow(t *testing.T) {
 	})
 	reviewerCookie := &http.Cookie{Name: SessionCookieName, Value: reviewerToken}
 
+	// Associate users with default org/project
+	_, _ = memStore.CreateOrganization(context.Background(), domain.Organization{
+		ID:   domain.DefaultOrgID,
+		Name: domain.DefaultOrgName,
+		Slug: domain.DefaultOrgSlug,
+	})
+	_, _ = memStore.CreateProject(context.Background(), domain.Project{
+		ID:             domain.DefaultProjectID,
+		OrganizationID: domain.DefaultOrgID,
+		Name:           domain.DefaultProjectName,
+		Slug:           domain.DefaultProjectSlug,
+	})
+	_, _ = memStore.CreateOrgMember(context.Background(), domain.OrgMember{
+		OrganizationID: domain.DefaultOrgID,
+		UserID:         authorUser.ID,
+		Role:           string(domain.RoleDeveloper),
+	})
+	_, _ = memStore.CreateOrgMember(context.Background(), domain.OrgMember{
+		OrganizationID: domain.DefaultOrgID,
+		UserID:         reviewerUser.ID,
+		Role:           string(domain.RoleAdmin),
+	})
+
 	// 3. Alice submits ChangeRequest via POST /api/v1/change-requests
 	crPayload := domain.ChangeRequest{
 		FlagKey:     flagKey,

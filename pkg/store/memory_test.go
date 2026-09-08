@@ -794,3 +794,85 @@ func TestMemoryStore_ProjectScopedAndGovernanceQueries(t *testing.T) {
 		t.Errorf("expected nil error on Ping, got %v", err)
 	}
 }
+
+func TestMemoryStore_MultiTenantFlagIsolation(t *testing.T) {
+	memStore := NewMemoryStore()
+	ctx := context.Background()
+
+	// Create same flag key in two different projects
+	flagA := domain.FeatureFlag{
+		ID:        "flg_tenant_a",
+		ProjectID: "proj_tenant_a",
+		Key:       "new-checkout-flow",
+		Name:      "Tenant A Checkout",
+		Type:      "boolean",
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {Enabled: false, Strategy: domain.StrategyBoolean, Percentage: 0},
+		},
+	}
+	flagB := domain.FeatureFlag{
+		ID:        "flg_tenant_b",
+		ProjectID: "proj_tenant_b",
+		Key:       "new-checkout-flow",
+		Name:      "Tenant B Checkout",
+		Type:      "boolean",
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {Enabled: true, Strategy: domain.StrategyBoolean, Percentage: 100},
+		},
+	}
+
+	if _, err := memStore.SaveFlag(ctx, flagA, "user_a"); err != nil {
+		t.Fatalf("failed to save flag A: %v", err)
+	}
+	if _, err := memStore.SaveFlag(ctx, flagB, "user_b"); err != nil {
+		t.Fatalf("failed to save flag B: %v", err)
+	}
+
+	// Verify both exist independently
+	gotA, err := memStore.GetFlagByProject(ctx, "proj_tenant_a", "new-checkout-flow")
+	if err != nil || gotA.Name != "Tenant A Checkout" {
+		t.Fatalf("failed to fetch flag A: %v", err)
+	}
+	gotB, err := memStore.GetFlagByProject(ctx, "proj_tenant_b", "new-checkout-flow")
+	if err != nil || gotB.Name != "Tenant B Checkout" {
+		t.Fatalf("failed to fetch flag B: %v", err)
+	}
+
+	// Toggle flag in project B
+	newVal := false
+	toggledB, _, err := memStore.ToggleFlagByProject(ctx, "proj_tenant_b", "new-checkout-flow", domain.EnvProduction, &newVal, "user_b")
+	if err != nil || toggledB.Environments[domain.EnvProduction].Enabled != false {
+		t.Fatalf("failed to toggle flag B: %v", err)
+	}
+
+	// Flag A should remain unaffected (Enabled: false)
+	gotAAfterToggle, _ := memStore.GetFlagByProject(ctx, "proj_tenant_a", "new-checkout-flow")
+	if gotAAfterToggle.Environments[domain.EnvProduction].Enabled != false {
+		t.Errorf("flag A was unexpectedly mutated when toggling flag B")
+	}
+
+	// Update rollout in project B
+	updatedB, _, err := memStore.UpdateRolloutByProject(ctx, "proj_tenant_b", "new-checkout-flow", domain.EnvProduction, 50, "user_b")
+	if err != nil || updatedB.Environments[domain.EnvProduction].Percentage != 50 {
+		t.Fatalf("failed to update rollout for flag B: %v", err)
+	}
+
+	// Delete flag A from proj_tenant_a
+	if _, err := memStore.DeleteFlagByProject(ctx, "proj_tenant_a", "new-checkout-flow", "user_a"); err != nil {
+		t.Fatalf("failed to delete flag A: %v", err)
+	}
+
+	// Verify flag A is deleted
+	if _, err := memStore.GetFlagByProject(ctx, "proj_tenant_a", "new-checkout-flow"); err == nil {
+		t.Fatalf("expected flag A to be deleted")
+	}
+
+	// Verify flag B is STILL PRESENT and intact
+	survivingB, err := memStore.GetFlagByProject(ctx, "proj_tenant_b", "new-checkout-flow")
+	if err != nil || survivingB == nil {
+		t.Fatalf("flag B was deleted when flag A was deleted! Multi-tenant isolation failure")
+	}
+	if survivingB.Environments[domain.EnvProduction].Percentage != 50 {
+		t.Errorf("flag B was corrupted, expected 50 percent rollout, got %v", survivingB.Environments[domain.EnvProduction].Percentage)
+	}
+}

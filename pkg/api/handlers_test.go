@@ -567,12 +567,23 @@ func TestHandlers_ComprehensiveSuite(t *testing.T) {
 			t.Fatalf("handleGetInvitationByToken failed: %d", getInvW.Code)
 		}
 
+		// Create the invited colleague user and session
+		colleagueUser := domain.NewUser("colleague@flagura.dev", "Colleague", "hash", domain.RoleDeveloper)
+		_, _ = memStore.CreateUser(context.Background(), colleagueUser)
+		colleagueSess := domain.Session{
+			Token:     "sess_colleague_test",
+			UserID:    colleagueUser.ID,
+			ExpiresAt: time.Now().Add(24 * time.Hour),
+		}
+		_ = memStore.CreateSession(context.Background(), colleagueSess)
+		colleagueCookie := &http.Cookie{Name: SessionCookieName, Value: colleagueSess.Token}
+
 		// Accept invitation
 		acceptPayload := map[string]string{"token": invRes.Invitation.Token}
 		bAccept, _ := json.Marshal(acceptPayload)
 		acceptReq := httptest.NewRequest(http.MethodPost, "/api/v1/invitations/accept", bytes.NewReader(bAccept))
 		acceptReq.Header.Set("Content-Type", "application/json")
-		acceptReq.AddCookie(invAuthCookie)
+		acceptReq.AddCookie(colleagueCookie)
 		acceptW := httptest.NewRecorder()
 		srv.ServeHTTP(acceptW, acceptReq)
 

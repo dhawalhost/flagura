@@ -158,6 +158,12 @@ func (s *Server) getAPIKeyFromRequest(r *http.Request) *domain.APIKey {
 		token = r.Header.Get(domain.HeaderAPIKey)
 	}
 	if token == "" {
+		token = r.URL.Query().Get("api_key")
+	}
+	if token == "" {
+		token = r.URL.Query().Get("token")
+	}
+	if token == "" {
 		return nil
 	}
 

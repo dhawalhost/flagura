@@ -187,12 +187,19 @@ func TestPromoteEnvironment(t *testing.T) {
 	cookie := signUpResp.Header.Get("Set-Cookie")
 	signUpResp.Body.Close()
 
+	if u, err := memStore.GetUserByEmail(context.Background(), "admin@flagura.dev"); err == nil && u != nil {
+		u.Role = domain.RoleAdmin
+		_, _ = memStore.UpdateUser(context.Background(), *u)
+	}
+
 	// 2. Promote staging to production
 	promoteReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/flags/promote-target/promote?from=staging&to=production", nil)
 	promoteReq.Header.Set("Cookie", cookie)
+	promoteReq.Header.Set("X-Project-ID", store.DefaultProjectID)
 	promoteResp, err := ts.Client().Do(promoteReq)
 	if err != nil || promoteResp.StatusCode != http.StatusOK {
-		t.Fatalf("promote request failed: %v (status %d)", err, promoteResp.StatusCode)
+		b, _ := io.ReadAll(promoteResp.Body)
+		t.Fatalf("promote request failed: %v (status %d, body %s)", err, promoteResp.StatusCode, string(b))
 	}
 	promoteResp.Body.Close()
 

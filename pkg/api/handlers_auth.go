@@ -12,6 +12,10 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
+// dummyBcryptHash is a precomputed valid bcrypt hash used to prevent user enumeration
+// timing attacks when a non-existent email is queried during login.
+var dummyBcryptHash = []byte("$2a$10$7EqJtq98hPqEX7fNZaODi.Z6VQi5W0R9wT6lZ7h3lP2O1n9G4QO3K")
+
 func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -66,9 +70,11 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 	var activeProjID string
 	if req.InviteToken != "" {
 		if inv, err := s.store.GetOrgInvitation(r.Context(), req.InviteToken); err == nil && inv != nil {
-			_, _ = s.store.AcceptOrgInvitation(r.Context(), req.InviteToken, createdUser.ID)
-			if projs, err := s.store.ListProjects(r.Context(), inv.OrganizationID); err == nil && len(projs) > 0 {
-				activeProjID = projs[0].ID
+			if inv.Email == "" || strings.EqualFold(req.Email, inv.Email) {
+				_, _ = s.store.AcceptOrgInvitation(r.Context(), req.InviteToken, createdUser.ID)
+				if projs, err := s.store.ListProjects(r.Context(), inv.OrganizationID); err == nil && len(projs) > 0 {
+					activeProjID = projs[0].ID
+				}
 			}
 		}
 	}
@@ -163,6 +169,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	email := strings.TrimSpace(strings.ToLower(req.Email))
 	user, err := s.store.GetUserByEmail(r.Context(), email)
 	if err != nil {
+		// Run dummy bcrypt comparison to ensure uniform timing against enumeration attacks
+		_ = bcrypt.CompareHashAndPassword(dummyBcryptHash, []byte(req.Password))
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeInvalidCredentials, "Invalid email or password", http.StatusUnauthorized, domain.ErrUnauthorized))
 		return
 	}

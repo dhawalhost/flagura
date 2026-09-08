@@ -89,6 +89,9 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Security: Invalidate all existing sessions upon password change to revoke potentially compromised tokens
+	_ = s.store.DeleteUserSessions(r.Context(), user.ID)
+
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,

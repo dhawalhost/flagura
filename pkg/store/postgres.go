@@ -420,40 +420,59 @@ func (s *PostgresStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, a
 }
 
 func (s *PostgresStore) DeleteFlag(ctx context.Context, keyOrID string, actor string) (*domain.AuditLogEntry, error) {
+	return s.DeleteFlagByProject(ctx, DefaultProjectID, keyOrID, actor)
+}
+
+func (s *PostgresStore) DeleteFlagByProject(ctx context.Context, projectID, keyOrID string, actor string) (*domain.AuditLogEntry, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
 	if actor == "" {
 		actor = "admin@flagura.dev"
 	}
 
-	f, err := s.GetFlag(ctx, keyOrID)
+	f, err := s.GetFlagByProject(ctx, projectID, keyOrID)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = s.db.ExecContext(ctx, "DELETE FROM feature_flags WHERE id = $1 OR key = $1", keyOrID)
+	res, err := s.db.ExecContext(ctx, "DELETE FROM feature_flags WHERE (id = $1 OR key = $1) AND project_id = $2", keyOrID, projectID)
 	if err != nil {
 		return nil, err
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return nil, domain.ErrFlagNotFound
 	}
 
 	log := domain.AuditLogEntry{
 		ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
+		ProjectID:   projectID,
 		Timestamp:   time.Now().UTC(),
 		Actor:       actor,
 		Action:      "FLAG_DELETED",
 		FlagKey:     f.Key,
 		Environment: "all",
-		Details:     fmt.Sprintf("Deleted feature flag '%s'.", f.Key),
+		Details:     fmt.Sprintf("Deleted feature flag '%s' from project '%s'.", f.Key, projectID),
 	}
 
 	_, _ = s.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (id, flag_key, action, environment, actor, details, timestamp)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, log.ID, log.FlagKey, log.Action, log.Environment, log.Actor, log.Details, log.Timestamp)
+		INSERT INTO audit_logs (id, project_id, flag_key, action, environment, actor, details, timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, log.ID, log.ProjectID, log.FlagKey, log.Action, log.Environment, log.Actor, log.Details, log.Timestamp)
 
 	return &log, nil
 }
 
 func (s *PostgresStore) ToggleFlag(ctx context.Context, keyOrID string, env domain.Environment, enabled *bool, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
-	f, err := s.GetFlag(ctx, keyOrID)
+	return s.ToggleFlagByProject(ctx, DefaultProjectID, keyOrID, env, enabled, actor)
+}
+
+func (s *PostgresStore) ToggleFlagByProject(ctx context.Context, projectID, keyOrID string, env domain.Environment, enabled *bool, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+	f, err := s.GetFlagByProject(ctx, projectID, keyOrID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -473,7 +492,7 @@ func (s *PostgresStore) ToggleFlag(ctx context.Context, keyOrID string, env doma
 	}
 
 	f.ConfigVersion++
-	_, err = s.db.ExecContext(ctx, "UPDATE feature_flags SET environments = $1, config_version = config_version + 1, updated_at = $2 WHERE id = $3", envsJSON, f.UpdatedAt, f.ID)
+	_, err = s.db.ExecContext(ctx, "UPDATE feature_flags SET environments = $1, config_version = config_version + 1, updated_at = $2 WHERE id = $3 AND project_id = $4", envsJSON, f.UpdatedAt, f.ID, projectID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -484,24 +503,32 @@ func (s *PostgresStore) ToggleFlag(ctx context.Context, keyOrID string, env doma
 	}
 	log := domain.AuditLogEntry{
 		ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
+		ProjectID:   projectID,
 		Timestamp:   time.Now().UTC(),
 		Actor:       actor,
 		Action:      "KILL_SWITCH_TOGGLED",
 		FlagKey:     f.Key,
 		Environment: env,
-		Details:     fmt.Sprintf("%s flag for %s environment.", statusText, env),
+		Details:     fmt.Sprintf("%s flag for %s environment in project %s.", statusText, env, projectID),
 	}
 
 	_, _ = s.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (id, flag_key, action, environment, actor, details, timestamp)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, log.ID, log.FlagKey, log.Action, log.Environment, log.Actor, log.Details, log.Timestamp)
+		INSERT INTO audit_logs (id, project_id, flag_key, action, environment, actor, details, timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, log.ID, log.ProjectID, log.FlagKey, log.Action, log.Environment, log.Actor, log.Details, log.Timestamp)
 
 	return f, &log, nil
 }
 
 func (s *PostgresStore) UpdateRollout(ctx context.Context, keyOrID string, env domain.Environment, pct float64, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
-	f, err := s.GetFlag(ctx, keyOrID)
+	return s.UpdateRolloutByProject(ctx, DefaultProjectID, keyOrID, env, pct, actor)
+}
+
+func (s *PostgresStore) UpdateRolloutByProject(ctx context.Context, projectID, keyOrID string, env domain.Environment, pct float64, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+	f, err := s.GetFlagByProject(ctx, projectID, keyOrID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -528,25 +555,26 @@ func (s *PostgresStore) UpdateRollout(ctx context.Context, keyOrID string, env d
 	}
 
 	f.ConfigVersion++
-	_, err = s.db.ExecContext(ctx, "UPDATE feature_flags SET environments = $1, config_version = config_version + 1, updated_at = $2 WHERE id = $3", envsJSON, f.UpdatedAt, f.ID)
+	_, err = s.db.ExecContext(ctx, "UPDATE feature_flags SET environments = $1, config_version = config_version + 1, updated_at = $2 WHERE id = $3 AND project_id = $4", envsJSON, f.UpdatedAt, f.ID, projectID)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	log := domain.AuditLogEntry{
 		ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
+		ProjectID:   projectID,
 		Timestamp:   time.Now().UTC(),
 		Actor:       actor,
 		Action:      "ROLLOUT_CHANGED",
 		FlagKey:     f.Key,
 		Environment: env,
-		Details:     fmt.Sprintf("Shifted percentage rollout from %.0f%% to %.0f%% in %s.", oldPct, pct, env),
+		Details:     fmt.Sprintf("Shifted percentage rollout from %.0f%% to %.0f%% in %s for project %s.", oldPct, pct, env, projectID),
 	}
 
 	_, _ = s.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (id, flag_key, action, environment, actor, details, timestamp)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, log.ID, log.FlagKey, log.Action, log.Environment, log.Actor, log.Details, log.Timestamp)
+		INSERT INTO audit_logs (id, project_id, flag_key, action, environment, actor, details, timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, log.ID, log.ProjectID, log.FlagKey, log.Action, log.Environment, log.Actor, log.Details, log.Timestamp)
 
 	return f, &log, nil
 }
@@ -709,6 +737,11 @@ func (s *PostgresStore) GetSession(ctx context.Context, token string) (*domain.S
 
 func (s *PostgresStore) DeleteSession(ctx context.Context, token string) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM sessions WHERE token = $1", token)
+	return err
+}
+
+func (s *PostgresStore) DeleteUserSessions(ctx context.Context, userID string) error {
+	_, err := s.db.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = $1", userID)
 	return err
 }
 
@@ -1064,6 +1097,25 @@ func (s *PostgresStore) GetAPIKeyByHash(ctx context.Context, hash string) (*doma
 	return &k, nil
 }
 
+func (s *PostgresStore) GetAPIKeyByID(ctx context.Context, id string) (*domain.APIKey, error) {
+	var k domain.APIKey
+	var lastUsedAt sql.NullTime
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, project_id, environment, key_prefix, key_hash, name, role, created_by, created_at, last_used_at, revoked
+		FROM api_keys
+		WHERE id = $1
+	`, id).Scan(&k.ID, &k.ProjectID, &k.Environment, &k.KeyPrefix, &k.KeyHash, &k.Name, &k.Role, &k.CreatedBy, &k.CreatedAt, &lastUsedAt, &k.Revoked)
+	if err != nil {
+		return nil, err
+	}
+	if lastUsedAt.Valid {
+		t := lastUsedAt.Time.UTC()
+		k.LastUsedAt = &t
+	}
+	k.KeyHash = ""
+	return &k, nil
+}
+
 func (s *PostgresStore) RevokeAPIKey(ctx context.Context, id string, actor string) error {
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE api_keys
@@ -1082,6 +1134,41 @@ func (s *PostgresStore) RevokeAPIKey(ctx context.Context, id string, actor strin
 		Actor:       actor,
 		Timestamp:   time.Now().UTC(),
 		Details:     fmt.Sprintf("Revoked API Key %s", id),
+	}
+	now := time.Now().UTC()
+	_, _ = s.db.ExecContext(ctx, `
+		INSERT INTO audit_logs (id, flag_key, environment, action, actor, timestamp, details)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, audit.ID, audit.FlagKey, audit.Environment, audit.Action, audit.Actor, now, audit.Details)
+
+	return nil
+}
+
+func (s *PostgresStore) RevokeAPIKeyByProject(ctx context.Context, projectID, id, actor string) error {
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE api_keys
+		SET revoked = TRUE
+		WHERE id = $1 AND project_id = $2
+	`, id, projectID)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("api key not found or not in project: %s", id)
+	}
+
+	audit := domain.AuditLogEntry{
+		ID:          fmt.Sprintf("audit_%d", time.Now().UnixNano()),
+		FlagKey:     "api-keys",
+		Action:      "API_KEY_REVOKED",
+		Environment: "all",
+		Actor:       actor,
+		Timestamp:   time.Now().UTC(),
+		Details:     fmt.Sprintf("Revoked API Key %s in project %s", id, projectID),
 	}
 	now := time.Now().UTC()
 	_, _ = s.db.ExecContext(ctx, `
@@ -1605,6 +1692,12 @@ func (s *PostgresStore) AcceptOrgInvitation(ctx context.Context, token, userID s
 	}
 	if inv.IsAccepted() {
 		return nil, fmt.Errorf("invitation already accepted")
+	}
+
+	var userEmail string
+	_ = s.db.QueryRowContext(ctx, "SELECT email FROM users WHERE id = $1", userID).Scan(&userEmail)
+	if userEmail != "" && inv.Email != "" && !strings.EqualFold(userEmail, inv.Email) {
+		return nil, fmt.Errorf("invitation was issued for %s, but accepted by %s", inv.Email, userEmail)
 	}
 
 	now := time.Now().UTC()

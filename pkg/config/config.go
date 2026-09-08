@@ -39,7 +39,6 @@ type Config struct {
 
 	// Security & CORS
 	CORSAllowedOrigins []string `json:"cors_allowed_origins"`
-	SessionSecret      string   `json:"-"`
 }
 
 // Load populates Config from environment variables with production defaults.
@@ -59,7 +58,6 @@ func Load() (*Config, error) {
 		RateLimitRPS:       100.0,
 		RateLimitBurst:     200,
 		CORSAllowedOrigins: []string{"*"},
-		SessionSecret:      getEnv("SESSION_SECRET", "flagura-enterprise-secret-key"),
 	}
 
 	// Parse LogLevel
