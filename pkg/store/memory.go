@@ -428,6 +428,9 @@ func (s *MemoryStore) ToggleFlagByProject(ctx context.Context, projectID, keyOrI
 			fProj = DefaultProjectID
 		}
 		if fProj == projectID && (flagCopy.Key == keyOrID || flagCopy.ID == keyOrID) {
+			if flagCopy.Environments == nil {
+				flagCopy.Environments = make(map[domain.Environment]domain.EnvironmentConfig)
+			}
 			cfg := flagCopy.Environments[env]
 			if enabled != nil {
 				cfg.Enabled = *enabled
@@ -520,6 +523,9 @@ func (s *MemoryStore) UpdateRolloutByProject(ctx context.Context, projectID, key
 			fProj = DefaultProjectID
 		}
 		if fProj == projectID && (flagCopy.Key == keyOrID || flagCopy.ID == keyOrID) {
+			if flagCopy.Environments == nil {
+				flagCopy.Environments = make(map[domain.Environment]domain.EnvironmentConfig)
+			}
 			cfg := flagCopy.Environments[env]
 			oldPct := cfg.Percentage
 			cfg.Percentage = pct

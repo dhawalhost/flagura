@@ -9,7 +9,7 @@ SERVER_BIN := $(BIN_DIR)/flagura-server
 CLI_BIN := $(BIN_DIR)/flagura
 
 # Version & Build Flags
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "v1.6.1")
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "v1.6.3")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 LDFLAGS := -s -w \
