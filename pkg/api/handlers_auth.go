@@ -3,7 +3,9 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -31,7 +33,12 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	req.Name = strings.TrimSpace(req.Name)
 
-	if req.Email == "" || !strings.Contains(req.Email, "@") {
+	if req.Email == "" || strings.ContainsAny(req.Email, "\r\n") {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "A valid email address is required", http.StatusBadRequest, domain.ErrInvalidInput))
+		return
+	}
+	parsedMail, err := mail.ParseAddress(req.Email)
+	if err != nil || parsedMail.Address != req.Email || !strings.Contains(req.Email, ".") {
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "A valid email address is required", http.StatusBadRequest, domain.ErrInvalidInput))
 		return
 	}
@@ -149,7 +156,7 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 
 	s.writeJSON(w, http.StatusCreated, domain.AuthResponse{
 		User:    createdUser,
-		Token:   token,
+		Token:   "", // Security: Session token transmitted solely via HttpOnly cookie
 		Message: "Account created successfully",
 	})
 }
@@ -171,12 +178,28 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Run dummy bcrypt comparison to ensure uniform timing against enumeration attacks
 		_ = bcrypt.CompareHashAndPassword(dummyBcryptHash, []byte(req.Password))
+		slog.WarnContext(r.Context(), "security_event",
+			slog.String("event_type", "failed_login"),
+			slog.String("ip", GetClientIP(r)),
+			slog.String("path", r.URL.Path),
+			slog.String("user_agent", r.UserAgent()),
+			slog.String("email", email),
+			slog.String("reason", "user_not_found"),
+		)
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeInvalidCredentials, "Invalid email or password", http.StatusUnauthorized, domain.ErrUnauthorized))
 		return
 	}
 
 	// Verify bcrypt hash
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		slog.WarnContext(r.Context(), "security_event",
+			slog.String("event_type", "failed_login"),
+			slog.String("ip", GetClientIP(r)),
+			slog.String("path", r.URL.Path),
+			slog.String("user_agent", r.UserAgent()),
+			slog.String("email", email),
+			slog.String("reason", "invalid_password"),
+		)
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeInvalidCredentials, "Invalid email or password", http.StatusUnauthorized, domain.ErrUnauthorized))
 		return
 	}
@@ -213,7 +236,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	s.writeJSON(w, http.StatusOK, domain.AuthResponse{
 		User:    user,
-		Token:   token,
+		Token:   "", // Security: Session token transmitted solely via HttpOnly cookie
 		Message: "Login successful",
 	})
 }

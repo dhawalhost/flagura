@@ -45,8 +45,34 @@ func TestSecurityHeaders(t *testing.T) {
 		}
 	}
 
-	if csp := headers.Get("Content-Security-Policy"); csp == "" {
-		t.Errorf("Expected Content-Security-Policy header to be set")
+	csp := headers.Get("Content-Security-Policy")
+	if csp == "" {
+		t.Fatalf("Expected Content-Security-Policy header to be set")
+	}
+
+	// Verify nonce is present in script-src
+	if !strings.Contains(csp, "script-src 'self' 'nonce-") {
+		t.Errorf("Expected script-src to contain 'nonce-<base64>', got: %s", csp)
+	}
+
+	// Verify unsafe-inline is removed from script-src
+	scriptSrcIdx := strings.Index(csp, "script-src")
+	semiIdx := strings.Index(csp[scriptSrcIdx:], ";")
+	scriptDirective := csp[scriptSrcIdx : scriptSrcIdx+semiIdx]
+	if strings.Contains(scriptDirective, "'unsafe-inline'") {
+		t.Errorf("script-src must NOT contain 'unsafe-inline', got directive: %s", scriptDirective)
+	}
+	if strings.Contains(scriptDirective, "'unsafe-eval'") {
+		t.Errorf("script-src must NOT contain 'unsafe-eval', got directive: %s", scriptDirective)
+	}
+
+	// Verify each request gets a distinct random nonce
+	req2 := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+	w2 := httptest.NewRecorder()
+	server.ServeHTTP(w2, req2)
+	csp2 := w2.Header().Get("Content-Security-Policy")
+	if csp == csp2 {
+		t.Errorf("Expected per-request unique nonces in CSP headers across different requests")
 	}
 }
 
@@ -544,4 +570,177 @@ func TestStrictMultiTenancyEnforcement(t *testing.T) {
 		t.Fatalf("Expected 400 Bad Request for unauthenticated evaluate without project ID, got: %d (%s)", w.Code, w.Body.String())
 	}
 }
+
+// TestFlagKeyValidation verifies OWASP A03 / Stored XSS prevention:
+// Flag keys must conform strictly to ^[a-zA-Z0-9_-]{1,64}$.
+func TestFlagKeyValidation(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	server, _ := NewServer(memStore)
+	ctx := context.Background()
+
+	org, _ := memStore.CreateOrganization(ctx, domain.Organization{ID: "org_val", Name: "Validation Org"})
+	proj, _ := memStore.CreateProject(ctx, domain.Project{ID: "proj_val", OrganizationID: org.ID, Name: "Proj Val"})
+	user, _ := memStore.CreateUser(ctx, domain.User{Email: "admin.val@example.com", Name: "Admin Val", Role: domain.RoleAdmin})
+	_, _ = memStore.CreateOrgMember(ctx, domain.OrgMember{OrganizationID: org.ID, UserID: user.ID, Role: "admin"})
+	sessToken := "sess_admin_val"
+	_ = memStore.CreateSession(ctx, domain.Session{Token: sessToken, UserID: user.ID, ExpiresAt: time.Now().Add(time.Hour)})
+
+	invalidKeys := []string{
+		"<script>alert(1)</script>",
+		"flag with spaces",
+		"flag;rm -rf",
+		"flag$injection",
+		"\"quoted\"",
+		"'single_quoted'",
+		"",
+		strings.Repeat("a", 65), // > 64 chars
+	}
+
+	for _, badKey := range invalidKeys {
+		payload, _ := json.Marshal(map[string]interface{}{
+			"key":        badKey,
+			"name":       "Malicious Flag",
+			"project_id": proj.ID,
+			"type":       "boolean",
+			"environments": map[string]interface{}{
+				"production": map[string]interface{}{
+					"enabled":  true,
+					"strategy": "boolean",
+				},
+			},
+		})
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/flags", bytes.NewReader(payload))
+		req.Header.Set("Authorization", "Bearer "+sessToken)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Project-ID", proj.ID)
+		w := httptest.NewRecorder()
+		server.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected 400 Bad Request for invalid flag key %q, got: %d (%s)", badKey, w.Code, w.Body.String())
+		}
+	}
+
+	validKeys := []string{
+		"checkout_v2",
+		"ai-smart-search",
+		"DARK_MODE_2026",
+		"f",
+		strings.Repeat("b", 64),
+	}
+
+	for _, goodKey := range validKeys {
+		payload, _ := json.Marshal(map[string]interface{}{
+			"key":        goodKey,
+			"name":       "Legitimate Flag",
+			"project_id": proj.ID,
+			"type":       "boolean",
+			"environments": map[string]interface{}{
+				"production": map[string]interface{}{
+					"enabled":  true,
+					"strategy": "boolean",
+				},
+			},
+		})
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/flags", bytes.NewReader(payload))
+		req.Header.Set("Authorization", "Bearer "+sessToken)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Project-ID", proj.ID)
+		w := httptest.NewRecorder()
+		server.ServeHTTP(w, req)
+
+		if w.Code != http.StatusCreated {
+			t.Errorf("Expected 201 Created for valid flag key %q, got: %d (%s)", goodKey, w.Code, w.Body.String())
+		}
+	}
+}
+
+// TestCookieSecureFlagDefault verifies OWASP A02/A05:
+// Cookies default to Secure: true, and can be opted out with ALLOW_INSECURE_COOKIES=true.
+func TestCookieSecureFlagDefault(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	server, _ := NewServer(memStore)
+
+	// 1. Default configuration -> Cookies MUST have Secure: true
+	t.Setenv("ALLOW_INSECURE_COOKIES", "")
+	t.Setenv("SECURE_COOKIE", "")
+
+	w := httptest.NewRecorder()
+	server.setSessionCookie(w, nil, "token_secure_test", time.Now().Add(time.Hour))
+	cookies := w.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("Expected cookie to be set")
+	}
+	if !cookies[0].Secure {
+		t.Errorf("Expected default session cookie to have Secure: true, got false")
+	}
+
+	// 2. Opt-out via ALLOW_INSECURE_COOKIES=true -> Cookies have Secure: false
+	t.Setenv("ALLOW_INSECURE_COOKIES", "true")
+	wInsecure := httptest.NewRecorder()
+	server.setSessionCookie(wInsecure, nil, "token_insecure_test", time.Now().Add(time.Hour))
+	insecureCookies := wInsecure.Result().Cookies()
+	if len(insecureCookies) == 0 {
+		t.Fatal("Expected cookie to be set")
+	}
+	if insecureCookies[0].Secure {
+		t.Errorf("Expected session cookie with ALLOW_INSECURE_COOKIES=true to have Secure: false, got true")
+	}
+}
+
+// TestCanaryWebhookConstantTimeAuth verifies constant-time webhook authentication.
+func TestCanaryWebhookConstantTimeAuth(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	server, _ := NewServer(memStore)
+	ctx := context.Background()
+
+	org, _ := memStore.CreateOrganization(ctx, domain.Organization{ID: "org_canary", Name: "Canary Org"})
+	proj, _ := memStore.CreateProject(ctx, domain.Project{ID: "proj_canary", OrganizationID: org.ID, Name: "Proj Canary"})
+	_ = proj
+
+	flag := domain.FeatureFlag{
+		Key:       "canary_timing_flag",
+		ProjectID: proj.ID,
+		Name:      "Canary Timing Flag",
+		Type:      "boolean",
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {Enabled: true, Strategy: domain.StrategyPercentage, Percentage: 25},
+		},
+	}
+	_, _ = memStore.SaveFlag(ctx, flag, "system@flagura.dev")
+
+	_, _ = server.canary.SubmitSchedule(ctx, domain.CanarySchedule{
+		FlagKey:     "canary_timing_flag",
+		ProjectID:   proj.ID,
+		Environment: domain.EnvProduction,
+		Stages: []domain.CanaryStage{
+			{Index: 0, TargetPercentage: 25, DurationSec: 100},
+		},
+	})
+
+	t.Setenv("FLAGURA_WEBHOOK_SECRET", "super-secret-webhook-key-999")
+
+	// 1. Valid Secret in X-Webhook-Secret header -> 200 OK
+	reqValid := httptest.NewRequest(http.MethodPost, "/api/v1/flags/canary_timing_flag/canary/rollback", bytes.NewReader([]byte(`{"reason":"APM Alert"}`)))
+	reqValid.Header.Set("X-Webhook-Secret", "super-secret-webhook-key-999")
+	reqValid.Header.Set("X-Project-ID", proj.ID)
+	wValid := httptest.NewRecorder()
+	server.ServeHTTP(wValid, reqValid)
+	if wValid.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK with valid webhook secret, got: %d (%s)", wValid.Code, wValid.Body.String())
+	}
+
+	// 2. Invalid Secret -> 401 Unauthorized
+	reqInvalid := httptest.NewRequest(http.MethodPost, "/api/v1/flags/canary_timing_flag/canary/rollback", nil)
+	reqInvalid.Header.Set("X-Webhook-Secret", "wrong-secret-token")
+	reqInvalid.Header.Set("X-Project-ID", proj.ID)
+	wInvalid := httptest.NewRecorder()
+	server.ServeHTTP(wInvalid, reqInvalid)
+	if wInvalid.Code != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 Unauthorized with wrong webhook secret, got: %d (%s)", wInvalid.Code, wInvalid.Body.String())
+	}
+}
+
 

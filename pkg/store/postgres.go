@@ -757,8 +757,8 @@ func (s *PostgresStore) RecordExperimentEvents(ctx context.Context, events []dom
 	defer tx.Rollback() // nolint:errcheck
 
 	stmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO experiment_events (id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO experiment_events (id, project_id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`)
 	if err != nil {
 		return err
@@ -771,6 +771,10 @@ func (s *PostgresStore) RecordExperimentEvents(ctx context.Context, events []dom
 			b := make([]byte, 4)
 			_, _ = rand.Read(b)
 			id = fmt.Sprintf("evt_%d_%s", time.Now().UnixNano(), hex.EncodeToString(b))
+		}
+		projID := ev.ProjectID
+		if projID == "" {
+			projID = DefaultProjectID
 		}
 		ts := ev.Timestamp
 		if ts.IsZero() {
@@ -785,7 +789,7 @@ func (s *PostgresStore) RecordExperimentEvents(ctx context.Context, events []dom
 			env = domain.EnvProduction
 		}
 
-		if _, err := stmt.ExecContext(ctx, id, ev.FlagKey, ev.Variant, ev.MetricName, eventType, ev.Value, ev.UserID, env, ts); err != nil {
+		if _, err := stmt.ExecContext(ctx, id, projID, ev.FlagKey, ev.Variant, ev.MetricName, eventType, ev.Value, ev.UserID, env, ts); err != nil {
 			return err
 		}
 	}
@@ -803,7 +807,7 @@ func (s *PostgresStore) GetExperimentEvents(ctx context.Context, flagKey string,
 
 	if flagKey != "" {
 		rows, err = s.db.QueryContext(ctx, `
-			SELECT id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp
+			SELECT id, project_id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp
 			FROM experiment_events
 			WHERE flag_key = $1
 			ORDER BY timestamp DESC
@@ -811,7 +815,7 @@ func (s *PostgresStore) GetExperimentEvents(ctx context.Context, flagKey string,
 		`, flagKey, limit)
 	} else {
 		rows, err = s.db.QueryContext(ctx, `
-			SELECT id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp
+			SELECT id, project_id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp
 			FROM experiment_events
 			ORDER BY timestamp DESC
 			LIMIT $1
@@ -826,7 +830,53 @@ func (s *PostgresStore) GetExperimentEvents(ctx context.Context, flagKey string,
 	var events []domain.ExperimentEvent
 	for rows.Next() {
 		var ev domain.ExperimentEvent
-		if err := rows.Scan(&ev.ID, &ev.FlagKey, &ev.Variant, &ev.MetricName, &ev.EventType, &ev.Value, &ev.UserID, &ev.Environment, &ev.Timestamp); err != nil {
+		if err := rows.Scan(&ev.ID, &ev.ProjectID, &ev.FlagKey, &ev.Variant, &ev.MetricName, &ev.EventType, &ev.Value, &ev.UserID, &ev.Environment, &ev.Timestamp); err != nil {
+			return nil, err
+		}
+		events = append(events, ev)
+	}
+
+	return events, rows.Err()
+}
+
+func (s *PostgresStore) GetExperimentEventsByProject(ctx context.Context, projectID, flagKey string, limit int) ([]domain.ExperimentEvent, error) {
+	if limit <= 0 {
+		limit = 1000
+	}
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	var rows *sql.Rows
+	var err error
+
+	if flagKey != "" {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, project_id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp
+			FROM experiment_events
+			WHERE project_id = $1 AND flag_key = $2
+			ORDER BY timestamp DESC
+			LIMIT $3
+		`, projectID, flagKey, limit)
+	} else {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id, project_id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp
+			FROM experiment_events
+			WHERE project_id = $1
+			ORDER BY timestamp DESC
+			LIMIT $2
+		`, projectID, limit)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []domain.ExperimentEvent
+	for rows.Next() {
+		var ev domain.ExperimentEvent
+		if err := rows.Scan(&ev.ID, &ev.ProjectID, &ev.FlagKey, &ev.Variant, &ev.MetricName, &ev.EventType, &ev.Value, &ev.UserID, &ev.Environment, &ev.Timestamp); err != nil {
 			return nil, err
 		}
 		events = append(events, ev)
@@ -992,7 +1042,11 @@ func (s *PostgresStore) ApplyChangeRequest(ctx context.Context, id string, actor
 		return nil, nil, nil, fmt.Errorf("cannot apply change request with status '%s' (must be APPROVED)", cr.Status)
 	}
 
-	flag, err := s.GetFlag(ctx, cr.FlagKey)
+	if cr.ProjectID == "" {
+		cr.ProjectID = DefaultProjectID
+	}
+
+	flag, err := s.GetFlagByProject(ctx, cr.ProjectID, cr.FlagKey)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -1001,6 +1055,9 @@ func (s *PostgresStore) ApplyChangeRequest(ctx context.Context, id string, actor
 		flag.Environments = make(map[domain.Environment]domain.EnvironmentConfig)
 	}
 	flag.Environments[cr.Environment] = cr.ProposedConfig
+	if flag.ProjectID == "" {
+		flag.ProjectID = cr.ProjectID
+	}
 	flag.UpdatedAt = time.Now().UTC()
 
 	audit, err := s.SaveFlag(ctx, *flag, actor)

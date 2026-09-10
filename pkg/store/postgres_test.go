@@ -514,7 +514,7 @@ func TestPostgresStore_ExperimentEvents(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectPrepare(`INSERT INTO experiment_events`)
 	mock.ExpectExec(`INSERT INTO experiment_events`).
-		WithArgs(sqlmock.AnyArg(), events[0].FlagKey, events[0].Variant, events[0].MetricName, string(events[0].EventType), events[0].Value, events[0].UserID, string(events[0].Environment), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), events[0].ProjectID, events[0].FlagKey, events[0].Variant, events[0].MetricName, string(events[0].EventType), events[0].Value, events[0].UserID, string(events[0].Environment), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
@@ -522,14 +522,24 @@ func TestPostgresStore_ExperimentEvents(t *testing.T) {
 		t.Fatalf("RecordExperimentEvents failed: %v", err)
 	}
 
-	mock.ExpectQuery(`SELECT id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp FROM experiment_events WHERE flag_key = \$1 ORDER BY timestamp DESC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp FROM experiment_events WHERE flag_key = \$1 ORDER BY timestamp DESC LIMIT \$2`).
 		WithArgs("checkout-v2", 100).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "flag_key", "variant", "metric_name", "event_type", "value", "user_id", "environment", "timestamp"}).
-			AddRow(events[0].ID, events[0].FlagKey, events[0].Variant, events[0].MetricName, string(events[0].EventType), events[0].Value, events[0].UserID, string(events[0].Environment), events[0].Timestamp))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "flag_key", "variant", "metric_name", "event_type", "value", "user_id", "environment", "timestamp"}).
+			AddRow(events[0].ID, events[0].ProjectID, events[0].FlagKey, events[0].Variant, events[0].MetricName, string(events[0].EventType), events[0].Value, events[0].UserID, string(events[0].Environment), events[0].Timestamp))
 
 	fetchedEvents, err := st.GetExperimentEvents(ctx, "checkout-v2", 100)
 	if err != nil || len(fetchedEvents) != 1 {
 		t.Fatalf("GetExperimentEvents failed: %v", err)
+	}
+
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, variant, metric_name, event_type, value, user_id, environment, timestamp FROM experiment_events WHERE project_id = \$1 AND flag_key = \$2 ORDER BY timestamp DESC LIMIT \$3`).
+		WithArgs("proj_default", "checkout-v2", 100).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "flag_key", "variant", "metric_name", "event_type", "value", "user_id", "environment", "timestamp"}).
+			AddRow(events[0].ID, events[0].ProjectID, events[0].FlagKey, events[0].Variant, events[0].MetricName, string(events[0].EventType), events[0].Value, events[0].UserID, string(events[0].Environment), events[0].Timestamp))
+
+	scopedEvents, err := st.GetExperimentEventsByProject(ctx, "proj_default", "checkout-v2", 100)
+	if err != nil || len(scopedEvents) != 1 {
+		t.Fatalf("GetExperimentEventsByProject failed: %v", err)
 	}
 }
 

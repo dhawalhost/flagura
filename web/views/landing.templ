@@ -651,7 +651,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				</section>
 
 				<!-- 5. CLI INSTALL TERMINAL BANNER -->
-				<section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8" x-data="{ installTab: 'curl' }">
+				<section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8" x-data="installCliComponent()">
 					<div class="glass-panel p-6 sm:p-8 bg-slate-900 text-slate-100 border border-slate-800 rounded-3xl space-y-4 shadow-md font-mono">
 						<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 							<div class="flex items-center gap-2">
@@ -660,17 +660,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 							</div>
 							<div class="flex items-center gap-1.5 bg-slate-800/80 p-1 rounded-xl border border-slate-700/60 text-xs">
 								<button 
-									@click="installTab = 'curl'"
+									@click="setTab('curl')"
 									class="px-2.5 py-1 rounded-lg transition cursor-pointer font-bold"
 									:class="installTab === 'curl' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'"
 								>curl</button>
 								<button 
-									@click="installTab = 'go'"
+									@click="setTab('go')"
 									class="px-2.5 py-1 rounded-lg transition cursor-pointer font-bold"
 									:class="installTab === 'go' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'"
 								>go install</button>
 								<button 
-									@click="installTab = 'docker'"
+									@click="setTab('docker')"
 									class="px-2.5 py-1 rounded-lg transition cursor-pointer font-bold"
 									:class="installTab === 'docker' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'"
 								>docker</button>
@@ -694,7 +694,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 								</code>
 							</template>
 							<button 
-								@click="const cmd = installTab === 'curl' ? 'curl -sSL https://flagura.dev/install.sh | bash' : (installTab === 'go' ? 'go install github.com/dhawalhost/flagura/cmd/cli@latest' : 'docker run --rm -it ghcr.io/dhawalhost/flagura:latest flagura --help'); navigator.clipboard.writeText(cmd); showToast('Copied ' + installTab + ' command!');"
+								@click="copyCommand"
 								class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition shrink-0 cursor-pointer"
 							>
 								Copy

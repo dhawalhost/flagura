@@ -133,8 +133,13 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 						for _, f := range flags {
 							<tr 
 								id={ "flag-row-" + f.Key }
-								x-data={ fmt.Sprintf("{ envs: %s, copied: false, get isDev() { return (this.envs && this.envs.development && this.envs.development.enabled) || false; }, get isStg() { return (this.envs && this.envs.staging && this.envs.staging.enabled) || false; }, get isProd() { return (this.envs && this.envs.production && this.envs.production.enabled) || false; }, get prodPct() { return (this.envs && this.envs.production && this.envs.production.percentage !== undefined ? this.envs.production.percentage : 0); }, get devPct() { return (this.envs && this.envs.development && this.envs.development.percentage !== undefined ? this.envs.development.percentage : 0); }, get stgPct() { return (this.envs && this.envs.staging && this.envs.staging.percentage !== undefined ? this.envs.staging.percentage : 0); } }", f.EnvironmentsJSON()) }
-								x-show={ fmt.Sprintf("matchesEnterpriseFilter('%s', '%s', '%s', isProd, prodPct, '%s')", f.Key, f.Name, f.Tags, domain.AnalyzeFlagHealth(f).Status) }
+								x-data="flagRowComponent()"
+								data-key={ f.Key }
+								data-name={ f.Name }
+								data-tags={ f.Tags }
+								data-health={ domain.AnalyzeFlagHealth(f).Status }
+								data-envs={ f.EnvironmentsJSON() }
+								x-show="matchesRow($el, isProd, prodPct)"
 								class="hover:bg-slate-50/80 transition-colors"
 							>
 								<!-- Checkbox -->
@@ -151,7 +156,7 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 								<td class="py-3 px-4 min-w-[220px]">
 									<div class="flex items-center gap-1.5">
 										<button
-											@click="navigator.clipboard.writeText('{ f.Key }'); copied = true; setTimeout(() => copied = false, 1500);"
+											@click="copyKey"
 											class="font-mono font-bold text-slate-900 hover:text-indigo-600 transition flex items-center gap-1 text-xs cursor-pointer group"
 											title="Copy flag key"
 										>
@@ -167,7 +172,7 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 								<td class="py-3 px-3 min-w-[140px]">
 									<div class="flex items-center gap-2">
 										<button
-											@click.stop={ fmt.Sprintf("const next = !isDev; if (!envs.development) envs.development = {}; envs.development.enabled = next; toggleFlagEnvStatus('%s', 'development', next);", f.Key) }
+											@click.stop="toggleDev"
 											class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
 											:class="isDev ? 'bg-emerald-600' : 'bg-slate-200'"
 											title="Toggle Development"
@@ -189,7 +194,7 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 								<td class="py-3 px-3 min-w-[140px]">
 									<div class="flex items-center gap-2">
 										<button
-											@click.stop={ fmt.Sprintf("const next = !isStg; if (!envs.staging) envs.staging = {}; envs.staging.enabled = next; toggleFlagEnvStatus('%s', 'staging', next);", f.Key) }
+											@click.stop="toggleStg"
 											class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
 											:class="isStg ? 'bg-amber-500' : 'bg-slate-200'"
 											title="Toggle Staging"
@@ -211,7 +216,7 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 								<td class="py-3 px-3 min-w-[160px]">
 									<div class="flex items-center gap-2">
 										<button
-											@click.stop={ fmt.Sprintf("const next = !isProd; if (!envs.production) envs.production = {}; envs.production.enabled = next; toggleFlagEnvStatus('%s', 'production', next);", f.Key) }
+											@click.stop="toggleProd"
 											class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
 											:class="isProd ? 'bg-emerald-600' : 'bg-red-500'"
 											title="Toggle Production Kill Switch"
@@ -248,7 +253,12 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 									if report := domain.AnalyzeFlagHealth(f); report.Status == domain.HealthStatusStale {
 										<button
 											type="button"
-											@click={ fmt.Sprintf("openHygieneModal({ key: '%s', name: '%s', status: '%s', reason: '%s', action: '%s' })", f.Key, f.Name, report.Status, report.Reason, report.SuggestedAction) }
+											data-health-key={ f.Key }
+											data-health-name={ f.Name }
+											data-health-status={ report.Status }
+											data-health-reason={ report.Reason }
+											data-health-action={ report.SuggestedAction }
+											@click="openHygiene($el)"
 											class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-bold transition cursor-pointer shadow-2xs group"
 											title="100% launched in production. Click for automated cleanup guide."
 										>
@@ -258,7 +268,12 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 									} else if report.Status == domain.HealthStatusDead {
 										<button
 											type="button"
-											@click={ fmt.Sprintf("openHygieneModal({ key: '%s', name: '%s', status: '%s', reason: '%s', action: '%s' })", f.Key, f.Name, report.Status, report.Reason, report.SuggestedAction) }
+											data-health-key={ f.Key }
+											data-health-name={ f.Name }
+											data-health-status={ report.Status }
+											data-health-reason={ report.Reason }
+											data-health-action={ report.SuggestedAction }
+											@click="openHygiene($el)"
 											class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 text-red-800 text-[10px] font-bold transition cursor-pointer shadow-2xs group"
 											title="Kill-switched / 0% traffic. Click for cleanup guide."
 										>
@@ -277,21 +292,24 @@ templ FlagMatrix(flags []domain.FeatureFlag) {
 								<td class="py-3 px-3 text-right">
 									<div class="flex items-center justify-end gap-1 font-sans">
 										<button
-											@click={ fmt.Sprintf("openEditFlagEditor('%s');", f.Key) }
+											data-key={ f.Key }
+											@click="openEditFlag($el)"
 											class="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
 											title="Edit targeting rules"
 										>
 											<i data-lucide="edit-3" class="h-3.5 w-3.5"></i>
 										</button>
 										<button
-											@click={ fmt.Sprintf("openExperimentModal('%s');", f.Key) }
+											data-key={ f.Key }
+											@click="openExperiment($el)"
 											class="p-1.5 text-slate-500 hover:text-purple-600 hover:bg-slate-100 rounded-lg transition cursor-pointer"
 											title="A/B Experiment Stats"
 										>
 											<i data-lucide="flask-conical" class="h-3.5 w-3.5"></i>
 										</button>
 										<button
-											@click={ fmt.Sprintf("deleteFlagRow('%s');", f.Key) }
+											data-key={ f.Key }
+											@click="deleteFlag($el)"
 											class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
 											title="Delete flag"
 										>

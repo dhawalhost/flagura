@@ -641,6 +641,32 @@ func (s *MemoryStore) GetExperimentEvents(ctx context.Context, flagKey string, l
 	return matched, nil
 }
 
+func (s *MemoryStore) GetExperimentEventsByProject(ctx context.Context, projectID, flagKey string, limit int) ([]domain.ExperimentEvent, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if projectID == "" {
+		projectID = domain.DefaultProjectID
+	}
+
+	var matched []domain.ExperimentEvent
+	for i := len(s.events) - 1; i >= 0; i-- {
+		ev := s.events[i]
+		evProjectID := ev.ProjectID
+		if evProjectID == "" {
+			evProjectID = domain.DefaultProjectID
+		}
+		if evProjectID == projectID && (flagKey == "" || ev.FlagKey == flagKey) {
+			matched = append(matched, ev)
+			if limit > 0 && len(matched) >= limit {
+				break
+			}
+		}
+	}
+	return matched, nil
+}
+
+
 func (s *MemoryStore) CreateChangeRequest(ctx context.Context, cr domain.ChangeRequest) (*domain.ChangeRequest, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -725,9 +751,18 @@ func (s *MemoryStore) ApplyChangeRequest(ctx context.Context, id string, actor s
 	var updatedFlag domain.FeatureFlag
 	found := false
 
+	crProj := cr.ProjectID
+	if crProj == "" {
+		crProj = DefaultProjectID
+	}
+
 	for i, f := range currentSnap.flagsList {
 		flagCopy := f.DeepCopy()
-		if flagCopy.Key == cr.FlagKey || flagCopy.ID == cr.FlagKey {
+		fProj := flagCopy.ProjectID
+		if fProj == "" {
+			fProj = DefaultProjectID
+		}
+		if fProj == crProj && (flagCopy.Key == cr.FlagKey || flagCopy.ID == cr.FlagKey) {
 			if flagCopy.Environments == nil {
 				flagCopy.Environments = make(map[domain.Environment]domain.EnvironmentConfig)
 			}

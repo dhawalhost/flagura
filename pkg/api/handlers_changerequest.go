@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
@@ -191,6 +192,56 @@ func (s *Server) handleReviewChangeRequest(w http.ResponseWriter, r *http.Reques
 	}
 	if err := s.authorizeProjectAccess(r, cr.ProjectID); err != nil {
 		s.writeError(w, r, err)
+		return
+	}
+
+	// 4-Eyes Governance: Verify reviewer is an authorized reviewer (Admin, Org Owner/Admin, or in FLAGURA_GOVERNANCE_EMAILS)
+	isAuthorizedReviewer := false
+	if user.Role == domain.RoleAdmin {
+		isAuthorizedReviewer = true
+	}
+
+	// Check governance emails list
+	if !isAuthorizedReviewer && s.mailer != nil {
+		for _, govEmail := range s.mailer.GetGovernanceEmails() {
+			if strings.EqualFold(user.Email, govEmail) {
+				isAuthorizedReviewer = true
+				break
+			}
+		}
+	}
+	if !isAuthorizedReviewer {
+		if envGov := os.Getenv("FLAGURA_GOVERNANCE_EMAILS"); envGov != "" {
+			for _, govEmail := range strings.Split(envGov, ",") {
+				if strings.EqualFold(strings.TrimSpace(user.Email), strings.TrimSpace(govEmail)) {
+					isAuthorizedReviewer = true
+					break
+				}
+			}
+		}
+	}
+
+	// Check Org Member role (owner or admin)
+	if !isAuthorizedReviewer {
+		if proj, err := s.store.GetProject(r.Context(), cr.ProjectID); err == nil {
+			if members, err := s.store.ListOrgMembers(r.Context(), proj.OrganizationID); err == nil {
+				for _, m := range members {
+					if m.UserID == user.ID && (m.Role == "owner" || m.Role == "admin") {
+						isAuthorizedReviewer = true
+						break
+					}
+				}
+			}
+		}
+	}
+
+	if !isAuthorizedReviewer {
+		s.writeError(w, r, domain.NewAppError(
+			domain.ErrCodeForbidden,
+			"4-Eyes governance requires review by an administrator, organization owner, or designated governance reviewer",
+			http.StatusForbidden,
+			domain.ErrForbidden,
+		))
 		return
 	}
 

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
@@ -110,6 +111,47 @@ func TestTemplComponents(t *testing.T) {
 		expectedLoc := "https://github.com/dhawalhost/flagura/blob/main/docs/product/sdks-and-api.md"
 		if loc := rec.Header().Get("Location"); loc != expectedLoc {
 			t.Fatalf("expected Location %s, got %s", expectedLoc, loc)
+		}
+	})
+
+	t.Run("StaticAppJSServing", func(t *testing.T) {
+		server, _ := NewServer(mem)
+		req := httptest.NewRequest(http.MethodGet, "/static/js/app.js", nil)
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK for /static/js/app.js, got %d", rec.Code)
+		}
+		body := rec.Body.String()
+		if !strings.Contains(body, "getStickyBucketJs") {
+			t.Errorf("expected /static/js/app.js to contain getStickyBucketJs")
+		}
+		if !strings.Contains(body, "globalApp") {
+			t.Errorf("expected /static/js/app.js to contain globalApp")
+		}
+	})
+
+	t.Run("LayoutNonceRenderingOnServer", func(t *testing.T) {
+		server, _ := NewServer(mem)
+		req := httptest.NewRequest(http.MethodGet, "/auth", nil)
+		rec := httptest.NewRecorder()
+		server.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK for /auth, got %d", rec.Code)
+		}
+		csp := rec.Header().Get("Content-Security-Policy")
+		if !strings.Contains(csp, "nonce-") {
+			t.Fatalf("expected CSP header to contain nonce-, got: %s", csp)
+		}
+
+		body := rec.Body.String()
+		if !strings.Contains(body, `/static/js/app.js`) {
+			t.Errorf("expected rendered page to reference /static/js/app.js")
+		}
+		if !strings.Contains(body, `nonce=`) {
+			t.Errorf("expected rendered page to contain nonce attribute on script tags")
 		}
 	})
 }

@@ -196,7 +196,8 @@ templ AnalyticsDashboard(flags []domain.FeatureFlag) {
 								<td class="px-4 py-3.5 text-emerald-700 font-bold font-mono">~85 ns</td>
 								<td class="px-4 py-3.5 text-right">
 									<button 
-										@click={ fmt.Sprintf("openEvaluatorForFlag('%s');", f.Key) }
+										data-key={ f.Key }
+										@click="openEvaluatorForFlag($el)"
 										class="text-indigo-600 hover:underline font-semibold flex items-center gap-1 justify-end ml-auto cursor-pointer font-sans"
 									>
 										<span>Test in Sandbox</span>

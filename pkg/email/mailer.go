@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net/mail"
 	"net/smtp"
 	"os"
 	"strconv"
@@ -349,7 +350,26 @@ func (m *SMTPMailer) SendChangeRequestNotification(toEmail, recipientName, reque
 	return m.sendHTMLEmail(toEmail, subject, buf.String())
 }
 
+func sanitizeHeader(v string) string {
+	v = strings.ReplaceAll(v, "\r", "")
+	v = strings.ReplaceAll(v, "\n", "")
+	return strings.TrimSpace(v)
+}
+
 func (m *SMTPMailer) sendHTMLEmail(toEmail, subject, htmlBody string) error {
+	cleanTo, err := mail.ParseAddress(toEmail)
+	if err != nil {
+		return fmt.Errorf("invalid recipient email address: %w", err)
+	}
+	cleanFrom, err := mail.ParseAddress(m.Config.FromEmail)
+	if err != nil {
+		cleanFrom = &mail.Address{Address: sanitizeHeader(m.Config.FromEmail)}
+	}
+
+	cleanSubject := sanitizeHeader(subject)
+	cleanToAddress := sanitizeHeader(cleanTo.Address)
+	cleanFromAddress := sanitizeHeader(cleanFrom.Address)
+
 	addr := fmt.Sprintf("%s:%d", m.Config.Host, m.Config.Port)
 	msg := []byte(fmt.Sprintf(
 		"From: %s\r\n"+
@@ -358,7 +378,7 @@ func (m *SMTPMailer) sendHTMLEmail(toEmail, subject, htmlBody string) error {
 			"MIME-Version: 1.0\r\n"+
 			"Content-Type: text/html; charset=UTF-8\r\n\r\n"+
 			"%s\r\n",
-		m.Config.FromEmail, toEmail, subject, htmlBody,
+		cleanFromAddress, cleanToAddress, cleanSubject, htmlBody,
 	))
 
 	var auth smtp.Auth

@@ -1,3 +1,7 @@
+# NOTE: This docker-compose configuration is intended for LOCAL DEVELOPMENT only.
+# DO NOT reuse default database or admin credentials (e.g. POSTGRES_PASSWORD=flagurasecret,
+# GF_SECURITY_ADMIN_PASSWORD=admin) in production environments. Supply strong secrets via environment variables.
+
 version: '3.8'
 
 services:

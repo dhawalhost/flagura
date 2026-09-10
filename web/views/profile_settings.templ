@@ -1,7 +1,6 @@
 package views
 
 import (
-	"fmt"
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
@@ -523,7 +522,8 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 													<div class="text-[10px] text-slate-400 truncate">{ p.Slug }</div>
 												</div>
 												<button 
-													@click={ fmt.Sprintf("switchProject('%s')", p.ID) }
+													data-project-id={ p.ID }
+													@click="switchProject($el)"
 													class="px-2.5 py-1 rounded-md text-[10px] font-bold bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 transition cursor-pointer"
 												>
 													Switch
@@ -607,142 +607,4 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 			</div>
 		</div>
 	</div>
-
-	<script>
-		function profileSettingsComponent() {
-			return {
-				tab: 'general',
-				savingProfile: false,
-				savingPassword: false,
-				profileMessage: '',
-				passwordError: '',
-				passwordSuccess: '',
-				showCurrentPassword: false,
-				showNewPassword: false,
-				profile: {
-					id: '',
-					name: '',
-					email: '',
-					role: '',
-					avatarUrl: ''
-				},
-				form: {
-					name: '',
-					avatarUrl: ''
-				},
-				passwordForm: {
-					currentPassword: '',
-					newPassword: '',
-					confirmPassword: ''
-				},
-				get passRules() {
-					const p = this.passwordForm.newPassword || '';
-					return {
-						length: p.length >= 8,
-						upper: /[A-Z]/.test(p),
-						lower: /[a-z]/.test(p),
-						digit: /[0-9]/.test(p),
-						special: /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?~]/.test(p)
-					};
-				},
-				isPasswordValid() {
-					const r = this.passRules;
-					return r.length && r.upper && r.lower && r.digit && r.special &&
-						this.passwordForm.currentPassword.length > 0 &&
-						this.passwordForm.newPassword === this.passwordForm.confirmPassword;
-				},
-				init() {
-					this.fetchProfile();
-				},
-				getInitials(name) {
-					if (!name) return 'U';
-					const parts = name.trim().split(/\s+/);
-					if (parts.length >= 2) {
-						return (parts[0][0] + parts[1][0]).toUpperCase();
-					}
-					return name.substring(0, 2).toUpperCase();
-				},
-				async fetchProfile() {
-					try {
-						const res = await fetch('/api/v1/auth/me');
-						if (res.ok) {
-							const data = await res.json();
-							this.profile = data;
-							this.form.name = data.name || '';
-							this.form.avatarUrl = data.avatarUrl || '';
-						}
-					} catch(e) {}
-				},
-				resetForm() {
-					this.form.name = this.profile.name || '';
-					this.form.avatarUrl = this.profile.avatarUrl || '';
-					this.profileMessage = '';
-				},
-				async saveProfile() {
-					if (!this.form.name.trim()) return;
-					this.savingProfile = true;
-					this.profileMessage = '';
-					try {
-						const res = await fetch('/api/v1/auth/profile', {
-							method: 'PATCH',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({
-								name: this.form.name.trim(),
-								avatarUrl: this.form.avatarUrl.trim()
-							})
-						});
-						const data = await res.json();
-						if (!res.ok) {
-							throw new Error(data.message || 'Failed to update profile');
-						}
-						this.profile.name = this.form.name.trim();
-						this.profile.avatarUrl = this.form.avatarUrl.trim();
-						this.showToast('Profile updated successfully!', 'info');
-						this.profileMessage = 'Profile updated successfully!';
-					} catch (err) {
-						this.profileMessage = err.message;
-						this.showToast(err.message, 'error');
-					} finally {
-						this.savingProfile = false;
-					}
-				},
-				async changePassword() {
-					if (!this.isPasswordValid()) return;
-					this.savingPassword = true;
-					this.passwordError = '';
-					this.passwordSuccess = '';
-					try {
-						const res = await fetch('/api/v1/auth/change-password', {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({
-								currentPassword: this.passwordForm.currentPassword,
-								newPassword: this.passwordForm.newPassword
-							})
-						});
-						const data = await res.json();
-						if (!res.ok) {
-							throw new Error(data.message || 'Failed to update password');
-						}
-						this.passwordSuccess = 'Password has been successfully updated!';
-						this.passwordForm.currentPassword = '';
-						this.passwordForm.newPassword = '';
-						this.passwordForm.confirmPassword = '';
-						this.showToast('Password updated successfully!', 'info');
-					} catch (err) {
-						this.passwordError = err.message;
-						this.showToast(err.message, 'error');
-					} finally {
-						this.savingPassword = false;
-					}
-				},
-				copyToClipboard(text, msg = 'Copied to clipboard') {
-					if (!text) return;
-					navigator.clipboard.writeText(text).then(() => {
-						this.showToast(msg, 'info');
-					});
-				}
-			};
-		}
-	</script>
 }

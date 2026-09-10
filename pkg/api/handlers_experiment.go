@@ -38,11 +38,15 @@ func (s *Server) handleIngestEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectID := s.resolveProjectID(r)
+	projectID, err := s.resolveAndAuthorizeProjectID(r)
+	if err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+
 	for i := range events {
-		if events[i].ProjectID == "" {
-			events[i].ProjectID = projectID
-		}
+		// Strict isolation: always override any client-supplied project_id with the authenticated project
+		events[i].ProjectID = projectID
 	}
 
 	if err := s.store.RecordExperimentEvents(r.Context(), events); err != nil {
@@ -82,14 +86,16 @@ func (s *Server) handleGetExperimentReport(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	projectID := s.resolveProjectID(r)
+	projectID, err := s.resolveAndAuthorizeProjectID(r)
+	if err != nil {
+		s.writeError(w, r, err)
+		return
+	}
+
 	flag, err := s.store.GetFlagByProject(r.Context(), projectID, flagKey)
 	if err != nil || flag == nil {
-		flag, err = s.store.GetFlag(r.Context(), flagKey)
-		if err != nil || flag == nil {
-			http.Error(w, "Flag not found: "+flagKey, http.StatusNotFound)
-			return
-		}
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeFlagNotFound, "Flag not found: "+flagKey, http.StatusNotFound, domain.ErrFlagNotFound))
+		return
 	}
 
 	// Read query parameters
@@ -110,8 +116,8 @@ func (s *Server) handleGetExperimentReport(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	// 1. Fetch experiment events from store
-	events, err := s.store.GetExperimentEvents(r.Context(), flagKey, 10000)
+	// 1. Fetch experiment events from store scoped strictly to this project
+	events, err := s.store.GetExperimentEventsByProject(r.Context(), projectID, flagKey, 10000)
 	if err != nil {
 		http.Error(w, "Failed to retrieve experiment events: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -120,7 +126,7 @@ func (s *Server) handleGetExperimentReport(w http.ResponseWriter, r *http.Reques
 	// 2. Fetch evaluation exposure counts from telemetry aggregator
 	exposures := make(map[string]int64)
 	if s.telemetry != nil {
-		statsData := s.telemetry.Stats(flagKey)
+		statsData := s.telemetry.Stats(projectID, flagKey)
 		if vMap, ok := statsData["variants"].(map[string]uint64); ok {
 			for v, count := range vMap {
 				if count > math.MaxInt64 {

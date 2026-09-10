@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -103,6 +104,15 @@ func (i *IPRateLimiter) LimitHandler(next http.HandlerFunc) http.HandlerFunc {
 		limiter := i.GetLimiter(identity)
 
 		if !limiter.Allow() {
+			slog.WarnContext(r.Context(), "security_event",
+				slog.String("event_type", "rate_limit_exceeded"),
+				slog.String("identity", identity),
+				slog.String("ip", GetClientIP(r)),
+				slog.String("path", r.URL.Path),
+				slog.String("method", r.Method),
+				slog.String("user_agent", r.UserAgent()),
+				slog.String("request_id", RequestIDFromContext(r.Context())),
+			)
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Retry-After", "1")
 			w.WriteHeader(http.StatusTooManyRequests)

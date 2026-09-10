@@ -53,9 +53,9 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 			</div>
 
 			<!-- Organization & Project Selector Dropdown -->
-			<div class="relative" x-data="{ projDropdownOpen: false }">
+			<div class="relative" x-data="dropdownComponent()">
 				<button 
-					@click="projDropdownOpen = !projDropdownOpen"
+					@click="toggle()"
 					class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left transition group cursor-pointer"
 				>
 					<div class="flex items-center gap-2.5 min-w-0">
@@ -80,8 +80,8 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 
 				<!-- Dropdown Menu -->
 				<div 
-					x-show="projDropdownOpen" 
-					@click.outside="projDropdownOpen = false" 
+					x-show="isOpen" 
+					@click.outside="close()" 
 					class="absolute left-0 mt-1.5 w-full bg-white p-2 z-50 shadow-xl border border-slate-200 rounded-2xl space-y-1"
 					style="display: none;"
 					x-transition
@@ -94,7 +94,8 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 							for _, p := range projects {
 								if p.OrganizationID == org.ID || (org.ID == "org_default" && p.OrganizationID == "") {
 									<button 
-										@click={ fmt.Sprintf("switchProject('%s')", p.ID) }
+										data-project-id={ p.ID }
+										@click="switchProject($el); close();"
 										class="w-full text-left px-2.5 py-2 rounded-xl text-xs font-mono flex items-center justify-between hover:bg-slate-50 text-slate-700 hover:text-slate-900 cursor-pointer transition-colors"
 									>
 										<div class="truncate">
@@ -111,14 +112,14 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 					</div>
 					<div class="border-t border-slate-100 pt-1.5 mt-1 space-y-0.5">
 						<button 
-							@click="projDropdownOpen = false; $dispatch('open-create-project-modal');"
+							@click="close(); $dispatch('open-create-project-modal');"
 							class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold text-indigo-600 hover:bg-indigo-50 flex items-center gap-1.5 cursor-pointer"
 						>
 							<i data-lucide="plus" class="w-3.5 h-3.5"></i>
 							<span>Create Project Scope</span>
 						</button>
 						<button 
-							@click="projDropdownOpen = false; $dispatch('open-invite-modal');"
+							@click="close(); $dispatch('open-invite-modal');"
 							class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
 						>
 							<i data-lucide="user-plus" class="w-3.5 h-3.5 text-slate-500"></i>

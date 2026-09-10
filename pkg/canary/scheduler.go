@@ -54,6 +54,13 @@ func (cs *CanaryScheduler) StartBackgroundLoop(interval time.Duration) {
 	}()
 }
 
+func scheduleKey(projectID, flagKey string) string {
+	if projectID == "" {
+		projectID = store.DefaultProjectID
+	}
+	return projectID + ":" + flagKey
+}
+
 // SubmitSchedule registers or replaces an active canary schedule for a flag.
 func (cs *CanaryScheduler) SubmitSchedule(ctx context.Context, sched domain.CanarySchedule) (*domain.CanarySchedule, error) {
 	cs.mu.Lock()
@@ -62,6 +69,9 @@ func (cs *CanaryScheduler) SubmitSchedule(ctx context.Context, sched domain.Cana
 	now := time.Now().UTC()
 	if sched.ID == "" {
 		sched.ID = fmt.Sprintf("canary_%s_%d", sched.FlagKey, now.Unix())
+	}
+	if sched.ProjectID == "" {
+		sched.ProjectID = store.DefaultProjectID
 	}
 	if sched.Environment == "" {
 		sched.Environment = domain.EnvProduction
@@ -77,11 +87,12 @@ func (cs *CanaryScheduler) SubmitSchedule(ctx context.Context, sched domain.Cana
 	sched.LastEvaluatedAt = now
 	sched.Stages[0].StartedAt = now
 
-	cs.schedules[sched.FlagKey] = &sched
+	key := scheduleKey(sched.ProjectID, sched.FlagKey)
+	cs.schedules[key] = &sched
 
 	// Apply initial stage rollout immediately
 	initialPct := sched.Stages[0].TargetPercentage
-	_, _, err := cs.store.UpdateRollout(ctx, sched.FlagKey, sched.Environment, initialPct, "canary-scheduler-auto")
+	_, _, err := cs.store.UpdateRolloutByProject(ctx, sched.ProjectID, sched.FlagKey, sched.Environment, initialPct, "canary-scheduler-auto")
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply initial canary rollout percentage: %w", err)
 	}
@@ -93,12 +104,12 @@ func (cs *CanaryScheduler) SubmitSchedule(ctx context.Context, sched domain.Cana
 	return &sched, nil
 }
 
-// GetSchedule returns the active schedule for a flag.
-func (cs *CanaryScheduler) GetSchedule(flagKey string) (*domain.CanarySchedule, bool) {
+// GetSchedule returns the active schedule for a flag in a project.
+func (cs *CanaryScheduler) GetSchedule(projectID, flagKey string) (*domain.CanarySchedule, bool) {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
 
-	sched, ok := cs.schedules[flagKey]
+	sched, ok := cs.schedules[scheduleKey(projectID, flagKey)]
 	if !ok {
 		return nil, false
 	}
@@ -107,13 +118,14 @@ func (cs *CanaryScheduler) GetSchedule(flagKey string) (*domain.CanarySchedule, 
 }
 
 // CancelSchedule halts and removes an active canary schedule.
-func (cs *CanaryScheduler) CancelSchedule(flagKey string) bool {
+func (cs *CanaryScheduler) CancelSchedule(projectID, flagKey string) bool {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	if sched, ok := cs.schedules[flagKey]; ok {
+	key := scheduleKey(projectID, flagKey)
+	if sched, ok := cs.schedules[key]; ok {
 		sched.Status = domain.CanaryStatusPaused
-		delete(cs.schedules, flagKey)
+		delete(cs.schedules, key)
 		return true
 	}
 	return false
@@ -127,7 +139,7 @@ func (cs *CanaryScheduler) EvaluateSchedules(now time.Time) int {
 	advancedCount := 0
 	ctx := context.Background()
 
-	for flagKey, sched := range cs.schedules {
+	for _, sched := range cs.schedules {
 		if sched.Status != domain.CanaryStatusActive {
 			continue
 		}
@@ -137,12 +149,13 @@ func (cs *CanaryScheduler) EvaluateSchedules(now time.Time) int {
 		// 1. Advance stage if duration has elapsed
 		advanced, nextStage := sched.NextStage(now)
 		if advanced && nextStage != nil {
-			_, _, err := cs.store.UpdateRollout(ctx, flagKey, sched.Environment, nextStage.TargetPercentage, "canary-scheduler-auto")
+			_, _, err := cs.store.UpdateRolloutByProject(ctx, sched.ProjectID, sched.FlagKey, sched.Environment, nextStage.TargetPercentage, "canary-scheduler-auto")
 			if err == nil {
 				advancedCount++
 				if cs.broadcaster != nil {
 					cs.broadcaster.Broadcast("canary_stage_advanced", map[string]interface{}{
-						"flag_key":          flagKey,
+						"project_id":        sched.ProjectID,
+						"flag_key":          sched.FlagKey,
 						"stage_index":       sched.CurrentStageIdx,
 						"target_percentage": nextStage.TargetPercentage,
 					})
@@ -154,7 +167,8 @@ func (cs *CanaryScheduler) EvaluateSchedules(now time.Time) int {
 		if sched.Status == domain.CanaryStatusCompleted {
 			if cs.broadcaster != nil {
 				cs.broadcaster.Broadcast("canary_completed", map[string]interface{}{
-					"flag_key": flagKey,
+					"project_id": sched.ProjectID,
+					"flag_key":   sched.FlagKey,
 				})
 			}
 		}
@@ -164,13 +178,14 @@ func (cs *CanaryScheduler) EvaluateSchedules(now time.Time) int {
 }
 
 // TriggerHealthRollback automatically rolls back an active canary if external APM reports a breach.
-func (cs *CanaryScheduler) TriggerHealthRollback(ctx context.Context, flagKey, reason string) error {
+func (cs *CanaryScheduler) TriggerHealthRollback(ctx context.Context, projectID, flagKey, reason string) error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	sched, ok := cs.schedules[flagKey]
+	key := scheduleKey(projectID, flagKey)
+	sched, ok := cs.schedules[key]
 	if !ok {
-		return fmt.Errorf("no active canary schedule for flag %s", flagKey)
+		return fmt.Errorf("no active canary schedule for flag %s in project %s", flagKey, projectID)
 	}
 
 	sched.Status = domain.CanaryStatusRolledBack
@@ -178,15 +193,16 @@ func (cs *CanaryScheduler) TriggerHealthRollback(ctx context.Context, flagKey, r
 	sched.UpdatedAt = time.Now().UTC()
 
 	// Rollback percentage to 0%
-	_, _, err := cs.store.UpdateRollout(ctx, flagKey, sched.Environment, 0.0, "canary-health-rollback")
+	_, _, err := cs.store.UpdateRolloutByProject(ctx, sched.ProjectID, sched.FlagKey, sched.Environment, 0.0, "canary-health-rollback")
 	if err != nil {
 		return fmt.Errorf("failed to revert rollout to 0%%: %w", err)
 	}
 
 	if cs.broadcaster != nil {
 		cs.broadcaster.Broadcast("canary_rollback", map[string]interface{}{
-			"flag_key": flagKey,
-			"reason":   reason,
+			"project_id": sched.ProjectID,
+			"flag_key":   sched.FlagKey,
+			"reason":     reason,
 		})
 	}
 

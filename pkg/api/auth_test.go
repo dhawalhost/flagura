@@ -47,8 +47,16 @@ func TestAuthFlow(t *testing.T) {
 	if authResp.User == nil || authResp.User.Email != "test.user@company.com" {
 		t.Fatalf("Expected created user email 'test.user@company.com', got: %+v", authResp.User)
 	}
-	if authResp.Token == "" {
-		t.Fatalf("Expected non-empty session token")
+	if authResp.Token != "" {
+		t.Fatalf("Expected empty session token in JSON body (token must be transmitted solely via HttpOnly cookie), got %q", authResp.Token)
+	}
+
+	// Verify token is completely omitted or empty in raw JSON body
+	var rawResp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &rawResp); err == nil {
+		if tok, exists := rawResp["token"]; exists && tok != "" && tok != nil {
+			t.Fatalf("SECURITY FLAW: session token leaked in signup JSON response body: %v", tok)
+		}
 	}
 
 	// Check cookie
@@ -62,6 +70,9 @@ func TestAuthFlow(t *testing.T) {
 	}
 	if sessionCookie == nil {
 		t.Fatalf("Expected %s cookie in response", SessionCookieName)
+	}
+	if !sessionCookie.HttpOnly {
+		t.Fatalf("Expected session cookie to have HttpOnly=true")
 	}
 
 	// 2. Test Sign Up with duplicate email (should fail with 409 Conflict)
@@ -377,13 +388,20 @@ func TestProfileUpdateAndChangePasswordFlow(t *testing.T) {
 		t.Fatalf("Expected 201 on signup, got %d", w.Code)
 	}
 
-	var authResp domain.AuthResponse
-	_ = json.NewDecoder(w.Body).Decode(&authResp)
-	token := authResp.Token
+	var sessionCookie *http.Cookie
+	for _, c := range w.Result().Cookies() {
+		if c.Name == SessionCookieName {
+			sessionCookie = c
+			break
+		}
+	}
+	if sessionCookie == nil || sessionCookie.Value == "" {
+		t.Fatalf("Expected non-empty %s cookie in signup response", SessionCookieName)
+	}
 
 	// 2. Test GET /api/v1/auth/me
 	reqMe := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
-	reqMe.Header.Set("Authorization", "Bearer "+token)
+	reqMe.AddCookie(sessionCookie)
 	wMe := httptest.NewRecorder()
 	server.ServeHTTP(wMe, reqMe)
 
@@ -399,7 +417,7 @@ func TestProfileUpdateAndChangePasswordFlow(t *testing.T) {
 	// 3. Test PATCH /api/v1/auth/profile with empty name -> 400
 	invalidProfileBody, _ := json.Marshal(domain.UpdateProfileRequest{Name: "   "})
 	reqInvalid := httptest.NewRequest(http.MethodPatch, "/api/v1/auth/profile", bytes.NewReader(invalidProfileBody))
-	reqInvalid.Header.Set("Authorization", "Bearer "+token)
+	reqInvalid.AddCookie(sessionCookie)
 	reqInvalid.Header.Set("Content-Type", "application/json")
 	wInvalid := httptest.NewRecorder()
 	server.ServeHTTP(wInvalid, reqInvalid)
@@ -413,7 +431,7 @@ func TestProfileUpdateAndChangePasswordFlow(t *testing.T) {
 		AvatarURL: "https://flagura.dev/avatars/tester.png",
 	})
 	reqValid := httptest.NewRequest(http.MethodPatch, "/api/v1/auth/profile", bytes.NewReader(validProfileBody))
-	reqValid.Header.Set("Authorization", "Bearer "+token)
+	reqValid.AddCookie(sessionCookie)
 	reqValid.Header.Set("Content-Type", "application/json")
 	wValid := httptest.NewRecorder()
 	server.ServeHTTP(wValid, reqValid)
@@ -428,7 +446,7 @@ func TestProfileUpdateAndChangePasswordFlow(t *testing.T) {
 		NewPassword:     "BrandNewPass123!",
 	})
 	reqBadPass := httptest.NewRequest(http.MethodPost, "/api/v1/auth/change-password", bytes.NewReader(badPassBody))
-	reqBadPass.Header.Set("Authorization", "Bearer "+token)
+	reqBadPass.AddCookie(sessionCookie)
 	reqBadPass.Header.Set("Content-Type", "application/json")
 	wBadPass := httptest.NewRecorder()
 	server.ServeHTTP(wBadPass, reqBadPass)
@@ -442,7 +460,7 @@ func TestProfileUpdateAndChangePasswordFlow(t *testing.T) {
 		NewPassword:     "weak",
 	})
 	reqWeakPass := httptest.NewRequest(http.MethodPost, "/api/v1/auth/change-password", bytes.NewReader(weakPassBody))
-	reqWeakPass.Header.Set("Authorization", "Bearer "+token)
+	reqWeakPass.AddCookie(sessionCookie)
 	reqWeakPass.Header.Set("Content-Type", "application/json")
 	wWeakPass := httptest.NewRecorder()
 	server.ServeHTTP(wWeakPass, reqWeakPass)
@@ -456,7 +474,7 @@ func TestProfileUpdateAndChangePasswordFlow(t *testing.T) {
 		NewPassword:     "BrandNewPass123!#",
 	})
 	reqChangePass := httptest.NewRequest(http.MethodPost, "/api/v1/auth/change-password", bytes.NewReader(validPassBody))
-	reqChangePass.Header.Set("Authorization", "Bearer "+token)
+	reqChangePass.AddCookie(sessionCookie)
 	reqChangePass.Header.Set("Content-Type", "application/json")
 	wChangePass := httptest.NewRecorder()
 	server.ServeHTTP(wChangePass, reqChangePass)
