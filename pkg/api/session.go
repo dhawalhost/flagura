@@ -24,14 +24,15 @@ func generateSessionToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
+func isCookieSecure(r *http.Request) bool {
+	if strings.EqualFold(os.Getenv("ALLOW_INSECURE_COOKIES"), "true") || strings.EqualFold(os.Getenv("SECURE_COOKIE"), "false") {
+		return false
+	}
+	return true
+}
+
 func (s *Server) setProjectCookie(w http.ResponseWriter, r *http.Request, projectID string, expiresAt time.Time) {
-	isSecure := false
-	if r != nil && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https") {
-		isSecure = true
-	}
-	if os.Getenv("ENVIRONMENT") == string(domain.EnvProduction) || os.Getenv("SECURE_COOKIE") == "true" {
-		isSecure = true
-	}
+	isSecure := isCookieSecure(r)
 
 	// #nosec G124 -- active project selection cookie configured with SameSite and dynamic TLS
 	http.SetCookie(w, &http.Cookie{
@@ -46,13 +47,7 @@ func (s *Server) setProjectCookie(w http.ResponseWriter, r *http.Request, projec
 }
 
 func (s *Server) setSessionCookie(w http.ResponseWriter, r *http.Request, token string, expiresAt time.Time) {
-	isSecure := false
-	if r != nil && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https") {
-		isSecure = true
-	}
-	if os.Getenv("ENVIRONMENT") == string(domain.EnvProduction) || os.Getenv("SECURE_COOKIE") == "true" {
-		isSecure = true
-	}
+	isSecure := isCookieSecure(r)
 
 	// #nosec G124 -- dynamic secure flag based on TLS and environment
 	http.SetCookie(w, &http.Cookie{
@@ -67,13 +62,7 @@ func (s *Server) setSessionCookie(w http.ResponseWriter, r *http.Request, token 
 }
 
 func (s *Server) clearSessionCookie(w http.ResponseWriter, r *http.Request) {
-	isSecure := false
-	if r != nil && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https") {
-		isSecure = true
-	}
-	if os.Getenv("ENVIRONMENT") == string(domain.EnvProduction) || os.Getenv("SECURE_COOKIE") == "true" {
-		isSecure = true
-	}
+	isSecure := isCookieSecure(r)
 
 	// #nosec G124 -- dynamic secure flag based on TLS and environment
 	http.SetCookie(w, &http.Cookie{

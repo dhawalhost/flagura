@@ -1,7 +1,9 @@
 package api
 
 import (
+	"crypto/subtle"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -35,15 +37,28 @@ func (s *Server) handleCanaryRoutes(w http.ResponseWriter, r *http.Request) {
 		webhookSecret := os.Getenv("FLAGURA_WEBHOOK_SECRET")
 		isWebhookAuthed := false
 		if webhookSecret != "" {
-			if r.Header.Get("X-Webhook-Secret") == webhookSecret ||
-				r.URL.Query().Get("token") == webhookSecret ||
-				strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ") == webhookSecret {
+			secBytes := []byte(webhookSecret)
+			headerSec := []byte(r.Header.Get("X-Webhook-Secret"))
+			querySec := []byte(r.URL.Query().Get("token"))
+			bearerSec := []byte(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+
+			if subtle.ConstantTimeCompare(headerSec, secBytes) == 1 ||
+				subtle.ConstantTimeCompare(querySec, secBytes) == 1 ||
+				subtle.ConstantTimeCompare(bearerSec, secBytes) == 1 {
 				isWebhookAuthed = true
 			}
 		}
 
 		user, _ := s.getUserFromRequest(r)
 		if !isWebhookAuthed && user == nil {
+			slog.WarnContext(r.Context(), "security_event",
+				slog.String("event_type", "canary_unauthorized"),
+				slog.String("ip", GetClientIP(r)),
+				slog.String("path", r.URL.Path),
+				slog.String("method", r.Method),
+				slog.String("user_agent", r.UserAgent()),
+				slog.String("reason", "invalid_webhook_secret_or_session"),
+			)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{

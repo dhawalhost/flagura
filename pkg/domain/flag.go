@@ -2,8 +2,16 @@ package domain
 
 import (
 	"encoding/json"
+	"regexp"
 	"time"
 )
+
+var validFlagKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`)
+
+// IsValidFlagKey ensures flag keys adhere strictly to safe alphanumeric identifiers with hyphens and underscores.
+func IsValidFlagKey(key string) bool {
+	return validFlagKeyRegex.MatchString(key)
+}
 
 type StrategyType string
 

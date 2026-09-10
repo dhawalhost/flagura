@@ -1618,7 +1618,16 @@ document.addEventListener('alpine:init', () => {
 			this.isOpen = false;
 		},
 		getDiffHtml() {
-			const k = this.flagKey || 'my-feature-flag';
+			const escapeHtml = (str) => {
+				if (!str) return '';
+				return String(str)
+					.replace(/&/g, '&amp;')
+					.replace(/</g, '&lt;')
+					.replace(/>/g, '&gt;')
+					.replace(/"/g, '&quot;')
+					.replace(/'/g, '&#39;');
+			};
+			const k = escapeHtml(this.flagKey || 'my-feature-flag');
 			if (this.cleanupLang === 'go') {
 				if (this.flagStatus === 'DEAD_FLAG') {
 					return '<span class="text-red-400 font-bold">- if client.IsEnabled(ctx, "' + k + '", userCtx) {</span>\n' +

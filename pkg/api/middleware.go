@@ -240,6 +240,14 @@ func (s *Server) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, err := s.getUserFromRequest(r)
 		if err != nil || user == nil {
+			slog.WarnContext(r.Context(), "security_event",
+				slog.String("event_type", "unauthorized_access"),
+				slog.String("ip", GetClientIP(r)),
+				slog.String("path", r.URL.Path),
+				slog.String("method", r.Method),
+				slog.String("user_agent", r.UserAgent()),
+				slog.String("reason", "missing_or_invalid_auth"),
+			)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -262,6 +270,14 @@ func (s *Server) RequireRole(role domain.UserRole, next http.HandlerFunc) http.H
 			var err error
 			user, err = s.getUserFromRequest(r)
 			if err != nil || user == nil {
+				slog.WarnContext(r.Context(), "security_event",
+					slog.String("event_type", "unauthorized_access"),
+					slog.String("ip", GetClientIP(r)),
+					slog.String("path", r.URL.Path),
+					slog.String("method", r.Method),
+					slog.String("user_agent", r.UserAgent()),
+					slog.String("reason", "missing_or_invalid_auth"),
+				)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
 				_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -275,6 +291,17 @@ func (s *Server) RequireRole(role domain.UserRole, next http.HandlerFunc) http.H
 
 		// Admin has access to all actions; otherwise check matching role
 		if user.Role != domain.RoleAdmin && user.Role != role {
+			slog.WarnContext(r.Context(), "security_event",
+				slog.String("event_type", "forbidden_role_access"),
+				slog.String("ip", GetClientIP(r)),
+				slog.String("path", r.URL.Path),
+				slog.String("method", r.Method),
+				slog.String("user_id", user.ID),
+				slog.String("user_role", string(user.Role)),
+				slog.String("required_role", string(role)),
+				slog.String("user_agent", r.UserAgent()),
+				slog.String("reason", "insufficient_role"),
+			)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{

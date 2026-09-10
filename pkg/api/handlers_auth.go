@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/mail"
 	"strings"
@@ -177,12 +178,28 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Run dummy bcrypt comparison to ensure uniform timing against enumeration attacks
 		_ = bcrypt.CompareHashAndPassword(dummyBcryptHash, []byte(req.Password))
+		slog.WarnContext(r.Context(), "security_event",
+			slog.String("event_type", "failed_login"),
+			slog.String("ip", GetClientIP(r)),
+			slog.String("path", r.URL.Path),
+			slog.String("user_agent", r.UserAgent()),
+			slog.String("email", email),
+			slog.String("reason", "user_not_found"),
+		)
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeInvalidCredentials, "Invalid email or password", http.StatusUnauthorized, domain.ErrUnauthorized))
 		return
 	}
 
 	// Verify bcrypt hash
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		slog.WarnContext(r.Context(), "security_event",
+			slog.String("event_type", "failed_login"),
+			slog.String("ip", GetClientIP(r)),
+			slog.String("path", r.URL.Path),
+			slog.String("user_agent", r.UserAgent()),
+			slog.String("email", email),
+			slog.String("reason", "invalid_password"),
+		)
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeInvalidCredentials, "Invalid email or password", http.StatusUnauthorized, domain.ErrUnauthorized))
 		return
 	}

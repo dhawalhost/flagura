@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -17,6 +18,15 @@ func (s *Server) authorizeProjectAccess(r *http.Request, projectID string) error
 	// 1. API Key
 	if apiKey := s.getAPIKeyFromRequest(r); apiKey != nil && apiKey.ProjectID != "" {
 		if apiKey.ProjectID != projectID {
+			slog.WarnContext(ctx, "security_event",
+				slog.String("event_type", "project_access_denied"),
+				slog.String("ip", GetClientIP(r)),
+				slog.String("path", r.URL.Path),
+				slog.String("api_key_id", apiKey.ID),
+				slog.String("api_key_project", apiKey.ProjectID),
+				slog.String("target_project", projectID),
+				slog.String("reason", "api_key_cross_project_access"),
+			)
 			return domain.NewAppError(
 				domain.ErrCodeProjectAccessDenied,
 				fmt.Sprintf("API key scoped to project '%s' is not authorized to access project '%s'", apiKey.ProjectID, projectID),
@@ -55,6 +65,16 @@ func (s *Server) authorizeProjectAccess(r *http.Request, projectID string) error
 			return domain.NewAppError(domain.ErrCodeProjectNotFound, "project not found: "+projectID, http.StatusNotFound, domain.ErrProjectNotFound)
 		}
 		if !userOrgMap[proj.OrganizationID] {
+			slog.WarnContext(ctx, "security_event",
+				slog.String("event_type", "project_access_denied"),
+				slog.String("ip", GetClientIP(r)),
+				slog.String("path", r.URL.Path),
+				slog.String("user_id", user.ID),
+				slog.String("user_email", user.Email),
+				slog.String("target_project", projectID),
+				slog.String("project_org", proj.OrganizationID),
+				slog.String("reason", "user_not_org_member"),
+			)
 			return domain.NewAppError(
 				domain.ErrCodeProjectAccessDenied,
 				fmt.Sprintf("user '%s' is not authorized to access project '%s' (not a member of organization '%s')", user.Email, projectID, proj.OrganizationID),
@@ -133,6 +153,13 @@ func (s *Server) resolveAndAuthorizeProjectID(r *http.Request) (string, error) {
 
 		// If no candidate project specified, fallback to user's first project in their organizations
 		if len(userOrgs) == 0 {
+			slog.WarnContext(ctx, "security_event",
+				slog.String("event_type", "project_access_denied"),
+				slog.String("ip", GetClientIP(r)),
+				slog.String("path", r.URL.Path),
+				slog.String("user_id", user.ID),
+				slog.String("reason", "user_has_no_organizations"),
+			)
 			return "", domain.NewAppError(domain.ErrCodeProjectAccessDenied, "user has no assigned organizations", http.StatusForbidden, domain.ErrForbidden)
 		}
 		for _, org := range userOrgs {
@@ -205,6 +232,10 @@ func (s *Server) handleCreateFlag(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "flag key is required", http.StatusBadRequest, domain.ErrInvalidInput))
 		return
 	}
+	if !domain.IsValidFlagKey(flag.Key) {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "flag key must contain only alphanumeric characters, underscores, and hyphens (1-64 chars)", http.StatusBadRequest, domain.ErrInvalidInput))
+		return
+	}
 	projectID, err := s.resolveAndAuthorizeProjectID(r)
 	if err != nil {
 		s.writeError(w, r, err)
@@ -244,6 +275,10 @@ func (s *Server) handleUpdateFlag(w http.ResponseWriter, r *http.Request) {
 
 	if flag.Key == "" {
 		flag.Key = id
+	}
+	if !domain.IsValidFlagKey(flag.Key) {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, "flag key must contain only alphanumeric characters, underscores, and hyphens (1-64 chars)", http.StatusBadRequest, domain.ErrInvalidInput))
+		return
 	}
 	projectID, err := s.resolveAndAuthorizeProjectID(r)
 	if err != nil {

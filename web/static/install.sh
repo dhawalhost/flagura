@@ -86,7 +86,7 @@ if [ -z "$VERSION" ]; then
     if [ -n "$LATEST_TAG" ]; then
         VERSION="$LATEST_TAG"
     else
-        VERSION="v1.6.4"
+        VERSION="v1.6.5"
     fi
 fi
 
@@ -108,6 +108,54 @@ trap cleanup EXIT
 # 5. Download Release Archive
 log_info "Fetching Flagura binary..."
 
+# Candidates for checksum manifest
+CHECKSUMS_FILE="$TMP_DIR/checksums.txt"
+for CS_NAME in "checksums.txt" "flagura_${CLEAN_VERSION}_checksums.txt" "flagura_${VERSION}_checksums.txt" "SHA256SUMS"; do
+    CS_URL="https://github.com/dhawalhost/flagura/releases/download/${VERSION}/${CS_NAME}"
+    if curl -sSL -f -o "$CHECKSUMS_FILE" "$CS_URL" 2>/dev/null; then
+        log_info "Retrieved release checksum manifest (${CS_NAME})"
+        break
+    fi
+done
+
+verify_checksum() {
+    local file_path="$1"
+    local cs_file="$2"
+    local filename
+    filename="$(basename "$file_path")"
+
+    if [ ! -s "$cs_file" ]; then
+        return 0
+    fi
+
+    local expected_hash
+    expected_hash="$(grep -F "$filename" "$cs_file" | awk '{print $1}' | head -n 1 || true)"
+
+    if [ -z "$expected_hash" ]; then
+        return 0
+    fi
+
+    local actual_hash=""
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual_hash="$(sha256sum "$file_path" | awk '{print $1}')"
+    elif command -v shasum >/dev/null 2>&1; then
+        actual_hash="$(shasum -a 256 "$file_path" | awk '{print $1}')"
+    else
+        log_warn "Neither sha256sum nor shasum found; skipping checksum validation."
+        return 0
+    fi
+
+    if [ "$actual_hash" != "$expected_hash" ]; then
+        log_error "SHA256 checksum mismatch for ${filename}!"
+        echo "   Expected: ${expected_hash}" >&2
+        echo "   Actual:   ${actual_hash}" >&2
+        return 1
+    fi
+
+    log_success "Verified archive integrity (${actual_hash:0:12}...)"
+    return 0
+}
+
 # Candidates for GoReleaser naming format
 TAR_CANDIDATE_1="flagura_v${CLEAN_VERSION}_${OS}_${ARCH}.tar.gz"
 TAR_CANDIDATE_2="flagura_${CLEAN_VERSION}_${OS}_${ARCH}.tar.gz"
@@ -118,6 +166,9 @@ for TAR_NAME in "$TAR_CANDIDATE_1" "$TAR_CANDIDATE_2" "$TAR_CANDIDATE_3"; do
     DOWNLOAD_URL="https://github.com/dhawalhost/flagura/releases/download/${VERSION}/${TAR_NAME}"
     HTTP_CODE=$(curl -sSL -w "%{http_code}" -o "$TMP_DIR/$TAR_NAME" "$DOWNLOAD_URL" 2>/dev/null || echo "000")
     if [ "$HTTP_CODE" = "200" ]; then
+        if ! verify_checksum "$TMP_DIR/$TAR_NAME" "$CHECKSUMS_FILE"; then
+            exit 1
+        fi
         if tar -xzf "$TMP_DIR/$TAR_NAME" -C "$TMP_DIR" 2>/dev/null; then
             DOWNLOADED=true
             break
