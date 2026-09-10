@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/store"
 )
@@ -742,5 +744,89 @@ func TestCanaryWebhookConstantTimeAuth(t *testing.T) {
 		t.Fatalf("Expected 401 Unauthorized with wrong webhook secret, got: %d (%s)", wInvalid.Code, wInvalid.Body.String())
 	}
 }
+
+// TestAuthorizeProjectAccessFailClosed verifies OWASP A10:2025:
+// authorizeProjectAccess must fail closed (deny with 401 Unauthorized) when called with no credentials.
+func TestAuthorizeProjectAccessFailClosed(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	server, _ := NewServer(memStore)
+
+	// Anonymous request with no API key and no session cookie
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/flags?project_id=proj_secret", nil)
+	err := server.authorizeProjectAccess(req, "proj_secret")
+	if err == nil {
+		t.Fatal("Expected authorizeProjectAccess to fail closed (return non-nil error) on anonymous request, got nil")
+	}
+
+	appErr, ok := err.(*domain.AppError)
+	if !ok {
+		t.Fatalf("Expected *domain.AppError, got %T (%v)", err, err)
+	}
+	if appErr.HTTPStatus != http.StatusUnauthorized {
+		t.Fatalf("Expected 401 Unauthorized, got HTTP %d (%s)", appErr.HTTPStatus, appErr.Message)
+	}
+}
+
+// TestPasswordChangeInvalidatesSessions verifies that changing password revokes existing sessions
+// and purges session cookies to protect against token hijacking.
+func TestPasswordChangeInvalidatesSessions(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	server, _ := NewServer(memStore)
+	ctx := context.Background()
+
+	pwHash, _ := bcrypt.GenerateFromPassword([]byte("InitialPass123!"), bcrypt.DefaultCost)
+	user, err := memStore.CreateUser(ctx, domain.User{
+		Email:        "alice.pwd@example.com",
+		Name:         "Alice Password Test",
+		PasswordHash: string(pwHash),
+		Role:         domain.RoleDeveloper,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	// Create 2 active sessions for Alice
+	token1 := "sess_pwd_alice_1"
+	token2 := "sess_pwd_alice_2"
+	_ = memStore.CreateSession(ctx, domain.Session{Token: token1, UserID: user.ID, ExpiresAt: time.Now().Add(time.Hour)})
+	_ = memStore.CreateSession(ctx, domain.Session{Token: token2, UserID: user.ID, ExpiresAt: time.Now().Add(time.Hour)})
+
+	// Alice submits password change using token1
+	changePayload, _ := json.Marshal(map[string]string{
+		"currentPassword": "InitialPass123!",
+		"newPassword":     "BrandNewSecurePass999#",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/change-password", bytes.NewReader(changePayload))
+	req.Header.Set("Authorization", "Bearer "+token1)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	server.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK on password change, got: %d (%s)", w.Code, w.Body.String())
+	}
+
+	// Verify both sessions were revoked in store
+	if _, err := memStore.GetSession(ctx, token1); err == nil {
+		t.Fatal("Expected session token1 to be deleted from store after password change")
+	}
+	if _, err := memStore.GetSession(ctx, token2); err == nil {
+		t.Fatal("Expected session token2 to be deleted from store after password change")
+	}
+
+	// Verify cookie was cleared
+	cookies := w.Result().Cookies()
+	var cleared bool
+	for _, c := range cookies {
+		if c.Name == domain.CookieSessionName && c.MaxAge == -1 {
+			cleared = true
+			break
+		}
+	}
+	if !cleared {
+		t.Fatal("Expected session cookie to be cleared (MaxAge: -1) on password change")
+	}
+}
+
 
 

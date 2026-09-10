@@ -85,7 +85,21 @@ func (s *Server) authorizeProjectAccess(r *http.Request, projectID string) error
 		return nil
 	}
 
-	return nil
+	// Fail-closed defensive default: If neither an authorized API key nor a valid user session
+	// is present on the request, deny access explicitly.
+	slog.WarnContext(ctx, "security_event",
+		slog.String("event_type", "project_access_denied"),
+		slog.String("ip", GetClientIP(r)),
+		slog.String("path", r.URL.Path),
+		slog.String("target_project", projectID),
+		slog.String("reason", "anonymous_project_access_denied"),
+	)
+	return domain.NewAppError(
+		domain.ErrCodeUnauthorized,
+		"authentication required to access project",
+		http.StatusUnauthorized,
+		domain.ErrUnauthorized,
+	)
 }
 
 // resolveAndAuthorizeProjectID resolves the project ID for the request and validates

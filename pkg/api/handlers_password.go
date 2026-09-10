@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -91,6 +92,17 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	// Security: Invalidate all existing sessions upon password change to revoke potentially compromised tokens
 	_ = s.store.DeleteUserSessions(r.Context(), user.ID)
+	s.clearSessionCookie(w, r)
+
+	slog.InfoContext(r.Context(), "security_event",
+		slog.String("event_type", "password_changed"),
+		slog.String("ip", GetClientIP(r)),
+		slog.String("path", r.URL.Path),
+		slog.String("user_id", user.ID),
+		slog.String("user_email", user.Email),
+		slog.String("user_agent", r.UserAgent()),
+		slog.String("action", "sessions_invalidated"),
+	)
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -198,6 +210,15 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	s.clearSessionCookie(w, r)
+	slog.InfoContext(r.Context(), "security_event",
+		slog.String("event_type", "password_reset_completed"),
+		slog.String("ip", GetClientIP(r)),
+		slog.String("path", r.URL.Path),
+		slog.String("user_agent", r.UserAgent()),
+		slog.String("action", "sessions_invalidated"),
+	)
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

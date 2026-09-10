@@ -43,6 +43,9 @@ func main() {
 	logger := slog.New(logHandler)
 	slog.SetDefault(logger)
 
+	// Validate production security configuration
+	validateProductionSecurityConfig(cfg)
+
 	var st store.Store
 	if isSQLite(cfg.DatabaseURL) {
 		sqliteStore, err := store.NewSQLiteStore(cfg.DatabaseURL)
@@ -110,4 +113,27 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("Flagura server exited successfully")
+}
+
+func validateProductionSecurityConfig(cfg *config.Config) {
+	isProd := string(cfg.Environment) == "production" ||
+		strings.EqualFold(os.Getenv("ENVIRONMENT"), "production") ||
+		strings.EqualFold(os.Getenv("FLAGURA_ENV"), "production")
+	if !isProd {
+		return
+	}
+
+	if strings.EqualFold(os.Getenv("ALLOW_INSECURE_COOKIES"), "true") || strings.EqualFold(os.Getenv("SECURE_COOKIE"), "false") {
+		slog.Warn("SECURITY CONFIGURATION WARNING: Production environment running with insecure cookies enabled (ALLOW_INSECURE_COOKIES=true). Cookies will lack Secure attribute.")
+	}
+
+	webhookSecret := os.Getenv("FLAGURA_WEBHOOK_SECRET")
+	if webhookSecret == "" {
+		slog.Warn("SECURITY CONFIGURATION WARNING: Production environment running without FLAGURA_WEBHOOK_SECRET configured. Automated canary rollbacks and kill-switch webhooks will reject unauthenticated calls.")
+	}
+
+	allowedOrigin := os.Getenv("FLAGURA_ALLOWED_ORIGIN")
+	if allowedOrigin == "*" {
+		slog.Warn("SECURITY CONFIGURATION WARNING: Production environment configured with wildcard CORS origin (FLAGURA_ALLOWED_ORIGIN=*). Internal APIs are exposed to unauthorized cross-origin access.")
+	}
 }

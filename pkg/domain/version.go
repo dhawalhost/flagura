@@ -5,11 +5,11 @@ import "strings"
 var (
 	// Version is the canonical version of the Flagura platform.
 	// Can be overridden at build time via -ldflags:
-	// -X 'github.com/dhawalhost/flagura/pkg/domain.Version=v1.6.5'
-	Version = "v1.6.5"
+	// -X 'github.com/dhawalhost/flagura/pkg/domain.Version=v1.6.6'
+	Version = "v1.6.6"
 )
 
-// CleanVersion returns the semantic version without any leading 'v' prefix (e.g. "1.6.5").
+// CleanVersion returns the semantic version without any leading 'v' prefix (e.g. "1.6.6").
 func CleanVersion() string {
 	return strings.TrimPrefix(Version, "v")
 }
