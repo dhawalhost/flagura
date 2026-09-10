@@ -71,7 +71,12 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 			<span class="text-[11px] font-bold text-slate-500 uppercase px-2">Quick Personas:</span>
 			<button
 				type="button"
-				@click="applyPreset('usr_dhawal_01', 'dhawal@flagura.dev', 'US', 'admin', 'enterprise')"
+				data-uid="usr_dhawal_01"
+				data-email="dhawal@flagura.dev"
+				data-country="US"
+				data-role="admin"
+				data-tier="enterprise"
+				@click="applyPreset($el)"
 				class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer border"
 				:class="context.user_id === 'usr_dhawal_01' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-bold shadow-2xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'"
 			>
@@ -80,7 +85,12 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 			</button>
 			<button
 				type="button"
-				@click="applyPreset('usr_vip_enterprise_88', 'cto@acme-corp.com', 'US', 'user', 'enterprise')"
+				data-uid="usr_vip_enterprise_88"
+				data-email="cto@acme-corp.com"
+				data-country="US"
+				data-role="user"
+				data-tier="enterprise"
+				@click="applyPreset($el)"
 				class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer border"
 				:class="context.user_id === 'usr_vip_enterprise_88' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-bold shadow-2xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'"
 			>
@@ -89,7 +99,12 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 			</button>
 			<button
 				type="button"
-				@click="applyPreset('usr_qa_lead_44', 'qa.lead@company.com', 'CA', 'qa_engineer', 'pro')"
+				data-uid="usr_qa_lead_44"
+				data-email="qa.lead@company.com"
+				data-country="CA"
+				data-role="qa_engineer"
+				data-tier="pro"
+				@click="applyPreset($el)"
 				class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer border"
 				:class="context.user_id === 'usr_qa_lead_44' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-bold shadow-2xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'"
 			>
@@ -98,7 +113,12 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 			</button>
 			<button
 				type="button"
-				@click="applyPreset('usr_uk_beta_09', 'emma@london-tech.co.uk', 'GB', 'beta_tester', 'free')"
+				data-uid="usr_uk_beta_09"
+				data-email="emma@london-tech.co.uk"
+				data-country="GB"
+				data-role="beta_tester"
+				data-tier="free"
+				@click="applyPreset($el)"
 				class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer border"
 				:class="context.user_id === 'usr_uk_beta_09' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-bold shadow-2xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'"
 			>
@@ -107,7 +127,12 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 			</button>
 			<button
 				type="button"
-				@click="applyPreset('usr_anon_3948', 'standard.user@gmail.com', 'DE', 'user', 'free')"
+				data-uid="usr_anon_3948"
+				data-email="standard.user@gmail.com"
+				data-country="DE"
+				data-role="user"
+				data-tier="free"
+				@click="applyPreset($el)"
 				class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer border"
 				:class="context.user_id === 'usr_anon_3948' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-bold shadow-2xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'"
 			>
@@ -204,7 +229,7 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 				</div>
 
 				<!-- Collapsible Advanced JSON Attributes -->
-				<div class="pt-3 border-t border-slate-100" x-data="{ showAdvanced: false }">
+				<div class="pt-3 border-t border-slate-100">
 					<button
 						type="button"
 						@click="showAdvanced = !showAdvanced"
@@ -376,7 +401,7 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 				</template>
 
 				<!-- Compact cURL / API Code Drawer -->
-				<div class="p-4 bg-slate-900 text-slate-100 rounded-2xl border border-slate-800 space-y-2 shadow-sm" x-data="{ openCurl: false }">
+				<div class="p-4 bg-slate-900 text-slate-100 rounded-2xl border border-slate-800 space-y-2 shadow-sm">
 					<div class="flex items-center justify-between cursor-pointer" @click="openCurl = !openCurl">
 						<div class="flex items-center gap-2 text-xs font-bold text-slate-200 font-mono">
 							<i data-lucide="terminal" class="h-4 w-4 text-sky-400"></i>

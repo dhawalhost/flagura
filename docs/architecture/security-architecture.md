@@ -61,7 +61,7 @@ http.SetCookie(w, &http.Cookie{
 Every request handled by Flagura (standalone server or Vercel Edge) is passed through `SecurityHeadersMiddleware`:
 
 ```http
-Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https: wss: ws:;
+Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-<base64>' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https: wss: ws:;
 Strict-Transport-Security: max-age=31536000; includeSubDomains
 X-Content-Type-Options: nosniff
 X-Frame-Options: SAMEORIGIN
@@ -69,6 +69,21 @@ X-XSS-Protection: 1; mode=block
 Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: camera=(), microphone=(), geolocation=()
 ```
+
+### ⚖️ CSP Architecture & Security Rationale
+
+* **Zero `unsafe-*` Directives in `script-src`**:
+  * Flagura enforces a strict Content Security Policy with **zero** `unsafe-inline` and **zero** `unsafe-eval` directives in `script-src`.
+* **Per-Request Cryptographic Nonce (`'nonce-<base64>'`)**:
+  * Every incoming request generates 16 cryptographically secure random bytes (`crypto/rand`, 128 bits entropy) encoded as standard base64.
+  * The nonce is populated into the HTTP request context via `templ.WithNonce(ctx, nonce)`.
+  * Every legitimate `<script>` tag in Flagura templates uses `nonce={ templ.GetNonce(ctx) }`, guaranteeing that injected inline scripts lacking the valid per-request nonce are immediately blocked by modern browsers.
+* **Elimination of `'unsafe-inline'` via Static Asset Extraction**:
+  * All Alpine component definitions (`globalApp`, `flagMatrixEnterpriseComponent`, `liveEvaluatorComponent`, `flagEditorComponent`, etc.) and event handlers were moved into a dedicated static bundle (`web/static/js/app.js`), served via `//go:embed static/*` and mounted at `/static/js/app.js`.
+* **Elimination of `'unsafe-eval'` via `@alpinejs/csp`**:
+  * The web interface uses the official `@alpinejs/csp` AST-based reactive build (`@alpinejs/csp@3.17.2`). Rather than invoking `new Function(...)` or `eval()`, it evaluates pre-registered component methods and clean event dispatchers.
+  * All dynamic state, inline objects, and parameterized callbacks are decomposed into reusable micro-components (`dropdownComponent`, `toggleComponent`, `installCliComponent`, `flagRowComponent`, `projectModalComponent`, `governanceModalComponent`) and element `data-*` attributes.
+  * Consequently, `'unsafe-eval'` was completely dropped from the Content Security Policy, shutting down any DOM-based eval-injection attack surfaces.
 
 ---
 

@@ -2,13 +2,17 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"runtime"
 	"time"
 
+	"github.com/a-h/templ"
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
@@ -190,13 +194,31 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
 
-		// Content Security Policy allowing required CDNs, Alpine.js runtime, and embedded resources
-		csp := "default-src 'self'; " +
-			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; " +
-			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-			"font-src 'self' https://fonts.gstatic.com data:; " +
-			"img-src 'self' data: https: blob:; " +
-			"connect-src 'self' https: wss: ws:;"
+		// Generate cryptographically secure per-request CSP nonce (16 bytes = 128 bits base64-encoded)
+		nonceBytes := make([]byte, 16)
+		if _, err := rand.Read(nonceBytes); err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		nonce := base64.StdEncoding.EncodeToString(nonceBytes)
+
+		// Set nonce in request context for templ template rendering
+		r = r.WithContext(templ.WithNonce(r.Context(), nonce))
+
+		// Content Security Policy:
+		// ARCHITECTURAL HARDENING & CSP COMPLIANCE:
+		// - 'nonce-<base64>': Dynamic per-request cryptographic nonce attached to all legitimate
+		//   script tags rendered via templ (`templ.GetNonce(ctx)`). Un-nonced inline script injection is blocked.
+		// - All application components and handlers are bundled into static asset `/static/js/app.js`,
+		//   allowing removal of 'unsafe-inline' from script-src.
+		// - '@alpinejs/csp': Adopted official CSP build of Alpine.js with AST parsing, completely eliminating
+		//   'unsafe-eval' from script-src (zero unsafe-* directives in script-src).
+		csp := fmt.Sprintf("default-src 'self'; "+
+			"script-src 'self' 'nonce-%s' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; "+
+			"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "+
+			"font-src 'self' https://fonts.gstatic.com data:; "+
+			"img-src 'self' data: https: blob:; "+
+			"connect-src 'self' https: wss: ws:;", nonce)
 		w.Header().Set("Content-Security-Policy", csp)
 
 		next.ServeHTTP(w, r)

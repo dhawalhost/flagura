@@ -9,7 +9,6 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"fmt"
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
@@ -42,7 +41,7 @@ func ProfileSettings(user *domain.User, orgs []domain.Organization, projects []d
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(string([]rune(user.Name)[0]))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 62, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 61, Col: 40}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -62,7 +61,7 @@ func ProfileSettings(user *domain.User, orgs []domain.Organization, projects []d
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(user.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 75, Col: 20}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 74, Col: 20}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -82,7 +81,7 @@ func ProfileSettings(user *domain.User, orgs []domain.Organization, projects []d
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(string(user.Role))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 90, Col: 28}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 89, Col: 28}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -102,7 +101,7 @@ func ProfileSettings(user *domain.User, orgs []domain.Organization, projects []d
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(user.Email)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 101, Col: 22}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 100, Col: 22}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -121,7 +120,7 @@ func ProfileSettings(user *domain.User, orgs []domain.Organization, projects []d
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(user.CreatedAt.Format("Jan 2006"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 114, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 113, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -135,7 +134,7 @@ func ProfileSettings(user *domain.User, orgs []domain.Organization, projects []d
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(user.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 125, Col: 17}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 124, Col: 17}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -159,7 +158,7 @@ func ProfileSettings(user *domain.User, orgs []domain.Organization, projects []d
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 506, Col: 57}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 505, Col: 57}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -172,7 +171,7 @@ func ProfileSettings(user *domain.User, orgs []domain.Organization, projects []d
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(org.Slug)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 507, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 506, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -191,7 +190,7 @@ func ProfileSettings(user *domain.User, orgs []domain.Organization, projects []d
 					var templ_7745c5c3_Var10 string
 					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(p.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 522, Col: 68}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 521, Col: 68}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 					if templ_7745c5c3_Err != nil {
@@ -204,26 +203,26 @@ func ProfileSettings(user *domain.User, orgs []domain.Organization, projects []d
 					var templ_7745c5c3_Var11 string
 					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(p.Slug)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 523, Col: 70}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 522, Col: 70}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div></div><button @click=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div></div><button data-project-id=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var12 string
-					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("switchProject('%s')", p.ID))
+					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 526, Col: 62}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/profile_settings.templ`, Line: 525, Col: 35}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" class=\"px-2.5 py-1 rounded-md text-[10px] font-bold bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 transition cursor-pointer\">Switch</button></div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" @click=\"switchProject($el)\" class=\"px-2.5 py-1 rounded-md text-[10px] font-bold bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 transition cursor-pointer\">Switch</button></div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -234,7 +233,7 @@ func ProfileSettings(user *domain.User, orgs []domain.Organization, projects []d
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div></div></div><!-- TAB 4: Role Governance & Permissions Breakdown --><div x-show=\"tab === 'permissions'\" x-transition class=\"space-y-6\"><div class=\"glass-panel p-6 sm:p-7 bg-white border border-slate-200 shadow-xs space-y-6\"><div class=\"border-b border-slate-100 pb-4\"><h3 class=\"text-sm font-bold text-slate-900 font-display\">Governance &amp; Authorization Matrix</h3><p class=\"text-xs text-slate-500 font-sans mt-0.5\">Detailed authorization capabilities for your assigned role in this workspace.</p></div><div class=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 font-mono text-xs\"><!-- Permission: Flags --><div class=\"p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2\"><div class=\"flex items-center justify-between\"><span class=\"font-bold text-slate-900 font-sans\">Flag Management</span> <i data-lucide=\"check-circle\" class=\"w-4 h-4 text-emerald-600\"></i></div><p class=\"text-[11px] text-slate-500 font-sans\">Create, edit, toggle, and configure multivariate rollouts across environments.</p></div><!-- Permission: Kill Switches --><div class=\"p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2\"><div class=\"flex items-center justify-between\"><span class=\"font-bold text-slate-900 font-sans\">Automated Kill-Switches</span> <i data-lucide=\"check-circle\" class=\"w-4 h-4 text-emerald-600\"></i></div><p class=\"text-[11px] text-slate-500 font-sans\">Trigger instant &lt;5ms SSE kill-switches via APM webhooks or console.</p></div><!-- Permission: 4-Eyes Governance --><div class=\"p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2\"><div class=\"flex items-center justify-between\"><span class=\"font-bold text-slate-900 font-sans\">4-Eyes Change Requests</span> <i data-lucide=\"check-circle\" class=\"w-4 h-4 text-purple-600\"></i></div><p class=\"text-[11px] text-slate-500 font-sans\">Author production change requests and review peer changes (author self-review blocked).</p></div><!-- Permission: Canary Progressive Rollouts --><div class=\"p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2\"><div class=\"flex items-center justify-between\"><span class=\"font-bold text-slate-900 font-sans\">Progressive Canary Ramps</span> <i data-lucide=\"check-circle\" class=\"w-4 h-4 text-emerald-600\"></i></div><p class=\"text-[11px] text-slate-500 font-sans\">Automate multi-stage rollout increments with metric guardrail rollbacks.</p></div><!-- Permission: API Service Keys --><div class=\"p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2\"><div class=\"flex items-center justify-between\"><span class=\"font-bold text-slate-900 font-sans\">Service Accounts &amp; Keys</span> <i data-lucide=\"check-circle\" class=\"w-4 h-4 text-emerald-600\"></i></div><p class=\"text-[11px] text-slate-500 font-sans\">Generate cryptographically secure tokens for microservice SDK evaluations.</p></div><!-- Permission: Audit Trail --><div class=\"p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2\"><div class=\"flex items-center justify-between\"><span class=\"font-bold text-slate-900 font-sans\">Immutable Audit Trail</span> <i data-lucide=\"check-circle\" class=\"w-4 h-4 text-emerald-600\"></i></div><p class=\"text-[11px] text-slate-500 font-sans\">Inspect tamper-evident action logs, actors, and state deltas.</p></div></div></div></div></div><script>\n\t\tfunction profileSettingsComponent() {\n\t\t\treturn {\n\t\t\t\ttab: 'general',\n\t\t\t\tsavingProfile: false,\n\t\t\t\tsavingPassword: false,\n\t\t\t\tprofileMessage: '',\n\t\t\t\tpasswordError: '',\n\t\t\t\tpasswordSuccess: '',\n\t\t\t\tshowCurrentPassword: false,\n\t\t\t\tshowNewPassword: false,\n\t\t\t\tprofile: {\n\t\t\t\t\tid: '',\n\t\t\t\t\tname: '',\n\t\t\t\t\temail: '',\n\t\t\t\t\trole: '',\n\t\t\t\t\tavatarUrl: ''\n\t\t\t\t},\n\t\t\t\tform: {\n\t\t\t\t\tname: '',\n\t\t\t\t\tavatarUrl: ''\n\t\t\t\t},\n\t\t\t\tpasswordForm: {\n\t\t\t\t\tcurrentPassword: '',\n\t\t\t\t\tnewPassword: '',\n\t\t\t\t\tconfirmPassword: ''\n\t\t\t\t},\n\t\t\t\tget passRules() {\n\t\t\t\t\tconst p = this.passwordForm.newPassword || '';\n\t\t\t\t\treturn {\n\t\t\t\t\t\tlength: p.length >= 8,\n\t\t\t\t\t\tupper: /[A-Z]/.test(p),\n\t\t\t\t\t\tlower: /[a-z]/.test(p),\n\t\t\t\t\t\tdigit: /[0-9]/.test(p),\n\t\t\t\t\t\tspecial: /[!@#$%^&*()_+\\-=\\[\\]{}|;:,.<>?~]/.test(p)\n\t\t\t\t\t};\n\t\t\t\t},\n\t\t\t\tisPasswordValid() {\n\t\t\t\t\tconst r = this.passRules;\n\t\t\t\t\treturn r.length && r.upper && r.lower && r.digit && r.special &&\n\t\t\t\t\t\tthis.passwordForm.currentPassword.length > 0 &&\n\t\t\t\t\t\tthis.passwordForm.newPassword === this.passwordForm.confirmPassword;\n\t\t\t\t},\n\t\t\t\tinit() {\n\t\t\t\t\tthis.fetchProfile();\n\t\t\t\t},\n\t\t\t\tgetInitials(name) {\n\t\t\t\t\tif (!name) return 'U';\n\t\t\t\t\tconst parts = name.trim().split(/\\s+/);\n\t\t\t\t\tif (parts.length >= 2) {\n\t\t\t\t\t\treturn (parts[0][0] + parts[1][0]).toUpperCase();\n\t\t\t\t\t}\n\t\t\t\t\treturn name.substring(0, 2).toUpperCase();\n\t\t\t\t},\n\t\t\t\tasync fetchProfile() {\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst res = await fetch('/api/v1/auth/me');\n\t\t\t\t\t\tif (res.ok) {\n\t\t\t\t\t\t\tconst data = await res.json();\n\t\t\t\t\t\t\tthis.profile = data;\n\t\t\t\t\t\t\tthis.form.name = data.name || '';\n\t\t\t\t\t\t\tthis.form.avatarUrl = data.avatarUrl || '';\n\t\t\t\t\t\t}\n\t\t\t\t\t} catch(e) {}\n\t\t\t\t},\n\t\t\t\tresetForm() {\n\t\t\t\t\tthis.form.name = this.profile.name || '';\n\t\t\t\t\tthis.form.avatarUrl = this.profile.avatarUrl || '';\n\t\t\t\t\tthis.profileMessage = '';\n\t\t\t\t},\n\t\t\t\tasync saveProfile() {\n\t\t\t\t\tif (!this.form.name.trim()) return;\n\t\t\t\t\tthis.savingProfile = true;\n\t\t\t\t\tthis.profileMessage = '';\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst res = await fetch('/api/v1/auth/profile', {\n\t\t\t\t\t\t\tmethod: 'PATCH',\n\t\t\t\t\t\t\theaders: { 'Content-Type': 'application/json' },\n\t\t\t\t\t\t\tbody: JSON.stringify({\n\t\t\t\t\t\t\t\tname: this.form.name.trim(),\n\t\t\t\t\t\t\t\tavatarUrl: this.form.avatarUrl.trim()\n\t\t\t\t\t\t\t})\n\t\t\t\t\t\t});\n\t\t\t\t\t\tconst data = await res.json();\n\t\t\t\t\t\tif (!res.ok) {\n\t\t\t\t\t\t\tthrow new Error(data.message || 'Failed to update profile');\n\t\t\t\t\t\t}\n\t\t\t\t\t\tthis.profile.name = this.form.name.trim();\n\t\t\t\t\t\tthis.profile.avatarUrl = this.form.avatarUrl.trim();\n\t\t\t\t\t\tthis.showToast('Profile updated successfully!', 'info');\n\t\t\t\t\t\tthis.profileMessage = 'Profile updated successfully!';\n\t\t\t\t\t} catch (err) {\n\t\t\t\t\t\tthis.profileMessage = err.message;\n\t\t\t\t\t\tthis.showToast(err.message, 'error');\n\t\t\t\t\t} finally {\n\t\t\t\t\t\tthis.savingProfile = false;\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\tasync changePassword() {\n\t\t\t\t\tif (!this.isPasswordValid()) return;\n\t\t\t\t\tthis.savingPassword = true;\n\t\t\t\t\tthis.passwordError = '';\n\t\t\t\t\tthis.passwordSuccess = '';\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst res = await fetch('/api/v1/auth/change-password', {\n\t\t\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\t\t\theaders: { 'Content-Type': 'application/json' },\n\t\t\t\t\t\t\tbody: JSON.stringify({\n\t\t\t\t\t\t\t\tcurrentPassword: this.passwordForm.currentPassword,\n\t\t\t\t\t\t\t\tnewPassword: this.passwordForm.newPassword\n\t\t\t\t\t\t\t})\n\t\t\t\t\t\t});\n\t\t\t\t\t\tconst data = await res.json();\n\t\t\t\t\t\tif (!res.ok) {\n\t\t\t\t\t\t\tthrow new Error(data.message || 'Failed to update password');\n\t\t\t\t\t\t}\n\t\t\t\t\t\tthis.passwordSuccess = 'Password has been successfully updated!';\n\t\t\t\t\t\tthis.passwordForm.currentPassword = '';\n\t\t\t\t\t\tthis.passwordForm.newPassword = '';\n\t\t\t\t\t\tthis.passwordForm.confirmPassword = '';\n\t\t\t\t\t\tthis.showToast('Password updated successfully!', 'info');\n\t\t\t\t\t} catch (err) {\n\t\t\t\t\t\tthis.passwordError = err.message;\n\t\t\t\t\t\tthis.showToast(err.message, 'error');\n\t\t\t\t\t} finally {\n\t\t\t\t\t\tthis.savingPassword = false;\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\tcopyToClipboard(text, msg = 'Copied to clipboard') {\n\t\t\t\t\tif (!text) return;\n\t\t\t\t\tnavigator.clipboard.writeText(text).then(() => {\n\t\t\t\t\t\tthis.showToast(msg, 'info');\n\t\t\t\t\t});\n\t\t\t\t}\n\t\t\t};\n\t\t}\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div></div></div><!-- TAB 4: Role Governance & Permissions Breakdown --><div x-show=\"tab === 'permissions'\" x-transition class=\"space-y-6\"><div class=\"glass-panel p-6 sm:p-7 bg-white border border-slate-200 shadow-xs space-y-6\"><div class=\"border-b border-slate-100 pb-4\"><h3 class=\"text-sm font-bold text-slate-900 font-display\">Governance &amp; Authorization Matrix</h3><p class=\"text-xs text-slate-500 font-sans mt-0.5\">Detailed authorization capabilities for your assigned role in this workspace.</p></div><div class=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 font-mono text-xs\"><!-- Permission: Flags --><div class=\"p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2\"><div class=\"flex items-center justify-between\"><span class=\"font-bold text-slate-900 font-sans\">Flag Management</span> <i data-lucide=\"check-circle\" class=\"w-4 h-4 text-emerald-600\"></i></div><p class=\"text-[11px] text-slate-500 font-sans\">Create, edit, toggle, and configure multivariate rollouts across environments.</p></div><!-- Permission: Kill Switches --><div class=\"p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2\"><div class=\"flex items-center justify-between\"><span class=\"font-bold text-slate-900 font-sans\">Automated Kill-Switches</span> <i data-lucide=\"check-circle\" class=\"w-4 h-4 text-emerald-600\"></i></div><p class=\"text-[11px] text-slate-500 font-sans\">Trigger instant &lt;5ms SSE kill-switches via APM webhooks or console.</p></div><!-- Permission: 4-Eyes Governance --><div class=\"p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2\"><div class=\"flex items-center justify-between\"><span class=\"font-bold text-slate-900 font-sans\">4-Eyes Change Requests</span> <i data-lucide=\"check-circle\" class=\"w-4 h-4 text-purple-600\"></i></div><p class=\"text-[11px] text-slate-500 font-sans\">Author production change requests and review peer changes (author self-review blocked).</p></div><!-- Permission: Canary Progressive Rollouts --><div class=\"p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2\"><div class=\"flex items-center justify-between\"><span class=\"font-bold text-slate-900 font-sans\">Progressive Canary Ramps</span> <i data-lucide=\"check-circle\" class=\"w-4 h-4 text-emerald-600\"></i></div><p class=\"text-[11px] text-slate-500 font-sans\">Automate multi-stage rollout increments with metric guardrail rollbacks.</p></div><!-- Permission: API Service Keys --><div class=\"p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2\"><div class=\"flex items-center justify-between\"><span class=\"font-bold text-slate-900 font-sans\">Service Accounts &amp; Keys</span> <i data-lucide=\"check-circle\" class=\"w-4 h-4 text-emerald-600\"></i></div><p class=\"text-[11px] text-slate-500 font-sans\">Generate cryptographically secure tokens for microservice SDK evaluations.</p></div><!-- Permission: Audit Trail --><div class=\"p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2\"><div class=\"flex items-center justify-between\"><span class=\"font-bold text-slate-900 font-sans\">Immutable Audit Trail</span> <i data-lucide=\"check-circle\" class=\"w-4 h-4 text-emerald-600\"></i></div><p class=\"text-[11px] text-slate-500 font-sans\">Inspect tamper-evident action logs, actors, and state deltas.</p></div></div></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

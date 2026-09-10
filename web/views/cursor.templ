@@ -9,37 +9,4 @@ templ CustomCursor() {
 		id="custom-cursor-ring" 
 		class="fixed top-0 left-0 w-8 h-8 border border-[#00F5A0]/30 rounded-full pointer-events-none z-50 -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out"
 	></div>
-	<script>
-		document.addEventListener('DOMContentLoaded', () => {
-			const dot = document.getElementById('custom-cursor-dot');
-			const ring = document.getElementById('custom-cursor-ring');
-			if (!dot || !ring) return;
-
-			let mouseX = -100, mouseY = -100;
-			let ringX = -100, ringY = -100;
-
-			window.addEventListener('mousemove', (e) => {
-				mouseX = e.clientX;
-				mouseY = e.clientY;
-				dot.style.transform = `translate3d(${mouseX}px, ${mouseY}px, 0) translate(-50%, -50%)`;
-			});
-
-			const renderRing = () => {
-				ringX += (mouseX - ringX) * 0.15;
-				ringY += (mouseY - ringY) * 0.15;
-				ring.style.transform = `translate3d(${ringX}px, ${ringY}px, 0) translate(-50%, -50%)`;
-				requestAnimationFrame(renderRing);
-			};
-			renderRing();
-
-			document.querySelectorAll('button, a, input, select, textarea, .clickable, [role="button"]').forEach(el => {
-				el.addEventListener('mouseenter', () => {
-					ring.classList.add('scale-150', 'border-[#00F5A0]', 'bg-[#00F5A0]/10');
-				});
-				el.addEventListener('mouseleave', () => {
-					ring.classList.remove('scale-150', 'border-[#00F5A0]', 'bg-[#00F5A0]/10');
-				});
-			});
-		});
-	</script>
 }

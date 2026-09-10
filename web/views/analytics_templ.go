@@ -140,20 +140,20 @@ func AnalyticsDashboard(flags []domain.FeatureFlag) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</span></td><td class=\"px-4 py-3.5 text-emerald-700 font-bold font-mono\">~85 ns</td><td class=\"px-4 py-3.5 text-right\"><button @click=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</span></td><td class=\"px-4 py-3.5 text-emerald-700 font-bold font-mono\">~85 ns</td><td class=\"px-4 py-3.5 text-right\"><button data-key=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var9 string
-			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("openEvaluatorForFlag('%s');", f.Key))
+			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 199, Col: 68}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 199, Col: 26}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" class=\"text-indigo-600 hover:underline font-semibold flex items-center gap-1 justify-end ml-auto cursor-pointer font-sans\"><span>Test in Sandbox</span> <i data-lucide=\"arrow-right\" class=\"h-3.5 w-3.5\"></i></button></td></tr>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" @click=\"openEvaluatorForFlag($el)\" class=\"text-indigo-600 hover:underline font-semibold flex items-center gap-1 justify-end ml-auto cursor-pointer font-sans\"><span>Test in Sandbox</span> <i data-lucide=\"arrow-right\" class=\"h-3.5 w-3.5\"></i></button></td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

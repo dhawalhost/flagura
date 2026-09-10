@@ -113,3 +113,25 @@ func TestTemplComponentsRender(t *testing.T) {
 		})
 	}
 }
+
+func TestLayoutCSPNonce(t *testing.T) {
+	nonce := "test-crypto-nonce-xyz987"
+	ctx := templ.WithNonce(context.Background(), nonce)
+
+	var buf bytes.Buffer
+	layout := Layout("Flagura Test")
+	if err := layout.Render(ctx, &buf); err != nil {
+		t.Fatalf("Layout render failed: %v", err)
+	}
+
+	rendered := buf.String()
+	expectedNonceAttr := `nonce="` + nonce + `"`
+	if !bytes.Contains([]byte(rendered), []byte(expectedNonceAttr)) {
+		t.Errorf("Expected rendered layout to contain %q, but was not found in:\n%s", expectedNonceAttr, rendered)
+	}
+
+	// Verify /static/js/app.js is referenced
+	if !bytes.Contains([]byte(rendered), []byte(`/static/js/app.js`)) {
+		t.Errorf("Expected rendered layout to link to /static/js/app.js")
+	}
+}

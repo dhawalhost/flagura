@@ -45,8 +45,34 @@ func TestSecurityHeaders(t *testing.T) {
 		}
 	}
 
-	if csp := headers.Get("Content-Security-Policy"); csp == "" {
-		t.Errorf("Expected Content-Security-Policy header to be set")
+	csp := headers.Get("Content-Security-Policy")
+	if csp == "" {
+		t.Fatalf("Expected Content-Security-Policy header to be set")
+	}
+
+	// Verify nonce is present in script-src
+	if !strings.Contains(csp, "script-src 'self' 'nonce-") {
+		t.Errorf("Expected script-src to contain 'nonce-<base64>', got: %s", csp)
+	}
+
+	// Verify unsafe-inline is removed from script-src
+	scriptSrcIdx := strings.Index(csp, "script-src")
+	semiIdx := strings.Index(csp[scriptSrcIdx:], ";")
+	scriptDirective := csp[scriptSrcIdx : scriptSrcIdx+semiIdx]
+	if strings.Contains(scriptDirective, "'unsafe-inline'") {
+		t.Errorf("script-src must NOT contain 'unsafe-inline', got directive: %s", scriptDirective)
+	}
+	if strings.Contains(scriptDirective, "'unsafe-eval'") {
+		t.Errorf("script-src must NOT contain 'unsafe-eval', got directive: %s", scriptDirective)
+	}
+
+	// Verify each request gets a distinct random nonce
+	req2 := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+	w2 := httptest.NewRecorder()
+	server.ServeHTTP(w2, req2)
+	csp2 := w2.Header().Get("Content-Security-Policy")
+	if csp == csp2 {
+		t.Errorf("Expected per-request unique nonces in CSP headers across different requests")
 	}
 }
 

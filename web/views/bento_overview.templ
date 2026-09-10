@@ -117,7 +117,9 @@ templ BentoOverview(flags []domain.FeatureFlag, audits []domain.AuditLogEntry, d
 								if i < 7 {
 									<tr 
 										class="hover:bg-slate-50 transition-colors"
-										x-data={ fmt.Sprintf("{ envs: %s, get isProd() { return (this.envs && this.envs.production && this.envs.production.enabled) || false; }, get prodPct() { return (this.envs && this.envs.production && this.envs.production.percentage !== undefined ? this.envs.production.percentage : 0); } }", f.EnvironmentsJSON()) }
+										x-data="flagRowComponent()"
+										data-key={ f.Key }
+										data-envs={ f.EnvironmentsJSON() }
 									>
 										<td class="py-3 px-4">
 											<div class="font-bold text-slate-900">{ f.Key }</div>
@@ -137,7 +139,7 @@ templ BentoOverview(flags []domain.FeatureFlag, audits []domain.AuditLogEntry, d
 										</td>
 										<td class="py-3 px-4 text-right">
 											<button
-												@click.stop={ fmt.Sprintf("const next = !isProd; if (!envs.production) envs.production = {}; envs.production.enabled = next; toggleFlagEnvStatus('%s', 'production', next);", f.Key) }
+												@click.stop="toggleProd"
 												class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
 												:class="isProd ? 'bg-emerald-600' : 'bg-slate-200'"
 											>
