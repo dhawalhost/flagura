@@ -8,10 +8,10 @@ require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/a-h/templ v0.3.1020
 	github.com/dhawalhost/flagura/sdks/go v0.0.0-00010101000000-000000000000
-	github.com/lib/pq v1.10.9
+	github.com/lib/pq v1.12.3
 	github.com/open-feature/go-sdk v1.18.0
-	golang.org/x/crypto v0.55.0
-	golang.org/x/time v0.15.0
+	golang.org/x/crypto v0.56.0
+	golang.org/x/time v0.16.0
 	modernc.org/sqlite v1.58.0
 )
 
