@@ -152,7 +152,7 @@ jobs:
           token: ${{ secrets.ADMIN_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Setup Python (3.11)
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
