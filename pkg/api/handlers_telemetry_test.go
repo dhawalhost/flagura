@@ -50,7 +50,7 @@ func TestTelemetryIngestionAndStats(t *testing.T) {
 		CreatedAt:   time.Now(),
 	})
 
-	// 1. Ingest telemetry unauthenticated (should fail)
+	// 1. Ingest telemetry unauthenticated (must fail with 401 Unauthorized even with known project ID)
 	payload := map[string]interface{}{
 		"timestamp": 1724999999000,
 		"events": map[string]interface{}{
@@ -65,15 +65,28 @@ func TestTelemetryIngestionAndStats(t *testing.T) {
 	}
 	body, _ := json.Marshal(payload)
 
+	// 1.1 Unauthenticated POST with known project ID header
 	unauthReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/telemetry/events", bytes.NewReader(body))
 	unauthReq.Header.Set("Content-Type", "application/json")
+	unauthReq.Header.Set(domain.HeaderProjectID, projA)
 	unauthResp, err := http.DefaultClient.Do(unauthReq)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
 	unauthResp.Body.Close()
-	if unauthResp.StatusCode == http.StatusOK {
-		t.Fatalf("expected unauthenticated telemetry ingest to fail, got %d", unauthResp.StatusCode)
+	if unauthResp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected unauthenticated telemetry ingest with known project ID to fail with 401 Unauthorized, got %d", unauthResp.StatusCode)
+	}
+
+	// 1.2 Unauthenticated GET stats with known project ID query param
+	unauthStatsReq, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/v1/telemetry/stats?project_id="+projA+"&flag=ai-smart-search", nil)
+	unauthStatsResp, err := http.DefaultClient.Do(unauthStatsReq)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	unauthStatsResp.Body.Close()
+	if unauthStatsResp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected unauthenticated telemetry stats read with known project ID to fail with 401 Unauthorized, got %d", unauthStatsResp.StatusCode)
 	}
 
 	// 2. Ingest telemetry authenticated for projA

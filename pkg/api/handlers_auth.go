@@ -155,7 +155,7 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 
 	s.writeJSON(w, http.StatusCreated, domain.AuthResponse{
 		User:    createdUser,
-		Token:   token,
+		Token:   "", // Security: Session token transmitted solely via HttpOnly cookie
 		Message: "Account created successfully",
 	})
 }

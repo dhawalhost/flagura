@@ -99,8 +99,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/readyz", s.handleReadyz)
 	s.mux.HandleFunc("/metrics", s.handleMetrics)
 	s.mux.HandleFunc("/api/v1/flags/stream", s.handleFlagsStream)
-	s.mux.HandleFunc("/api/v1/telemetry/events", s.apiLimiter.LimitHandler(s.handleIngestTelemetry))
-	s.mux.HandleFunc("/api/v1/telemetry/stats", s.apiLimiter.LimitHandler(s.handleGetTelemetryStats))
+	s.mux.HandleFunc("/api/v1/telemetry/events", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleIngestTelemetry)))
+	s.mux.HandleFunc("/api/v1/telemetry/stats", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetTelemetryStats)))
 	s.mux.HandleFunc("/api/v1/webhooks/kill-switch/", s.apiLimiter.LimitHandler(s.handleWebhookKillSwitch))
 
 	// Flag Management API Routes
