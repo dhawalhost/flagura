@@ -2,6 +2,7 @@ package domain
 
 import (
 	"testing"
+	"time"
 )
 
 func TestAnalyzeFlagHealth(t *testing.T) {
@@ -56,6 +57,56 @@ func TestAnalyzeFlagHealth(t *testing.T) {
 			},
 			expectedStatus: HealthStatusActive,
 			expectedStale:  false,
+		},
+		{
+			name: "Recently disabled flag (< 14 days ago) -> ACTIVE (incident response, not dead)",
+			flag: FeatureFlag{
+				Key:       "incident-flag",
+				Type:      "boolean",
+				UpdatedAt: time.Now().Add(-1 * time.Hour),
+				Environments: map[Environment]EnvironmentConfig{
+					EnvProduction: {
+						Enabled: false,
+					},
+				},
+			},
+			expectedStatus: HealthStatusActive,
+			expectedStale:  false,
+		},
+		{
+			name: "Recently 100% launched flag (< 7 days ago) -> ACTIVE (in bake period)",
+			flag: FeatureFlag{
+				Key:       "bake-period-flag",
+				Type:      "boolean",
+				UpdatedAt: time.Now().Add(-24 * time.Hour),
+				Environments: map[Environment]EnvironmentConfig{
+					EnvProduction: {
+						Enabled:    true,
+						Strategy:   StrategyPercentage,
+						Percentage: 100,
+					},
+				},
+			},
+			expectedStatus: HealthStatusActive,
+			expectedStale:  false,
+		},
+		{
+			name: "Flag disabled in production but active in staging -> DEAD_FLAG with multi-env notice",
+			flag: FeatureFlag{
+				Key:       "staging-active-flag",
+				Type:      "boolean",
+				UpdatedAt: time.Now().Add(-30 * 24 * time.Hour),
+				Environments: map[Environment]EnvironmentConfig{
+					EnvProduction: {
+						Enabled: false,
+					},
+					EnvStaging: {
+						Enabled: true,
+					},
+				},
+			},
+			expectedStatus: HealthStatusDead,
+			expectedStale:  true,
 		},
 	}
 

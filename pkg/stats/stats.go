@@ -67,6 +67,15 @@ func ComputeVariantBinaryStats(variant string, exposures, conversions int64) dom
 
 // CompareBinaryVariants performs a two-proportion pooled Z-test between Treatment and Control.
 func CompareBinaryVariants(control, treatment domain.VariantMetricStats) domain.VariantComparison {
+	return CompareBinaryVariantsWithCorrection(control, treatment, 1)
+}
+
+// CompareBinaryVariantsWithCorrection performs a two-proportion pooled Z-test with Bonferroni correction for multiple variants.
+func CompareBinaryVariantsWithCorrection(control, treatment domain.VariantMetricStats, numComparisons int) domain.VariantComparison {
+	if numComparisons < 1 {
+		numComparisons = 1
+	}
+
 	comp := domain.VariantComparison{
 		TreatmentVariant: treatment.Variant,
 		ControlVariant:   control.Variant,
@@ -81,9 +90,13 @@ func CompareBinaryVariants(control, treatment domain.VariantMetricStats) domain.
 	comp.AbsoluteLift = pT - pC
 	if pC > 0 {
 		comp.RelativeLiftPct = ((pT - pC) / pC) * 100.0
+	} else if pT > 0 {
+		comp.RelativeLiftPct = math.Inf(1)
+	} else {
+		comp.RelativeLiftPct = 0.0
 	}
 
-	// Sample size guardrail
+	// Baseline sample size guardrail
 	if control.Exposures < MinSampleSizeForSignificance || treatment.Exposures < MinSampleSizeForSignificance {
 		comp.Status = domain.ExpStatusInsufficientData
 		comp.RecommendedAction = fmt.Sprintf("Collect more data (current sample: Control=%d, Treatment=%d; minimum required=%d per variant).",
@@ -96,6 +109,25 @@ func CompareBinaryVariants(control, treatment domain.VariantMetricStats) domain.
 	totalConversions := float64(control.Conversions + treatment.Conversions)
 	totalExposures := nC + nT
 	pPool := totalConversions / totalExposures
+
+	// Rate-scaled sample size requirement: normal approximation requires n*p >= 5 and n*(1-p) >= 5
+	minExpectedSuccess := math.Min(nC*pPool, nT*pPool)
+	minExpectedFailure := math.Min(nC*(1.0-pPool), nT*(1.0-pPool))
+	if minExpectedSuccess < 5.0 || minExpectedFailure < 5.0 {
+		var reqN int64 = 100
+		if pPool > 0 && pPool < 1.0 {
+			rate := math.Min(pPool, 1.0-pPool)
+			reqN = int64(math.Ceil(5.0 / rate))
+			if reqN < MinSampleSizeForSignificance {
+				reqN = MinSampleSizeForSignificance
+			}
+		}
+		comp.Status = domain.ExpStatusInsufficientData
+		comp.RequiredSampleSize = reqN
+		comp.RecommendedAction = fmt.Sprintf("Observed conversion rate (%.1f%%) requires at least %d exposures per variant for statistical test validity (n·p ≥ 5 rule). Current: Control=%d, Treatment=%d.",
+			pPool*100.0, reqN, control.Exposures, treatment.Exposures)
+		return comp
+	}
 
 	// Pooled standard error: SE_pool = sqrt(p_pool * (1 - p_pool) * (1/n_C + 1/n_T))
 	sePool := math.Sqrt(pPool * (1.0 - pPool) * (1.0/nC + 1.0/nT))
@@ -110,28 +142,39 @@ func CompareBinaryVariants(control, treatment domain.VariantMetricStats) domain.
 	zScore := (pT - pC) / sePool
 	comp.ZScore = zScore
 
-	pValue := TwoTailedPValue(zScore)
-	comp.PValue = pValue
-	comp.ConfidencePct = math.Max(0.0, (1.0-pValue)*100.0)
+	rawPValue := TwoTailedPValue(zScore)
+	// Bonferroni correction for multiple hypothesis testing
+	adjPValue := math.Min(1.0, rawPValue*float64(numComparisons))
+	comp.PValue = adjPValue
+	comp.ConfidencePct = math.Max(0.0, (1.0-adjPValue)*100.0)
 
-	comp.IsSignificant95 = pValue < 0.05
-	comp.IsSignificant99 = pValue < 0.01
+	comp.IsSignificant95 = adjPValue < 0.05
+	comp.IsSignificant99 = adjPValue < 0.01
+
+	correctionNote := ""
+	if numComparisons > 1 {
+		correctionNote = fmt.Sprintf(" (Bonferroni-corrected for %d variants)", numComparisons)
+	}
 
 	// Determine status and recommendation
 	if comp.IsSignificant95 {
 		if comp.AbsoluteLift > 0 {
 			comp.Status = domain.ExpStatusWinning
-			comp.RecommendedAction = fmt.Sprintf("Treatment '%s' is outperforming Control by +%.2f%% (Statistically Significant with %.1f%% confidence, p=%.4f). Safe to roll out to 100%%.",
-				treatment.Variant, comp.RelativeLiftPct, comp.ConfidencePct, comp.PValue)
+			liftStr := fmt.Sprintf("+%.2f%%", comp.RelativeLiftPct)
+			if math.IsInf(comp.RelativeLiftPct, 1) {
+				liftStr = fmt.Sprintf("+%.2f%% absolute (baseline 0.00%%)", comp.AbsoluteLift*100.0)
+			}
+			comp.RecommendedAction = fmt.Sprintf("Treatment '%s' is outperforming Control by %s (Statistically Significant with %.1f%% confidence, p=%.4f%s). Safe to roll out to 100%%.",
+				treatment.Variant, liftStr, comp.ConfidencePct, comp.PValue, correctionNote)
 		} else {
 			comp.Status = domain.ExpStatusLosing
-			comp.RecommendedAction = fmt.Sprintf("Treatment '%s' is underperforming Control by %.2f%% (Statistically Significant with %.1f%% confidence, p=%.4f). Recommended to rollback or iterate.",
-				treatment.Variant, comp.RelativeLiftPct, comp.ConfidencePct, comp.PValue)
+			comp.RecommendedAction = fmt.Sprintf("Treatment '%s' is underperforming Control by %.2f%% (Statistically Significant with %.1f%% confidence, p=%.4f%s). Recommended to rollback or iterate.",
+				treatment.Variant, comp.RelativeLiftPct, comp.ConfidencePct, comp.PValue, correctionNote)
 		}
 	} else {
 		comp.Status = domain.ExpStatusInconclusive
-		comp.RecommendedAction = fmt.Sprintf("Results are not yet statistically significant (p=%.4f, confidence=%.1f%%). Continue running the experiment to gather more samples.",
-			comp.PValue, comp.ConfidencePct)
+		comp.RecommendedAction = fmt.Sprintf("Results are not yet statistically significant (p=%.4f%s, confidence=%.1f%%). Continue running the experiment to gather more samples.",
+			comp.PValue, correctionNote, comp.ConfidencePct)
 	}
 
 	return comp
@@ -161,9 +204,10 @@ func AnalyzeExperiment(
 		GeneratedAt:    time.Now(),
 	}
 
-	// 1. Aggregate conversions and values by variant
+	// 1. Aggregate conversions and values by variant (deduplicating by UserID for binary proportion independence)
 	variantConversions := make(map[string]int64)
 	variantSumValue := make(map[string]float64)
+	variantUniqueConvertedUsers := make(map[string]map[string]struct{})
 
 	for _, ev := range events {
 		if ev.FlagKey != flagKey || ev.MetricName != metricName {
@@ -174,8 +218,19 @@ func AnalyzeExperiment(
 		}
 
 		report.TotalEvents++
-		variantConversions[ev.Variant]++
+		if ev.UserID != "" {
+			if _, ok := variantUniqueConvertedUsers[ev.Variant]; !ok {
+				variantUniqueConvertedUsers[ev.Variant] = make(map[string]struct{})
+			}
+			variantUniqueConvertedUsers[ev.Variant][ev.UserID] = struct{}{}
+		} else {
+			variantConversions[ev.Variant]++
+		}
 		variantSumValue[ev.Variant] += ev.Value
+	}
+
+	for v, users := range variantUniqueConvertedUsers {
+		variantConversions[v] += int64(len(users))
 	}
 
 	// Ensure all variants with exposures or events are represented
@@ -193,6 +248,9 @@ func AnalyzeExperiment(
 	for v := range allVariants {
 		n := exposures[v]
 		k := variantConversions[v]
+		if n < k {
+			n = k // Sample size cannot be less than converted unique users
+		}
 		report.VariantStats[v] = ComputeVariantBinaryStats(v, n, k)
 	}
 
@@ -206,11 +264,16 @@ func AnalyzeExperiment(
 	var bestTreatment string
 	var highestLift float64 = -math.MaxFloat64
 
+	numComparisons := len(report.VariantStats) - 1
+	if numComparisons < 1 {
+		numComparisons = 1
+	}
+
 	for v, stats := range report.VariantStats {
 		if v == controlVariant {
 			continue
 		}
-		comp := CompareBinaryVariants(controlStats, stats)
+		comp := CompareBinaryVariantsWithCorrection(controlStats, stats, numComparisons)
 		report.Comparisons[v] = comp
 
 		if comp.Status == domain.ExpStatusWinning && comp.RelativeLiftPct > highestLift {

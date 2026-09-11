@@ -43,6 +43,22 @@ func TestEngineEvaluation_TableDriven(t *testing.T) {
 							{Attribute: "age", Operator: ">", Value: "21"},
 						},
 					},
+					{
+						ID:      "rule-numeric-gte",
+						Enabled: true,
+						Variant: "treatment",
+						Conditions: []RuleCondition{
+							{Attribute: "score", Operator: ">=", Value: "100"},
+						},
+					},
+					{
+						ID:      "rule-numeric-lte",
+						Enabled: true,
+						Variant: "treatment",
+						Conditions: []RuleCondition{
+							{Attribute: "latency", Operator: "<=", Value: "50"},
+						},
+					},
 				},
 				DefaultVariant: "control",
 				DefaultValue:   "control_val",
@@ -91,6 +107,26 @@ func TestEngineEvaluation_TableDriven(t *testing.T) {
 				Environment: EnvProduction,
 			},
 			wantEnabled: true,
+		},
+		{
+			name: "Numeric comparison >= 100 rule match exact",
+			flag: flag,
+			ctx: Context{
+				Custom:      map[string]interface{}{"score": 100},
+				Environment: EnvProduction,
+			},
+			wantEnabled: true,
+			wantVariant: "treatment",
+		},
+		{
+			name: "Numeric comparison <= 50 rule match exact",
+			flag: flag,
+			ctx: Context{
+				Custom:      map[string]interface{}{"latency": 50},
+				Environment: EnvProduction,
+			},
+			wantEnabled: true,
+			wantVariant: "treatment",
 		},
 		{
 			name: "Rules fallback to default",

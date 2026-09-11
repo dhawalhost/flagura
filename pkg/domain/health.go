@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 // HealthStatus represents the lifecycle health and technical debt state of a feature flag.
 type HealthStatus string
 
@@ -32,31 +34,64 @@ func AnalyzeFlagHealth(flag FeatureFlag) FlagHealthReport {
 		}
 	}
 
-	// 1. Check if disabled (Dead flag)
+	otherEnvActive := false
+	for envName, envCfg := range flag.Environments {
+		if envName != EnvProduction && envCfg.Enabled {
+			otherEnvActive = true
+			break
+		}
+	}
+
+	// 1. Check if disabled in production
 	if !prodEnv.Enabled {
+		// If disabled recently (< 14 days), do not classify as DEAD_FLAG or recommend deletion
+		if !flag.UpdatedAt.IsZero() && time.Since(flag.UpdatedAt) < 14*24*time.Hour {
+			reason := "Kill-switch recently engaged in production; confirm this was intentional before taking action"
+			if otherEnvActive {
+				reason += " (other environments are still enabled)"
+			}
+			return FlagHealthReport{
+				Status:          HealthStatusActive,
+				IsStale:         false,
+				Reason:          reason,
+				SuggestedAction: "Recently disabled — confirm incident response resolution before decommissioning flag.",
+			}
+		}
+
+		reason := "Kill-switch is engaged in production (0% traffic for 14+ days)"
+		suggestedAction := "If this feature was cancelled, remove the code branch and delete this flag."
+		if otherEnvActive {
+			reason = "Kill-switch engaged in production for 14+ days, but other environments are still active"
+			suggestedAction = "Confirm feature is cancelled across all environments before deleting flag."
+		}
+
 		return FlagHealthReport{
 			Status:          HealthStatusDead,
 			IsStale:         true,
-			Reason:          "Kill-switch is engaged in production (0% traffic)",
-			SuggestedAction: "If this feature was cancelled, remove the code branch and delete this flag.",
+			Reason:          reason,
+			SuggestedAction: suggestedAction,
 		}
 	}
 
 	// 2. Check if 100% rolled out with no active targeting rules
-	if prodEnv.Strategy == StrategyPercentage && prodEnv.Percentage >= 100 && len(prodEnv.Rules) == 0 {
+	isFullRollout := (prodEnv.Strategy == StrategyPercentage && prodEnv.Percentage >= 100 && len(prodEnv.Rules) == 0) ||
+		(prodEnv.Strategy == StrategyBoolean && len(prodEnv.Rules) == 0)
+
+	if isFullRollout {
+		// Check bake period (< 7 days)
+		if !flag.UpdatedAt.IsZero() && time.Since(flag.UpdatedAt) < 7*24*time.Hour {
+			return FlagHealthReport{
+				Status:          HealthStatusActive,
+				IsStale:         false,
+				Reason:          "100% rolled out to production (within 7-day bake period)",
+				SuggestedAction: "Allow bake period to conclude before removing code branch from repository.",
+			}
+		}
+
 		return FlagHealthReport{
 			Status:          HealthStatusStale,
 			IsStale:         true,
 			Reason:          "100% rolled out to all users in production with no custom rules",
-			SuggestedAction: "Feature is fully launched. Clean up flag check in your codebase to eliminate technical debt.",
-		}
-	}
-
-	if prodEnv.Strategy == StrategyBoolean && len(prodEnv.Rules) == 0 {
-		return FlagHealthReport{
-			Status:          HealthStatusStale,
-			IsStale:         true,
-			Reason:          "Permanently enabled for all users in production with no custom rules",
 			SuggestedAction: "Feature is fully launched. Clean up flag check in your codebase to eliminate technical debt.",
 		}
 	}

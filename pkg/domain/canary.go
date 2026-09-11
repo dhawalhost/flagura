@@ -8,10 +8,11 @@ import (
 type CanaryStatus string
 
 const (
-	CanaryStatusActive     CanaryStatus = "ACTIVE"
-	CanaryStatusPaused     CanaryStatus = "PAUSED"
-	CanaryStatusCompleted  CanaryStatus = "COMPLETED"
-	CanaryStatusRolledBack CanaryStatus = "ROLLED_BACK"
+	CanaryStatusActive         CanaryStatus = "ACTIVE"
+	CanaryStatusPaused         CanaryStatus = "PAUSED"
+	CanaryStatusCompleted      CanaryStatus = "COMPLETED"
+	CanaryStatusRolledBack     CanaryStatus = "ROLLED_BACK"
+	CanaryStatusNeedsAttention CanaryStatus = "NEEDS_ATTENTION"
 )
 
 // CanaryStage represents a single step in a multi-stage progressive rollout.
@@ -47,28 +48,53 @@ type CanarySchedule struct {
 	LastEvaluatedAt time.Time        `json:"last_evaluated_at"`
 }
 
-// NextStage advances the schedule to the subsequent stage if time has elapsed.
-func (cs *CanarySchedule) NextStage(now time.Time) (bool, *CanaryStage) {
+// CanAdvanceStage inspects if the current stage duration has elapsed without mutating the schedule.
+// Returns (canAdvance, nextStage, isCompletion).
+func (cs *CanarySchedule) CanAdvanceStage(now time.Time) (bool, *CanaryStage, bool) {
 	if cs.Status != CanaryStatusActive || cs.CurrentStageIdx >= len(cs.Stages) {
-		return false, nil
+		return false, nil, false
 	}
 
 	currentStage := &cs.Stages[cs.CurrentStageIdx]
 	elapsedSec := now.Sub(currentStage.StartedAt).Seconds()
 
 	if elapsedSec >= float64(currentStage.DurationSec) {
-		currentStage.CompletedAt = now
-		cs.CurrentStageIdx++
-		if cs.CurrentStageIdx >= len(cs.Stages) {
-			cs.Status = CanaryStatusCompleted
-			cs.UpdatedAt = now
-			return false, nil
+		if cs.CurrentStageIdx+1 >= len(cs.Stages) {
+			return true, nil, true
 		}
-		next := &cs.Stages[cs.CurrentStageIdx]
-		next.StartedAt = now
-		cs.UpdatedAt = now
-		return true, next
+		return true, &cs.Stages[cs.CurrentStageIdx+1], false
 	}
 
-	return false, nil
+	return false, nil, false
+}
+
+// CommitStageAdvancement commits stage progression or completion after persistence succeeds.
+func (cs *CanarySchedule) CommitStageAdvancement(now time.Time) {
+	if cs.CurrentStageIdx >= len(cs.Stages) {
+		return
+	}
+	currentStage := &cs.Stages[cs.CurrentStageIdx]
+	currentStage.CompletedAt = now
+	cs.CurrentStageIdx++
+	cs.UpdatedAt = now
+
+	if cs.CurrentStageIdx >= len(cs.Stages) {
+		cs.Status = CanaryStatusCompleted
+		return
+	}
+	next := &cs.Stages[cs.CurrentStageIdx]
+	next.StartedAt = now
+}
+
+// NextStage advances the schedule to the subsequent stage if time has elapsed.
+func (cs *CanarySchedule) NextStage(now time.Time) (bool, *CanaryStage) {
+	canAdvance, next, isComp := cs.CanAdvanceStage(now)
+	if !canAdvance {
+		return false, nil
+	}
+	cs.CommitStageAdvancement(now)
+	if isComp {
+		return false, nil
+	}
+	return true, next
 }

@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -948,5 +949,80 @@ func TestMemoryStore_MultiTenantFlagIsolation(t *testing.T) {
 	}
 	if survivingB.Environments[domain.EnvProduction].Percentage != 50 {
 		t.Errorf("flag B was corrupted, expected 50 percent rollout, got %v", survivingB.Environments[domain.EnvProduction].Percentage)
+	}
+}
+
+func TestMemoryStore_ApplyChangeRequest_ConflictDetection(t *testing.T) {
+	ctx := context.Background()
+	memStore := NewMemoryStore()
+
+	// 1. Create a flag with initial config (ConfigVersion will be 1)
+	flag := domain.FeatureFlag{
+		Key:       "payment-gateway-v2",
+		ProjectID: "proj_conflict_test",
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {Enabled: true, Strategy: domain.StrategyBoolean},
+		},
+	}
+	_, err := memStore.SaveFlag(ctx, flag, "author@flagura.dev")
+	if err != nil {
+		t.Fatalf("SaveFlag failed: %v", err)
+	}
+
+	savedFlag, _ := memStore.GetFlagByProject(ctx, "proj_conflict_test", "payment-gateway-v2")
+	if savedFlag.ConfigVersion == 0 {
+		t.Fatalf("expected positive ConfigVersion")
+	}
+
+	// 2. Author creates ChangeRequest referencing savedFlag.ConfigVersion
+	cr := domain.ChangeRequest{
+		ID:                "cr_conflict_test",
+		ProjectID:         "proj_conflict_test",
+		FlagKey:           "payment-gateway-v2",
+		Environment:       domain.EnvProduction,
+		AuthorUserID:      "usr_author",
+		BaseConfigVersion: savedFlag.ConfigVersion,
+		ProposedConfig: domain.EnvironmentConfig{
+			Enabled:    true,
+			Strategy:   domain.StrategyPercentage,
+			Percentage: 50.0,
+		},
+		Status: domain.ChangeRequestStatusPending,
+	}
+	if _, err := memStore.CreateChangeRequest(ctx, cr); err != nil {
+		t.Fatalf("CreateChangeRequest failed: %v", err)
+	}
+
+	// 3. Reviewer approves the change request
+	if _, err := memStore.ReviewChangeRequest(ctx, cr.ID, "usr_reviewer", "rev@flagura.dev", "Reviewer", true, "LGTM"); err != nil {
+		t.Fatalf("ReviewChangeRequest failed: %v", err)
+	}
+
+	// 4. Emergency action taken mid-review: someone hits kill-switch on the flag!
+	disabled := false
+	_, _, err = memStore.ToggleFlagByProject(ctx, "proj_conflict_test", "payment-gateway-v2", domain.EnvProduction, &disabled, "incident-responder@flagura.dev")
+	if err != nil {
+		t.Fatalf("ToggleFlagByProject failed: %v", err)
+	}
+
+	// Verify the flag's ConfigVersion moved
+	flagAfterKillSwitch, _ := memStore.GetFlagByProject(ctx, "proj_conflict_test", "payment-gateway-v2")
+	if flagAfterKillSwitch.ConfigVersion <= savedFlag.ConfigVersion {
+		t.Fatalf("expected ConfigVersion to increment after kill switch toggle")
+	}
+
+	// 5. Applying the approved change request MUST FAIL with ErrChangeRequestConflict
+	_, _, _, err = memStore.ApplyChangeRequest(ctx, cr.ID, "usr_admin")
+	if err == nil {
+		t.Fatalf("expected ApplyChangeRequest to fail due to conflict, but it succeeded silently!")
+	}
+	if !errors.Is(err, domain.ErrChangeRequestConflict) {
+		t.Fatalf("expected ErrChangeRequestConflict, got: %v", err)
+	}
+
+	// Verify kill-switch state is preserved (flag is still disabled in production)
+	flagFinal, _ := memStore.GetFlagByProject(ctx, "proj_conflict_test", "payment-gateway-v2")
+	if flagFinal.Environments[domain.EnvProduction].Enabled != false {
+		t.Fatalf("emergency kill switch was silently undone by stale change request!")
 	}
 }

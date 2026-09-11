@@ -261,6 +261,11 @@ func (s *Server) handleCreateFlag(w http.ResponseWriter, r *http.Request) {
 	}
 	flag.ProjectID = projectID
 
+	if err := domain.ValidateFeatureFlag(flag); err != nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, domain.ErrInvalidInput))
+		return
+	}
+
 	actor := s.getActorFromRequest(r, "developer@flagura.dev")
 
 	log, err := s.store.SaveFlag(r.Context(), flag, actor)
@@ -312,6 +317,11 @@ func (s *Server) handleUpdateFlag(w http.ResponseWriter, r *http.Request) {
 	}
 	if existing != nil && flag.ID == "" {
 		flag.ID = existing.ID
+	}
+
+	if err := domain.ValidateFeatureFlag(flag); err != nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, domain.ErrInvalidInput))
+		return
 	}
 
 	actor := s.getActorFromRequest(r, "developer@flagura.dev")

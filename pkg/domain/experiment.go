@@ -8,6 +8,7 @@ import (
 type EventType string
 
 const (
+	EventTypeExposure   EventType = "exposure"   // Flag evaluation / variant exposure
 	EventTypeConversion EventType = "conversion" // Binary metric (0 or 1, e.g. click, signup, checkout)
 	EventTypeContinuous EventType = "continuous" // Numeric metric (e.g. order value $, latency ms)
 )

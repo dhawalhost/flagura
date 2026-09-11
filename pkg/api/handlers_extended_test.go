@@ -439,6 +439,7 @@ func TestHandlers_ExtendedEdgeCases(t *testing.T) {
 				},
 			},
 			cookie:         authCookie,
+			headers:        map[string]string{domain.HeaderProjectID: proj.ID},
 			expectedStatus: http.StatusCreated,
 		},
 

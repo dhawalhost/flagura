@@ -17,7 +17,7 @@ func getOrCompileRegex(patternStr string) (*regexp.Regexp, error) {
 	if val, ok := regexCache.Load(patternStr); ok {
 		return val.(*regexp.Regexp), nil
 	}
-	re, err := regexp.Compile("(?i)" + patternStr)
+	re, err := regexp.Compile(patternStr)
 	if err != nil {
 		return nil, err
 	}
@@ -133,11 +133,25 @@ func EvaluateCondition(cond RuleCondition, ctx Context) bool {
 			return tNum > eNum
 		}
 		return false
+	case "GREATER_THAN_OR_EQUAL", "GTE", ">=":
+		tNum, err1 := strconv.ParseFloat(strTarget, 64)
+		eNum, err2 := strconv.ParseFloat(strExpected, 64)
+		if err1 == nil && err2 == nil {
+			return tNum >= eNum
+		}
+		return false
 	case "LESS_THAN", "LT", "<":
 		tNum, err1 := strconv.ParseFloat(strTarget, 64)
 		eNum, err2 := strconv.ParseFloat(strExpected, 64)
 		if err1 == nil && err2 == nil {
 			return tNum < eNum
+		}
+		return false
+	case "LESS_THAN_OR_EQUAL", "LTE", "<=":
+		tNum, err1 := strconv.ParseFloat(strTarget, 64)
+		eNum, err2 := strconv.ParseFloat(strExpected, 64)
+		if err1 == nil && err2 == nil {
+			return tNum <= eNum
 		}
 		return false
 	default:

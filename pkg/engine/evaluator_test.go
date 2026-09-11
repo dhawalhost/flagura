@@ -326,9 +326,24 @@ func TestEvaluateRule_AllOperatorsAndAttributes(t *testing.T) {
 		{"LessThan Invalid Target", domain.TargetingRule{Attribute: domain.AttrCustom, CustomKey: "latency", Operator: domain.OpLessThan, Values: []string{"100"}}, domain.EvaluationContext{Attributes: map[string]interface{}{"latency": "bad"}}, false},
 		{"LessThan Invalid Threshold", domain.TargetingRule{Attribute: domain.AttrCustom, CustomKey: "latency", Operator: domain.OpLessThan, Values: []string{"bad"}}, domain.EvaluationContext{Attributes: map[string]interface{}{"latency": 50}}, false},
 
-		// Regex
+		// StartsWith & EndsWith
+		{"StartsWith Match", domain.TargetingRule{Attribute: domain.AttrEmail, Operator: domain.OpStartsWith, Values: []string{"admin@"}}, domain.EvaluationContext{Email: "admin@company.com"}, true},
+		{"StartsWith Mismatch", domain.TargetingRule{Attribute: domain.AttrEmail, Operator: domain.OpStartsWith, Values: []string{"admin@"}}, domain.EvaluationContext{Email: "user@company.com"}, false},
+
+		// GreaterThanOrEqual & LessThanOrEqual
+		{"GreaterThanOrEqual Match Equal", domain.TargetingRule{Attribute: domain.AttrCustom, CustomKey: "score", Operator: domain.OpGreaterThanOrEqual, Values: []string{"85.0"}}, domain.EvaluationContext{Attributes: map[string]interface{}{"score": 85.0}}, true},
+		{"GreaterThanOrEqual Match Greater", domain.TargetingRule{Attribute: domain.AttrCustom, CustomKey: "score", Operator: domain.OpGreaterThanOrEqual, Values: []string{"85.0"}}, domain.EvaluationContext{Attributes: map[string]interface{}{"score": 90.0}}, true},
+		{"GreaterThanOrEqual Mismatch", domain.TargetingRule{Attribute: domain.AttrCustom, CustomKey: "score", Operator: domain.OpGreaterThanOrEqual, Values: []string{"85.0"}}, domain.EvaluationContext{Attributes: map[string]interface{}{"score": 80.0}}, false},
+
+		{"LessThanOrEqual Match Equal", domain.TargetingRule{Attribute: domain.AttrCustom, CustomKey: "latency", Operator: domain.OpLessThanOrEqual, Values: []string{"100"}}, domain.EvaluationContext{Attributes: map[string]interface{}{"latency": 100}}, true},
+		{"LessThanOrEqual Match Less", domain.TargetingRule{Attribute: domain.AttrCustom, CustomKey: "latency", Operator: domain.OpLessThanOrEqual, Values: []string{"100"}}, domain.EvaluationContext{Attributes: map[string]interface{}{"latency": 45}}, true},
+		{"LessThanOrEqual Mismatch", domain.TargetingRule{Attribute: domain.AttrCustom, CustomKey: "latency", Operator: domain.OpLessThanOrEqual, Values: []string{"100"}}, domain.EvaluationContext{Attributes: map[string]interface{}{"latency": 150}}, false},
+
+		// Regex (including case-sensitive patterns)
 		{"Regex Valid Match", domain.TargetingRule{Attribute: domain.AttrUserID, Operator: domain.OpRegex, Values: []string{`^dev_[0-9]+$`}}, domain.EvaluationContext{UserID: "dev_99"}, true},
 		{"Regex Valid Mismatch", domain.TargetingRule{Attribute: domain.AttrUserID, Operator: domain.OpRegex, Values: []string{`^dev_[0-9]+$`}}, domain.EvaluationContext{UserID: "prod_99"}, false},
+		{"Regex Case-Sensitive Match", domain.TargetingRule{Attribute: domain.AttrCustom, CustomKey: "id_code", Operator: domain.OpRegex, Values: []string{`^[A-Z]{3}-\d+$`}}, domain.EvaluationContext{Attributes: map[string]interface{}{"id_code": "ABC-123"}}, true},
+		{"Regex Case-Sensitive Reject Lowercase", domain.TargetingRule{Attribute: domain.AttrCustom, CustomKey: "id_code", Operator: domain.OpRegex, Values: []string{`^[A-Z]{3}-\d+$`}}, domain.EvaluationContext{Attributes: map[string]interface{}{"id_code": "abc-123"}}, false},
 		{"Regex Invalid Pattern", domain.TargetingRule{Attribute: domain.AttrUserID, Operator: domain.OpRegex, Values: []string{`[invalid`}}, domain.EvaluationContext{UserID: "dev_99"}, false},
 		{"Regex Empty Pattern", domain.TargetingRule{Attribute: domain.AttrUserID, Operator: domain.OpRegex, Values: []string{}}, domain.EvaluationContext{UserID: "dev_99"}, false},
 
@@ -383,6 +398,16 @@ func TestResolveMultivariateVariant(t *testing.T) {
 			identifier:   "usr_12345",
 			flagKey:      "color-test",
 			expectDefKey: "variant-a",
+		},
+		{
+			name: "Defensive normalization when weights sum to 90",
+			variants: []domain.FlagVariant{
+				{Key: "v1", Value: "1", Weight: 45},
+				{Key: "v2", Value: "2", Weight: 45},
+			},
+			identifier:   "usr_test_normalization",
+			flagKey:      "norm-test",
+			expectDefKey: "v1",
 		},
 	}
 
