@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1349,14 +1350,22 @@ func (s *MemoryStore) ListUserOrganizations(ctx context.Context, userID string) 
 
 	user, userExists := s.users[userID]
 	if userExists && user.Role == domain.RoleAdmin {
-		var allOrgs []domain.Organization
+		var memberOrgs []domain.Organization
+		var otherOrgs []domain.Organization
 		seen := make(map[string]bool)
 		for _, o := range s.orgs {
 			if !seen[o.ID] {
 				seen[o.ID] = true
-				allOrgs = append(allOrgs, o)
+				if userOrgIDs[o.ID] {
+					memberOrgs = append(memberOrgs, o)
+				} else {
+					otherOrgs = append(otherOrgs, o)
+				}
 			}
 		}
+		sort.Slice(memberOrgs, func(i, j int) bool { return memberOrgs[i].ID < memberOrgs[j].ID })
+		sort.Slice(otherOrgs, func(i, j int) bool { return otherOrgs[i].ID < otherOrgs[j].ID })
+		allOrgs := append(memberOrgs, otherOrgs...)
 		if len(allOrgs) > 0 {
 			return allOrgs, nil
 		}

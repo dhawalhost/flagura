@@ -255,6 +255,7 @@ func TestHandlers_ComprehensiveSuite(t *testing.T) {
 	// 8. Change Requests Flow
 	t.Run("ChangeRequestsWorkflow", func(t *testing.T) {
 		crPayload := domain.ChangeRequest{
+			ProjectID:   domain.DefaultProjectID,
 			FlagKey:     "rate-limiter-v2",
 			Environment: domain.EnvProduction,
 			Title:       "Enable Rate Limiter V2 in Production",
@@ -267,6 +268,7 @@ func TestHandlers_ComprehensiveSuite(t *testing.T) {
 		b, _ := json.Marshal(crPayload)
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/change-requests", bytes.NewReader(b))
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set(domain.HeaderProjectID, domain.DefaultProjectID)
 		req.AddCookie(authCookie)
 		w := httptest.NewRecorder()
 		srv.ServeHTTP(w, req)

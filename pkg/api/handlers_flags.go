@@ -148,7 +148,11 @@ func (s *Server) resolveAndAuthorizeProjectID(r *http.Request) (string, error) {
 
 		// Platform Admin has access to all projects
 		if user.Role == domain.RoleAdmin {
-			// Admin without targetID: first project from user's orgs, or DefaultProjectID
+			// If DefaultProjectID exists, use it as the default project when none specified
+			if _, err := s.store.GetProject(ctx, domain.DefaultProjectID); err == nil {
+				return domain.DefaultProjectID, nil
+			}
+			// Admin without targetID: first project from user's member orgs
 			if orgs, err := s.store.ListUserOrganizations(ctx, user.ID); err == nil && len(orgs) > 0 {
 				for _, org := range orgs {
 					if projs, err := s.store.ListProjects(ctx, org.ID); err == nil && len(projs) > 0 {
