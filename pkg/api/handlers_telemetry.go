@@ -11,13 +11,18 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
-const maxFlagsPerProject = 1000
+const (
+	maxFlagsPerProject         = 1000
+	maxTrackedUsersPerVariant  = 10000
+)
 
 // FlagAggregatedMetric holds accumulated runtime metrics for a single flag.
 type FlagAggregatedMetric struct {
-	TotalEvaluations uint64            `json:"total_evaluations"`
-	Variants         map[string]uint64 `json:"variants"`
-	LastEvaluatedAt  int64             `json:"last_evaluated_at"`
+	TotalEvaluations uint64                         `json:"total_evaluations"`
+	Variants         map[string]uint64              `json:"variants"`
+	UniqueUsers      map[string]uint64              `json:"unique_users,omitempty"`
+	LastEvaluatedAt  int64                          `json:"last_evaluated_at"`
+	uniqueUserSets   map[string]map[string]struct{}
 }
 
 // ProjectTelemetry holds telemetry metrics scoped to a single tenant project.
@@ -58,6 +63,7 @@ func (ta *TelemetryAggregator) getOrCreateProjectLocked(projectID string) *Proje
 func (ta *TelemetryAggregator) Ingest(projectID string, events map[string]struct {
 	Evaluations uint64            `json:"evaluations"`
 	Variants    map[string]uint64 `json:"variants"`
+	UniqueUsers map[string]uint64 `json:"unique_users,omitempty"`
 }) int {
 	ta.mu.Lock()
 	defer ta.mu.Unlock()
@@ -94,7 +100,9 @@ func (ta *TelemetryAggregator) Ingest(projectID string, events map[string]struct
 			}
 
 			m = &FlagAggregatedMetric{
-				Variants: make(map[string]uint64),
+				Variants:       make(map[string]uint64),
+				UniqueUsers:    make(map[string]uint64),
+				uniqueUserSets: make(map[string]map[string]struct{}),
 			}
 			proj.flagMetrics[flagKey] = m
 		}
@@ -107,10 +115,65 @@ func (ta *TelemetryAggregator) Ingest(projectID string, events map[string]struct
 		for vKey, vCount := range metric.Variants {
 			m.Variants[vKey] += vCount
 		}
+		if metric.UniqueUsers != nil {
+			if m.UniqueUsers == nil {
+				m.UniqueUsers = make(map[string]uint64)
+			}
+			for vKey, uCount := range metric.UniqueUsers {
+				m.UniqueUsers[vKey] += uCount
+			}
+		}
 		updatedCount++
 	}
 
 	return updatedCount
+}
+
+// RecordExposure records a single user exposure event for a flag and variant, maintaining unique user counts.
+func (ta *TelemetryAggregator) RecordExposure(projectID, flagKey, variant, userID string) {
+	if flagKey == "" || variant == "" || userID == "" {
+		return
+	}
+	ta.mu.Lock()
+	defer ta.mu.Unlock()
+
+	proj := ta.getOrCreateProjectLocked(projectID)
+	now := time.Now().UTC()
+
+	m, exists := proj.flagMetrics[flagKey]
+	if !exists {
+		m = &FlagAggregatedMetric{
+			Variants:       make(map[string]uint64),
+			UniqueUsers:    make(map[string]uint64),
+			uniqueUserSets: make(map[string]map[string]struct{}),
+		}
+		proj.flagMetrics[flagKey] = m
+	}
+	if m.UniqueUsers == nil {
+		m.UniqueUsers = make(map[string]uint64)
+	}
+	if m.uniqueUserSets == nil {
+		m.uniqueUserSets = make(map[string]map[string]struct{})
+	}
+
+	set, ok := m.uniqueUserSets[variant]
+	if !ok {
+		set = make(map[string]struct{})
+		m.uniqueUserSets[variant] = set
+	}
+
+	if _, seen := set[userID]; !seen {
+		if len(set) < maxTrackedUsersPerVariant {
+			set[userID] = struct{}{}
+		}
+		m.UniqueUsers[variant]++
+	}
+
+	m.Variants[variant]++
+	m.TotalEvaluations++
+	m.LastEvaluatedAt = now.UnixMilli()
+	proj.totalEvals++
+	proj.hourlyPoints[now.Hour()]++
 }
 
 // Stats returns a snapshot of evaluation statistics for the project and dashboard.
@@ -136,10 +199,15 @@ func (ta *TelemetryAggregator) Stats(projectID string, flagKey string) map[strin
 			for k, v := range m.Variants {
 				varCopy[k] = v
 			}
+			uniqCopy := make(map[string]uint64, len(m.UniqueUsers))
+			for k, v := range m.UniqueUsers {
+				uniqCopy[k] = v
+			}
 			return map[string]interface{}{
 				"flag_key":          flagKey,
 				"total_evaluations": m.TotalEvaluations,
 				"variants":          varCopy,
+				"unique_users":      uniqCopy,
 				"last_evaluated_at": m.LastEvaluatedAt,
 				"hourly_points":     proj.hourlyPoints,
 			}
@@ -148,6 +216,7 @@ func (ta *TelemetryAggregator) Stats(projectID string, flagKey string) map[strin
 			"flag_key":          flagKey,
 			"total_evaluations": 0,
 			"variants":          map[string]uint64{},
+			"unique_users":      map[string]uint64{},
 			"last_evaluated_at": 0,
 			"hourly_points":     proj.hourlyPoints,
 		}
@@ -159,9 +228,14 @@ func (ta *TelemetryAggregator) Stats(projectID string, flagKey string) map[strin
 		for vk, vv := range v.Variants {
 			varCopy[vk] = vv
 		}
+		uniqCopy := make(map[string]uint64, len(v.UniqueUsers))
+		for uk, uv := range v.UniqueUsers {
+			uniqCopy[uk] = uv
+		}
 		flagsCopy[k] = FlagAggregatedMetric{
 			TotalEvaluations: v.TotalEvaluations,
 			Variants:         varCopy,
+			UniqueUsers:      uniqCopy,
 			LastEvaluatedAt:  v.LastEvaluatedAt,
 		}
 	}
@@ -198,6 +272,7 @@ func (s *Server) handleIngestTelemetry(w http.ResponseWriter, r *http.Request) {
 		Events    map[string]struct {
 			Evaluations uint64            `json:"evaluations"`
 			Variants    map[string]uint64 `json:"variants"`
+			UniqueUsers map[string]uint64 `json:"unique_users,omitempty"`
 		} `json:"events"`
 	}
 
@@ -229,6 +304,13 @@ func (s *Server) handleIngestTelemetry(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.Unmarshal(bodyBytes, &trackReq); err == nil && len(trackReq.Events) > 0 {
+		if s.telemetry != nil {
+			for _, ev := range trackReq.Events {
+				if ev.UserID != "" && ev.FlagKey != "" && ev.Variant != "" {
+					s.telemetry.RecordExposure(projectID, ev.FlagKey, ev.Variant, ev.UserID)
+				}
+			}
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":          "ok",

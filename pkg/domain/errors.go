@@ -23,6 +23,7 @@ var (
 	ErrKeyNotFound           = errors.New("api key not found")
 	ErrKeyRevoked            = errors.New("api key revoked")
 	ErrFourEyesSelfApproval  = errors.New("author cannot review or approve their own change request")
+	ErrChangeRequestConflict = errors.New("flag configuration has been modified since change request was created; please re-review")
 	ErrInternal              = errors.New("internal server error")
 )
 
@@ -70,6 +71,7 @@ const (
 	ErrCodeFourEyesSelfApproval  ErrorCode = 4002 // Author cannot approve own change request
 	ErrCodeChangeRequestReviewed ErrorCode = 4003 // Change request already reviewed
 	ErrCodeExperimentNotFound    ErrorCode = 4004 // Experiment not found
+	ErrCodeChangeRequestConflict ErrorCode = 4005 // Change request conflict (flag updated since creation)
 
 	// -------------------------------------------------------------
 	// 5000s: Storage & Database Layer
@@ -253,6 +255,8 @@ func MapSentinelToAppError(err error) *AppError {
 		return NewAppError(ErrCodeInvalidEnvironment, err.Error(), http.StatusBadRequest, err)
 	case errors.Is(err, ErrFourEyesSelfApproval):
 		return NewAppError(ErrCodeFourEyesSelfApproval, err.Error(), http.StatusBadRequest, err)
+	case errors.Is(err, ErrChangeRequestConflict):
+		return NewAppError(ErrCodeChangeRequestConflict, err.Error(), http.StatusConflict, err)
 	default:
 		return NewAppError(ErrCodeInternal, err.Error(), http.StatusInternalServerError, err)
 	}

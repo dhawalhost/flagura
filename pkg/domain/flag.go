@@ -2,6 +2,9 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"math"
 	"regexp"
 	"time"
 )
@@ -40,12 +43,15 @@ const (
 	OpNotEquals   RuleOperator = "not_equals"
 	OpContains    RuleOperator = "contains"
 	OpNotContains RuleOperator = "not_contains"
-	OpEndsWith    RuleOperator = "ends_with"
-	OpInList      RuleOperator = "in_list"
-	OpNotInList   RuleOperator = "not_in_list"
-	OpGreaterThan RuleOperator = "greater_than"
-	OpLessThan    RuleOperator = "less_than"
-	OpRegex       RuleOperator = "regex"
+	OpStartsWith          RuleOperator = "starts_with"
+	OpEndsWith            RuleOperator = "ends_with"
+	OpInList              RuleOperator = "in_list"
+	OpNotInList           RuleOperator = "not_in_list"
+	OpGreaterThan         RuleOperator = "greater_than"
+	OpGreaterThanOrEqual  RuleOperator = "greater_than_or_equal"
+	OpLessThan            RuleOperator = "less_than"
+	OpLessThanOrEqual     RuleOperator = "less_than_or_equal"
+	OpRegex               RuleOperator = "regex"
 )
 
 type RuleAction string
@@ -251,4 +257,34 @@ func (r TargetingRule) DeepCopy() TargetingRule {
 		copy(clone.Values, r.Values)
 	}
 	return clone
+}
+
+// ValidateEnvironmentConfig validates configuration rules and constraints for an environment.
+func ValidateEnvironmentConfig(cfg EnvironmentConfig) error {
+	if cfg.Strategy == StrategyMultivariate {
+		if len(cfg.Variants) == 0 {
+			return errors.New("multivariate strategy requires at least one variant")
+		}
+		totalWeight := 0.0
+		for _, v := range cfg.Variants {
+			if v.Weight < 0 {
+				return fmt.Errorf("variant '%s' has negative weight: %.2f", v.Key, v.Weight)
+			}
+			totalWeight += v.Weight
+		}
+		if math.Abs(totalWeight-100.0) > 0.01 {
+			return fmt.Errorf("multivariate variant weights must sum to 100%% (current sum: %.2f%%)", totalWeight)
+		}
+	}
+	return nil
+}
+
+// ValidateFeatureFlag validates an entire flag and all of its environment configurations.
+func ValidateFeatureFlag(flag FeatureFlag) error {
+	for env, cfg := range flag.Environments {
+		if err := ValidateEnvironmentConfig(cfg); err != nil {
+			return fmt.Errorf("invalid config for environment '%s': %w", env, err)
+		}
+	}
+	return nil
 }

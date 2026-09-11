@@ -82,8 +82,9 @@ type ChangeRequest struct {
 	AuthorUserID   string              `json:"author_user_id"`
 	AuthorEmail    string              `json:"author_email"`
 	AuthorName     string              `json:"author_name"`
-	ProposedConfig EnvironmentConfig   `json:"proposed_config"`
-	Status         ChangeRequestStatus `json:"status"`
+	ProposedConfig    EnvironmentConfig   `json:"proposed_config"`
+	BaseConfigVersion uint64              `json:"base_config_version,omitempty"`
+	Status            ChangeRequestStatus `json:"status"`
 	ReviewerUserID string              `json:"reviewer_user_id,omitempty"`
 	ReviewerEmail  string              `json:"reviewer_email,omitempty"`
 	ReviewerName   string              `json:"reviewer_name,omitempty"`

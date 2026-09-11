@@ -20,12 +20,13 @@ var ErrCircuitBreakerOpen = errors.New("circuit breaker is OPEN: Flagura control
 
 // CircuitBreaker prevents cascading network timeouts by fast-failing remote evaluations.
 type CircuitBreaker struct {
-	mu           sync.Mutex
-	state        CircuitBreakerState
-	failureCount int
-	threshold    int
-	cooldown     time.Duration
-	lastFailure  time.Time
+	mu               sync.Mutex
+	state            CircuitBreakerState
+	failureCount     int
+	threshold        int
+	cooldown         time.Duration
+	lastFailure      time.Time
+	halfOpenInFlight bool
 }
 
 // NewCircuitBreaker initializes a circuit breaker with threshold and cooldown.
@@ -56,11 +57,16 @@ func (cb *CircuitBreaker) Allow() bool {
 	case StateOpen:
 		if now.Sub(cb.lastFailure) >= cb.cooldown {
 			cb.state = StateHalfOpen
+			cb.halfOpenInFlight = true
 			return true
 		}
 		return false
 	case StateHalfOpen:
-		return true
+		if !cb.halfOpenInFlight {
+			cb.halfOpenInFlight = true
+			return true
+		}
+		return false
 	default:
 		return true
 	}
@@ -72,6 +78,7 @@ func (cb *CircuitBreaker) RecordSuccess() {
 	defer cb.mu.Unlock()
 
 	cb.failureCount = 0
+	cb.halfOpenInFlight = false
 	cb.state = StateClosed
 }
 
@@ -80,11 +87,19 @@ func (cb *CircuitBreaker) RecordFailure() {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
-	cb.failureCount++
 	cb.lastFailure = time.Now()
 
+	// If a trial request fails during HalfOpen, immediately trip back to Open
+	if cb.state == StateHalfOpen {
+		cb.state = StateOpen
+		cb.halfOpenInFlight = false
+		return
+	}
+
+	cb.failureCount++
 	if cb.failureCount >= cb.threshold {
 		cb.state = StateOpen
+		cb.halfOpenInFlight = false
 	}
 }
 

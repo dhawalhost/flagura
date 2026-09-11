@@ -1496,7 +1496,14 @@ func (s *SQLiteStore) CreateChangeRequest(ctx context.Context, cr domain.ChangeR
 	cr.CreatedAt = now
 	cr.Status = domain.ChangeRequestStatusPending
 
-	proposedBytes, _ := json.Marshal(cr.ProposedConfig)
+	type proposedConfigEnvelope struct {
+		domain.EnvironmentConfig
+		BaseConfigVersion uint64 `json:"_base_config_version,omitempty"`
+	}
+	proposedBytes, _ := json.Marshal(proposedConfigEnvelope{
+		EnvironmentConfig: cr.ProposedConfig,
+		BaseConfigVersion: cr.BaseConfigVersion,
+	})
 
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO change_requests (
@@ -1539,6 +1546,12 @@ func (s *SQLiteStore) GetChangeRequest(ctx context.Context, id string) (*domain.
 	cr.Environment = domain.Environment(envStr)
 	cr.Status = domain.ChangeRequestStatus(statusStr)
 	_ = json.Unmarshal([]byte(proposedJSON), &cr.ProposedConfig)
+	var meta struct {
+		BaseConfigVersion uint64 `json:"_base_config_version"`
+	}
+	if err := json.Unmarshal([]byte(proposedJSON), &meta); err == nil && meta.BaseConfigVersion > 0 {
+		cr.BaseConfigVersion = meta.BaseConfigVersion
+	}
 	cr.CreatedAt, _ = time.Parse(time.RFC3339, createdStr)
 	if reviewedStr.Valid {
 		t, _ := time.Parse(time.RFC3339, reviewedStr.String)
@@ -1604,6 +1617,12 @@ func (s *SQLiteStore) ListChangeRequestsByProject(ctx context.Context, projectID
 		cr.Environment = domain.Environment(envStr)
 		cr.Status = domain.ChangeRequestStatus(statusStr)
 		_ = json.Unmarshal([]byte(proposedJSON), &cr.ProposedConfig)
+		var meta struct {
+			BaseConfigVersion uint64 `json:"_base_config_version"`
+		}
+		if err := json.Unmarshal([]byte(proposedJSON), &meta); err == nil && meta.BaseConfigVersion > 0 {
+			cr.BaseConfigVersion = meta.BaseConfigVersion
+		}
 		cr.CreatedAt, _ = time.Parse(time.RFC3339, createdStr)
 		if reviewedStr.Valid {
 			t, _ := time.Parse(time.RFC3339, reviewedStr.String)
@@ -1656,6 +1675,10 @@ func (s *SQLiteStore) ApplyChangeRequest(ctx context.Context, id string, actor s
 	flag, err := s.GetFlagByProject(ctx, cr.ProjectID, cr.FlagKey)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+
+	if cr.BaseConfigVersion > 0 && flag.ConfigVersion != cr.BaseConfigVersion {
+		return nil, nil, nil, domain.ErrChangeRequestConflict
 	}
 
 	if flag.Environments == nil {

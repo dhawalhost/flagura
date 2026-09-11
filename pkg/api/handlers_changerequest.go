@@ -76,6 +76,18 @@ func (s *Server) handleCreateChangeRequest(w http.ResponseWriter, r *http.Reques
 	req.AuthorEmail = user.Email
 	req.AuthorName = user.Name
 
+	if err := domain.ValidateEnvironmentConfig(req.ProposedConfig); err != nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeMalformedPayload, err.Error(), http.StatusBadRequest, domain.ErrInvalidInput))
+		return
+	}
+
+	targetFlag, err := s.store.GetFlagByProject(r.Context(), req.ProjectID, req.FlagKey)
+	if err != nil || targetFlag == nil {
+		s.writeError(w, r, domain.NewAppError(domain.ErrCodeFlagNotFound, "target flag not found: "+req.FlagKey, http.StatusNotFound, domain.ErrFlagNotFound))
+		return
+	}
+	req.BaseConfigVersion = targetFlag.ConfigVersion
+
 	created, err := s.store.CreateChangeRequest(r.Context(), req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

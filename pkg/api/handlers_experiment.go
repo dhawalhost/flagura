@@ -123,11 +123,19 @@ func (s *Server) handleGetExperimentReport(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// 2. Fetch evaluation exposure counts from telemetry aggregator
+	// 2. Fetch evaluation exposure counts (prioritizing unique users over raw evaluations for statistical validity)
 	exposures := make(map[string]int64)
 	if s.telemetry != nil {
 		statsData := s.telemetry.Stats(projectID, flagKey)
-		if vMap, ok := statsData["variants"].(map[string]uint64); ok {
+		if uMap, ok := statsData["unique_users"].(map[string]uint64); ok && len(uMap) > 0 {
+			for v, count := range uMap {
+				if count > math.MaxInt64 {
+					exposures[v] = math.MaxInt64
+				} else {
+					exposures[v] = int64(count)
+				}
+			}
+		} else if vMap, ok := statsData["variants"].(map[string]uint64); ok {
 			for v, count := range vMap {
 				if count > math.MaxInt64 {
 					exposures[v] = math.MaxInt64
@@ -135,6 +143,24 @@ func (s *Server) handleGetExperimentReport(w http.ResponseWriter, r *http.Reques
 					exposures[v] = int64(count)
 				}
 			}
+		}
+	}
+
+	// Sourced directly from recorded exposure events if available
+	uniqueExposuresFromEvents := make(map[string]map[string]struct{})
+	for _, ev := range events {
+		if ev.FlagKey == flagKey && (ev.Environment == "" || ev.Environment == env) {
+			if ev.EventType == domain.EventTypeExposure && ev.UserID != "" {
+				if _, ok := uniqueExposuresFromEvents[ev.Variant]; !ok {
+					uniqueExposuresFromEvents[ev.Variant] = make(map[string]struct{})
+				}
+				uniqueExposuresFromEvents[ev.Variant][ev.UserID] = struct{}{}
+			}
+		}
+	}
+	for v, users := range uniqueExposuresFromEvents {
+		if len(users) > 0 {
+			exposures[v] = int64(len(users))
 		}
 	}
 

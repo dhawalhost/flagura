@@ -763,11 +763,16 @@ func (s *MemoryStore) ApplyChangeRequest(ctx context.Context, id string, actor s
 			fProj = DefaultProjectID
 		}
 		if fProj == crProj && (flagCopy.Key == cr.FlagKey || flagCopy.ID == cr.FlagKey) {
+			if cr.BaseConfigVersion > 0 && flagCopy.ConfigVersion != cr.BaseConfigVersion {
+				s.mu.Unlock()
+				return nil, nil, nil, domain.ErrChangeRequestConflict
+			}
 			if flagCopy.Environments == nil {
 				flagCopy.Environments = make(map[domain.Environment]domain.EnvironmentConfig)
 			}
 			flagCopy.Environments[cr.Environment] = cr.ProposedConfig.DeepCopy()
 			flagCopy.UpdatedAt = time.Now().UTC()
+			flagCopy.ConfigVersion++
 			newList[i] = flagCopy
 			updatedFlag = flagCopy
 			found = true

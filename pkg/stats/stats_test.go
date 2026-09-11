@@ -184,20 +184,20 @@ func TestStats_EdgeCases(t *testing.T) {
 		t.Errorf("expected losing status for underperforming variant, got %s", compLosing.Status)
 	}
 
-	// 3. No variance (sePool == 0)
+	// 3. No variance / no conversions (totalConversions == 0, np < 5)
 	ctrlZero := ComputeVariantBinaryStats("control", 100, 0)
 	treatZero := ComputeVariantBinaryStats("treatment", 100, 0)
 	compZero := CompareBinaryVariants(ctrlZero, treatZero)
-	if compZero.Status != domain.ExpStatusInconclusive {
-		t.Errorf("expected inconclusive for 0 conversions, got %s", compZero.Status)
+	if compZero.Status != domain.ExpStatusInsufficientData {
+		t.Errorf("expected insufficient data for 0 conversions, got %s", compZero.Status)
 	}
 
 	// 4. Inconclusive variant
-	ctrlInc := ComputeVariantBinaryStats("control", 100, 10)
-	treatInc := ComputeVariantBinaryStats("treatment", 100, 11)
+	ctrlInc := ComputeVariantBinaryStats("control", 500, 50)
+	treatInc := ComputeVariantBinaryStats("treatment", 500, 52)
 	compInc := CompareBinaryVariants(ctrlInc, treatInc)
 	if compInc.Status != domain.ExpStatusInconclusive {
-		t.Errorf("expected inconclusive for similar small sample, got %s", compInc.Status)
+		t.Errorf("expected inconclusive for similar sample, got %s", compInc.Status)
 	}
 
 	// 5. AnalyzeExperiment with default controlVariant and filtered events
@@ -210,6 +210,58 @@ func TestStats_EdgeCases(t *testing.T) {
 	rep := AnalyzeExperiment("test-flag", "signup", domain.EventTypeConversion, domain.EnvProduction, "", map[string]int64{"control": 10}, events)
 	if rep.TotalEvents != 1 {
 		t.Errorf("expected 1 matching event, got %d", rep.TotalEvents)
+	}
+}
+
+func TestStats_RateScaledSampleSize(t *testing.T) {
+	// Baseline conversion rate 1%: 100 exposures gives n*p = 1 < 5.
+	// Even though 100 >= MinSampleSizeForSignificance (100), it fails the rate-scaled rule.
+	ctrlLow := ComputeVariantBinaryStats("control", 100, 1)
+	treatLow := ComputeVariantBinaryStats("treatment", 100, 2)
+	compLow := CompareBinaryVariants(ctrlLow, treatLow)
+
+	if compLow.Status != domain.ExpStatusInsufficientData {
+		t.Fatalf("expected INSUFFICIENT_DATA due to n*p < 5 rule, got %s", compLow.Status)
+	}
+	if compLow.RequiredSampleSize < 300 {
+		t.Errorf("expected RequiredSampleSize to be scaled up, got %d", compLow.RequiredSampleSize)
+	}
+
+	// With sufficient sample size for 1% conversion (e.g. 1000 exposures): n*p = 10 >= 5
+	ctrlHigh := ComputeVariantBinaryStats("control", 1000, 10)
+	treatHigh := ComputeVariantBinaryStats("treatment", 1000, 25)
+	compHigh := CompareBinaryVariants(ctrlHigh, treatHigh)
+	if compHigh.Status == domain.ExpStatusInsufficientData {
+		t.Fatalf("did not expect INSUFFICIENT_DATA for N=1000 with 1-2.5%% conversion, got %s", compHigh.Status)
+	}
+}
+
+func TestStats_ZeroBaselineLift(t *testing.T) {
+	// Control has 0 conversions, treatment has 10 conversions with 500 exposures
+	ctrl := ComputeVariantBinaryStats("control", 500, 0)
+	treat := ComputeVariantBinaryStats("treatment", 500, 10)
+
+	comp := CompareBinaryVariants(ctrl, treat)
+	if !math.IsInf(comp.RelativeLiftPct, 1) {
+		t.Errorf("expected RelativeLiftPct to be +Inf when control conversion is 0, got %f", comp.RelativeLiftPct)
+	}
+	if comp.AbsoluteLift <= 0 {
+		t.Errorf("expected positive absolute lift, got %f", comp.AbsoluteLift)
+	}
+}
+
+func TestStats_BonferroniCorrection(t *testing.T) {
+	ctrl := ComputeVariantBinaryStats("control", 1000, 100)
+	treat := ComputeVariantBinaryStats("treatment", 1000, 140)
+
+	comp1 := CompareBinaryVariantsWithCorrection(ctrl, treat, 1)
+	comp3 := CompareBinaryVariantsWithCorrection(ctrl, treat, 3)
+
+	if comp3.PValue <= comp1.PValue {
+		t.Errorf("expected Bonferroni-corrected p-value (%f) to be > uncorrected p-value (%f)", comp3.PValue, comp1.PValue)
+	}
+	if math.Abs(comp3.PValue-math.Min(1.0, comp1.PValue*3.0)) > 0.0001 {
+		t.Errorf("expected 3x p-value scaling, got comp1=%f, comp3=%f", comp1.PValue, comp3.PValue)
 	}
 }
 

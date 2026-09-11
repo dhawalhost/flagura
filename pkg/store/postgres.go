@@ -895,7 +895,14 @@ func (s *PostgresStore) CreateChangeRequest(ctx context.Context, cr domain.Chang
 	cr.Status = domain.ChangeRequestStatusPending
 	cr.CreatedAt = now
 
-	cfgBytes, err := json.Marshal(cr.ProposedConfig)
+	type proposedConfigEnvelope struct {
+		domain.EnvironmentConfig
+		BaseConfigVersion uint64 `json:"_base_config_version,omitempty"`
+	}
+	cfgBytes, err := json.Marshal(proposedConfigEnvelope{
+		EnvironmentConfig: cr.ProposedConfig,
+		BaseConfigVersion: cr.BaseConfigVersion,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize proposed config: %w", err)
 	}
@@ -946,6 +953,12 @@ func (s *PostgresStore) GetChangeRequest(ctx context.Context, id string) (*domai
 	}
 	if err := json.Unmarshal(cfgBytes, &cr.ProposedConfig); err != nil {
 		return nil, err
+	}
+	var meta struct {
+		BaseConfigVersion uint64 `json:"_base_config_version"`
+	}
+	if err := json.Unmarshal(cfgBytes, &meta); err == nil && meta.BaseConfigVersion > 0 {
+		cr.BaseConfigVersion = meta.BaseConfigVersion
 	}
 
 	return &cr, nil
@@ -1003,6 +1016,12 @@ func (s *PostgresStore) ListChangeRequests(ctx context.Context, status domain.Ch
 			cr.AppliedAt = &appliedAt.Time
 		}
 		_ = json.Unmarshal(cfgBytes, &cr.ProposedConfig)
+		var meta struct {
+			BaseConfigVersion uint64 `json:"_base_config_version"`
+		}
+		if err := json.Unmarshal(cfgBytes, &meta); err == nil && meta.BaseConfigVersion > 0 {
+			cr.BaseConfigVersion = meta.BaseConfigVersion
+		}
 		result = append(result, cr)
 	}
 
@@ -1049,6 +1068,10 @@ func (s *PostgresStore) ApplyChangeRequest(ctx context.Context, id string, actor
 	flag, err := s.GetFlagByProject(ctx, cr.ProjectID, cr.FlagKey)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+
+	if cr.BaseConfigVersion > 0 && flag.ConfigVersion != cr.BaseConfigVersion {
+		return nil, nil, nil, domain.ErrChangeRequestConflict
 	}
 
 	if flag.Environments == nil {

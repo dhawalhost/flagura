@@ -86,7 +86,7 @@ if [ -z "$VERSION" ]; then
     if [ -n "$LATEST_TAG" ]; then
         VERSION="$LATEST_TAG"
     else
-        VERSION="v1.6.6"
+        VERSION="v1.6.7"
     fi
 fi
 

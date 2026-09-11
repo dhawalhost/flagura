@@ -2,6 +2,7 @@ package canary
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -283,5 +284,114 @@ func TestCanaryScheduler_MultiTenantIsolation(t *testing.T) {
 	flagB, _ := memStore.GetFlagByProject(ctx, projB, flagKey)
 	if flagB.Environments[domain.EnvProduction].Percentage != 0 {
 		t.Errorf("expected projB percentage 0, got %f", flagB.Environments[domain.EnvProduction].Percentage)
+	}
+}
+
+type faultyRolloutStore struct {
+	store.Store
+	failRollout bool
+}
+
+func (f *faultyRolloutStore) UpdateRolloutByProject(ctx context.Context, projectID, key string, env domain.Environment, percentage float64, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
+	if f.failRollout {
+		return nil, nil, fmt.Errorf("simulated database connection error during rollout write")
+	}
+	return f.Store.UpdateRolloutByProject(ctx, projectID, key, env, percentage, actor)
+}
+
+func TestCanaryScheduler_PersistenceFailures(t *testing.T) {
+	ctx := context.Background()
+	memStore := store.NewMemoryStore()
+	faulty := &faultyRolloutStore{Store: memStore}
+	broadcaster := &mockBroadcaster{}
+	scheduler := NewCanaryScheduler(faulty, broadcaster)
+	defer scheduler.Close()
+
+	flagKey := "canary-fault-test"
+	now := time.Now().UTC()
+
+	// Seed flag
+	_, err := memStore.SaveFlag(ctx, domain.FeatureFlag{
+		Key:       flagKey,
+		ProjectID: store.DefaultProjectID,
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {Enabled: true, Percentage: 0},
+		},
+	}, "test")
+	if err != nil {
+		t.Fatalf("SaveFlag failed: %v", err)
+	}
+
+	// 1. Submit valid schedule while store is healthy
+	sched, err := scheduler.SubmitSchedule(ctx, domain.CanarySchedule{
+		FlagKey:     flagKey,
+		ProjectID:   store.DefaultProjectID,
+		Environment: domain.EnvProduction,
+		Stages: []domain.CanaryStage{
+			{Index: 0, TargetPercentage: 10, DurationSec: 100, StartedAt: now},
+			{Index: 1, TargetPercentage: 50, DurationSec: 100},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SubmitSchedule failed: %v", err)
+	}
+	if sched.Status != domain.CanaryStatusActive {
+		t.Fatalf("expected ACTIVE status, got %s", sched.Status)
+	}
+
+	// 2. Simulate database failure during TriggerHealthRollback
+	faulty.failRollout = true
+	rollbackErr := scheduler.TriggerHealthRollback(ctx, store.DefaultProjectID, flagKey, "APM breach")
+	if rollbackErr == nil {
+		t.Fatalf("expected error from TriggerHealthRollback when store write fails")
+	}
+
+	// The in-memory schedule MUST NOT be marked as ROLLED_BACK!
+	currentSched, ok := scheduler.GetSchedule(store.DefaultProjectID, flagKey)
+	if !ok || currentSched == nil {
+		t.Fatalf("schedule missing")
+	}
+	if currentSched.Status == domain.CanaryStatusRolledBack {
+		t.Fatalf("BUG: schedule was marked ROLLED_BACK even though database write failed!")
+	}
+	if currentSched.Status != domain.CanaryStatusNeedsAttention {
+		t.Fatalf("expected status NEEDS_ATTENTION, got: %s", currentSched.Status)
+	}
+
+	// 3. Reset schedule to ACTIVE and test EvaluateSchedules with store failure
+	scheduler.mu.Lock()
+	scheduler.schedules[scheduleKey(store.DefaultProjectID, flagKey)].Status = domain.CanaryStatusActive
+	scheduler.schedules[scheduleKey(store.DefaultProjectID, flagKey)].Stages[0].StartedAt = now.Add(-150 * time.Second)
+	scheduler.mu.Unlock()
+
+	// Evaluate schedules when stage duration has elapsed but store write fails
+	adv := scheduler.EvaluateSchedules(now)
+	if adv != 0 {
+		t.Fatalf("expected 0 advanced stages on write failure, got %d", adv)
+	}
+
+	// Stage index must NOT have moved on write failure
+	postEvalSched, _ := scheduler.GetSchedule(store.DefaultProjectID, flagKey)
+	if postEvalSched.CurrentStageIdx != 0 {
+		t.Fatalf("BUG: CurrentStageIdx advanced to %d despite store write failure!", postEvalSched.CurrentStageIdx)
+	}
+	if postEvalSched.Status != domain.CanaryStatusNeedsAttention {
+		t.Fatalf("expected status NEEDS_ATTENTION on advancement failure, got: %s", postEvalSched.Status)
+	}
+
+	// 4. Restore store health: advancement should now succeed
+	faulty.failRollout = false
+	scheduler.mu.Lock()
+	scheduler.schedules[scheduleKey(store.DefaultProjectID, flagKey)].Status = domain.CanaryStatusActive
+	scheduler.mu.Unlock()
+
+	advSuccess := scheduler.EvaluateSchedules(now)
+	if advSuccess != 1 {
+		t.Fatalf("expected 1 advanced stage after store recovery, got %d", advSuccess)
+	}
+
+	recoveredSched, _ := scheduler.GetSchedule(store.DefaultProjectID, flagKey)
+	if recoveredSched.CurrentStageIdx != 1 {
+		t.Fatalf("expected CurrentStageIdx to be 1, got %d", recoveredSched.CurrentStageIdx)
 	}
 }

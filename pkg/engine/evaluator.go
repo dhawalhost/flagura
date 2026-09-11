@@ -20,7 +20,7 @@ func getOrCompileRegex(patternStr string) (*regexp.Regexp, error) {
 	if val, ok := regexCache.Load(patternStr); ok {
 		return val.(*regexp.Regexp), nil
 	}
-	re, err := regexp.Compile("(?i)" + patternStr)
+	re, err := regexp.Compile(patternStr)
 	if err != nil {
 		return nil, err
 	}
@@ -43,6 +43,29 @@ func GetStickyBucket(identifier string, salt string) (float64, string) {
 	bucket := math.Round((slot/100.0)*100) / 100
 	hashRaw := strconv.FormatUint(hash, 16)
 	return bucket, hashRaw
+}
+
+// toRawStringFast converts primitive types to string preserving case for regex matching.
+func toRawStringFast(val interface{}) string {
+	switch v := val.(type) {
+	case string:
+		return strings.TrimSpace(v)
+	case fmt.Stringer:
+		return strings.TrimSpace(v.String())
+	case bool:
+		if v {
+			return "true"
+		}
+		return "false"
+	case int:
+		return strconv.Itoa(v)
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	default:
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
 }
 
 // toStringFast converts primitive types to string with minimal allocations.
@@ -131,6 +154,14 @@ func EvaluateRule(rule domain.TargetingRule, ctx domain.EvaluationContext) bool 
 		}
 		return true
 
+	case domain.OpStartsWith:
+		for _, v := range rule.Values {
+			if strings.HasPrefix(strVal, strings.ToLower(strings.TrimSpace(v))) {
+				return true
+			}
+		}
+		return false
+
 	case domain.OpEndsWith:
 		for _, v := range rule.Values {
 			if strings.HasSuffix(strVal, strings.ToLower(strings.TrimSpace(v))) {
@@ -166,6 +197,17 @@ func EvaluateRule(rule domain.TargetingRule, ctx domain.EvaluationContext) bool 
 		}
 		return numVal > threshold
 
+	case domain.OpGreaterThanOrEqual:
+		numVal, err := strconv.ParseFloat(strVal, 64)
+		if err != nil || len(rule.Values) == 0 {
+			return false
+		}
+		threshold, err := strconv.ParseFloat(rule.Values[0], 64)
+		if err != nil {
+			return false
+		}
+		return numVal >= threshold
+
 	case domain.OpLessThan:
 		numVal, err := strconv.ParseFloat(strVal, 64)
 		if err != nil || len(rule.Values) == 0 {
@@ -177,6 +219,17 @@ func EvaluateRule(rule domain.TargetingRule, ctx domain.EvaluationContext) bool 
 		}
 		return numVal < threshold
 
+	case domain.OpLessThanOrEqual:
+		numVal, err := strconv.ParseFloat(strVal, 64)
+		if err != nil || len(rule.Values) == 0 {
+			return false
+		}
+		threshold, err := strconv.ParseFloat(rule.Values[0], 64)
+		if err != nil {
+			return false
+		}
+		return numVal <= threshold
+
 	case domain.OpRegex:
 		if len(rule.Values) == 0 {
 			return false
@@ -185,7 +238,8 @@ func EvaluateRule(rule domain.TargetingRule, ctx domain.EvaluationContext) bool 
 		if err != nil {
 			return false
 		}
-		return pattern.MatchString(strVal)
+		rawVal := toRawStringFast(targetVal)
+		return pattern.MatchString(rawVal)
 
 	default:
 		return false
@@ -199,10 +253,22 @@ func ResolveMultivariateVariant(variants []domain.FlagVariant, identifier, flagK
 	}
 
 	bucket, hashRaw := GetStickyBucket(identifier, flagKey+":multivariate")
-	cumulative := 0.0
 
+	// Calculate total weight to defensively normalize if weights do not sum to 100
+	totalWeight := 0.0
 	for _, v := range variants {
-		cumulative += v.Weight
+		if v.Weight > 0 {
+			totalWeight += v.Weight
+		}
+	}
+
+	cumulative := 0.0
+	for _, v := range variants {
+		w := v.Weight
+		if totalWeight > 0 && math.Abs(totalWeight-100.0) > 0.001 {
+			w = (w / totalWeight) * 100.0
+		}
+		cumulative += w
 		if bucket < cumulative {
 			return v, bucket, hashRaw
 		}

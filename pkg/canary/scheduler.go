@@ -146,30 +146,38 @@ func (cs *CanaryScheduler) EvaluateSchedules(now time.Time) int {
 
 		sched.LastEvaluatedAt = now
 
-		// 1. Advance stage if duration has elapsed
-		advanced, nextStage := sched.NextStage(now)
-		if advanced && nextStage != nil {
-			_, _, err := cs.store.UpdateRolloutByProject(ctx, sched.ProjectID, sched.FlagKey, sched.Environment, nextStage.TargetPercentage, "canary-scheduler-auto")
-			if err == nil {
-				advancedCount++
+		// 1. Check if stage can advance without mutating state prematurely
+		canAdvance, nextStage, isCompletion := sched.CanAdvanceStage(now)
+		if canAdvance {
+			if isCompletion {
+				sched.CommitStageAdvancement(now)
 				if cs.broadcaster != nil {
-					cs.broadcaster.Broadcast("canary_stage_advanced", map[string]interface{}{
-						"project_id":        sched.ProjectID,
-						"flag_key":          sched.FlagKey,
-						"stage_index":       sched.CurrentStageIdx,
-						"target_percentage": nextStage.TargetPercentage,
+					cs.broadcaster.Broadcast("canary_completed", map[string]interface{}{
+						"project_id": sched.ProjectID,
+						"flag_key":   sched.FlagKey,
 					})
 				}
-			}
-		}
-
-		// 2. If all stages completed, mark completed
-		if sched.Status == domain.CanaryStatusCompleted {
-			if cs.broadcaster != nil {
-				cs.broadcaster.Broadcast("canary_completed", map[string]interface{}{
-					"project_id": sched.ProjectID,
-					"flag_key":   sched.FlagKey,
-				})
+			} else if nextStage != nil {
+				// Persist rollout update FIRST
+				_, _, err := cs.store.UpdateRolloutByProject(ctx, sched.ProjectID, sched.FlagKey, sched.Environment, nextStage.TargetPercentage, "canary-scheduler-auto")
+				if err != nil {
+					// Persistence failed: do not advance stage, mark NEEDS_ATTENTION
+					sched.Status = domain.CanaryStatusNeedsAttention
+					sched.RollbackReason = fmt.Sprintf("stage advancement failed to persist: %v", err)
+					sched.UpdatedAt = now
+				} else {
+					// Persistence confirmed: advance in-memory stage
+					sched.CommitStageAdvancement(now)
+					advancedCount++
+					if cs.broadcaster != nil {
+						cs.broadcaster.Broadcast("canary_stage_advanced", map[string]interface{}{
+							"project_id":        sched.ProjectID,
+							"flag_key":          sched.FlagKey,
+							"stage_index":       sched.CurrentStageIdx,
+							"target_percentage": nextStage.TargetPercentage,
+						})
+					}
+				}
 			}
 		}
 	}
@@ -188,15 +196,21 @@ func (cs *CanaryScheduler) TriggerHealthRollback(ctx context.Context, projectID,
 		return fmt.Errorf("no active canary schedule for flag %s in project %s", flagKey, projectID)
 	}
 
-	sched.Status = domain.CanaryStatusRolledBack
-	sched.RollbackReason = reason
-	sched.UpdatedAt = time.Now().UTC()
+	now := time.Now().UTC()
 
-	// Rollback percentage to 0%
+	// 1. Rollback percentage to 0% in persistence layer FIRST
 	_, _, err := cs.store.UpdateRolloutByProject(ctx, sched.ProjectID, sched.FlagKey, sched.Environment, 0.0, "canary-health-rollback")
 	if err != nil {
+		sched.Status = domain.CanaryStatusNeedsAttention
+		sched.RollbackReason = fmt.Sprintf("rollback failed to persist: %v", err)
+		sched.UpdatedAt = now
 		return fmt.Errorf("failed to revert rollout to 0%%: %w", err)
 	}
+
+	// 2. Only mutate in-memory schedule AFTER underlying store write succeeds
+	sched.Status = domain.CanaryStatusRolledBack
+	sched.RollbackReason = reason
+	sched.UpdatedAt = now
 
 	if cs.broadcaster != nil {
 		cs.broadcaster.Broadcast("canary_rollback", map[string]interface{}{
