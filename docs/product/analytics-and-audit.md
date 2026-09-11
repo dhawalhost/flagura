@@ -38,3 +38,15 @@ Every mutating action in Flagura is logged with:
   curl -s https://flagura.dev/api/v1/audit-logs \
     -H "Authorization: Bearer <TOKEN>"
   ```
+
+---
+
+## 🧪 4. A/B Experimentation & Statistical Significance Engine
+
+Flagura includes an integrated statistical testing engine for multivariate experiments and canary rollouts (`GET /api/v1/experiments/:key`):
+
+- **Two-Proportion Z-Test**: Computes pooled proportions, standard errors, and two-tailed p-values to determine winning vs losing variants.
+- **Independent Observations via Unique Users**: Sample sizes ($N$) are computed from distinct, unique user exposures—avoiding degree-of-freedom inflation from power users who trigger repeated flag evaluations.
+- **Rate-Scaled Sample Size Guardrails**: Enforces the normal approximation condition ($n \cdot p \ge 5$ and $n \cdot (1-p) \ge 5$). Experiments with low conversion baselines (e.g. 1%) automatically require scaled-up sample sizes before claiming statistical validity, reporting `INSUFFICIENT_DATA` until met.
+- **Bonferroni Correction**: Corrects family-wise error rate inflation across multi-variant experiments (3+ variants) by adjusting p-values by the number of simultaneous pairwise comparisons ($p_{adj} = \min(1.0, p \cdot m)$).
+- **Safe Baseline Lift**: Automatically handles 0% control baseline conversion rates without dividing by zero, reporting absolute lift and baseline notices.

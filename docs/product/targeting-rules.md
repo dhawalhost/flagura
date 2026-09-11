@@ -25,6 +25,31 @@ Targeting rules are evaluated in **priority order (top to bottom)** before gener
 
 ---
 
+## ⚙️ Supported Operators
+
+Flagura provides a rich set of string, set, regex, and numerical operators across the server engine and client SDKs:
+
+| Category | Operator | Aliases | Description | Example |
+| :--- | :--- | :--- | :--- | :--- |
+| **Equality** | `equals` | `eq`, `==` | Exact string match | `role equals admin` |
+| | `not_equals` | `neq`, `!=` | Inequality string match | `tier not_equals free` |
+| **Substrings** | `contains` | | Substring presence | `email contains @corp` |
+| | `not_contains` | | Substring absence | `email not_contains @competitor` |
+| | `starts_with` | | Prefix match | `user_id starts_with beta_` |
+| | `ends_with` | | Suffix match | `email ends_with @company.com` |
+| **Sets** | `in` | | Set inclusion (comma-separated or list) | `country in US,CA,GB` |
+| | `not_in` | | Set exclusion | `country not_in CN,RU` |
+| **Regular Expressions** | `matches_regex` | `regex` | Regular expression match (case-sensitive by default) | `email matches_regex ^[a-z]+@corp\.com$` |
+| **Numeric Comparisons** | `greater_than` | `gt`, `>` | Strict numeric greater than | `app_version greater_than 2.4` |
+| | `greater_than_or_equal` | `gte`, `>=` | Numeric greater than or equal | `score >= 100` |
+| | `less_than` | `lt`, `<` | Strict numeric less than | `latency < 250` |
+| | `less_than_or_equal` | `lte`, `<=` | Numeric less than or equal | `age <= 65` |
+
+> [!NOTE]
+> **Regex Case Sensitivity**: Regular expressions are case-sensitive by default to respect exact author patterns. For case-insensitive regex matching, include the standard `(?i)` flag at the beginning of your pattern (e.g. `(?i)^prod-`).
+
+---
+
 ## 💡 Real-World Examples
 
 ### 1. Internal Team Whitelist

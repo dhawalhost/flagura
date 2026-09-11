@@ -55,7 +55,7 @@ Gradual exposure of a feature to a specific proportion of your user base (e.g. 5
 Flags that serve multiple variations (strings, numbers, JSON objects) with configurable weights.
 
 - **Best for**: UI redesigns, pricing tier experiments, algorithm parameter tuning.
-- **Bucket Allocation**: Sum of weights must equal 100%. Users are deterministically mapped to a variant based on their hash value.
+- **Bucket Allocation**: Sum of weights must equal **100%** (strictly validated on create and update API paths). The evaluation engine also includes defensive runtime normalization if legacy configs ever deviate. Users are deterministically mapped to a variant based on their 64-bit FNV-1a sticky hash value.
 
 ```json
 {

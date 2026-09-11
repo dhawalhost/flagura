@@ -140,6 +140,32 @@ func main() {
 
 ---
 
+## 🎯 Local Rule Evaluation & Operators
+
+When running with `WithLocalEvaluation(true)`, Flagura evaluates all targeting rules in-memory with zero network latency. The following operators are supported in rule conditions:
+
+| Category | Operators | Aliases | Description |
+| :--- | :--- | :--- | :--- |
+| **String** | `EQUALS`, `NOT_EQUALS` | `EQ`, `==`, `NEQ`, `!=` | Exact string match / mismatch |
+| | `CONTAINS`, `NOT_CONTAINS` | | Substring match / mismatch |
+| | `STARTS_WITH`, `ENDS_WITH` | | Prefix / suffix match |
+| **Sets** | `IN`, `NOT_IN` | | Comma-delimited list membership |
+| **Regex** | `MATCHES_REGEX`, `REGEX` | | Regular expression matching (case-sensitive by default; use `(?i)` prefix for case-insensitivity) |
+| **Numeric** | `GREATER_THAN`, `LESS_THAN` | `GT`, `>`, `LT`, `<` | Strict numeric comparison |
+| | `GREATER_THAN_OR_EQUAL` | `GTE`, `>=` | Numeric comparison (greater than or equal) |
+| | `LESS_THAN_OR_EQUAL` | `LTE`, `<=` | Numeric comparison (less than or equal) |
+
+---
+
+## 🛡️ Circuit Breaker & Resilience
+
+The client includes an in-memory 3-state circuit breaker (`Closed`, `Open`, `HalfOpen`):
+- **Tripping to Open**: Consecutive network failures exceeding the threshold immediately trip the breaker to `Open`. During `Open`, requests fail fast to local defaults or snapshots without network delays.
+- **Half-Open Trial**: Once the cooldown expires, the breaker transitions to `HalfOpen`, allowing exactly **one** trial request in flight.
+- **Immediate Trip on Probe Failure**: If the single probe request fails, the breaker immediately trips back to `Open` without waiting for repeated failures. If it succeeds, the breaker resets to `Closed`.
+
+---
+
 ## Testing
 
 ```bash
