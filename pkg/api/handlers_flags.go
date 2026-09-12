@@ -379,7 +379,7 @@ func (s *Server) handleToggleFlag(w http.ResponseWriter, r *http.Request) {
 		Enabled     *bool              `json:"enabled"`
 		Actor       string             `json:"actor"`
 	}
-	if r.Body != nil && r.ContentLength > 0 {
+	if r.Body != nil {
 		_ = json.NewDecoder(r.Body).Decode(&req)
 	}
 

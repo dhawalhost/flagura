@@ -161,23 +161,43 @@ document.addEventListener('alpine:init', () => {
 				this.copied = true;
 				setTimeout(() => this.copied = false, 1500);
 			},
-			toggleEnv(env) {
+			async toggleEnv(env) {
 				const flagKey = this.key || (this.$el && this.$el.dataset.key);
 				if (!this.envs[env]) this.envs[env] = {};
-				const next = !this.envs[env].enabled;
+				const prev = !!this.envs[env].enabled;
+				const next = !prev;
 				this.envs[env].enabled = next;
+
+				let ok = false;
 				if (window.FlaguraApp && typeof window.FlaguraApp.toggleFlagEnvStatus === 'function') {
-					window.FlaguraApp.toggleFlagEnvStatus(flagKey, env, next);
+					ok = await window.FlaguraApp.toggleFlagEnvStatus(flagKey, env, next);
 				} else {
-					fetch('/api/v1/flags/' + flagKey + '/toggle', {
-						method: 'PATCH',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ environment: env, enabled: next })
-					}).then(res => {
+					try {
+						const res = await fetch('/api/v1/flags/' + flagKey + '/toggle', {
+							method: 'PATCH',
+							headers: { 'Content-Type': 'application/json' },
+							credentials: 'same-origin',
+							body: JSON.stringify({ environment: env, enabled: next })
+						});
 						if (res.ok) {
-							showToast('Flag ' + flagKey + ' [' + env + '] ' + (next ? 'ENABLED' : 'DISABLED'));
+							if (window.showToast) window.showToast('Flag ' + flagKey + ' [' + env + '] ' + (next ? 'ENABLED' : 'DISABLED'));
+							ok = true;
+						} else {
+							if (res.status === 401) {
+								if (window.showToast) window.showToast('Session expired. Redirecting to login...', 'error');
+								setTimeout(() => { window.location.href = '/auth'; }, 1000);
+							} else if (res.status === 404) {
+								if (window.showToast) window.showToast('Flag "' + flagKey + '" not found', 'error');
+							} else {
+								if (window.showToast) window.showToast('Toggle failed: HTTP ' + res.status, 'error');
+							}
 						}
-					}).catch(() => showToast('Toggle failed', 'error'));
+					} catch(e) {
+						if (window.showToast) window.showToast('Toggle failed: ' + e.message, 'error');
+					}
+				}
+				if (!ok) {
+					this.envs[env].enabled = prev;
 				}
 			},
 			toggleDev() { this.toggleEnv('development'); },
@@ -592,13 +612,26 @@ document.addEventListener('alpine:init', () => {
 				const res = await fetch('/api/v1/flags/' + key + '/toggle', {
 					method: 'PATCH',
 					headers: { 'Content-Type': 'application/json' },
+					credentials: 'same-origin',
 					body: JSON.stringify({ environment: env, enabled: isEnabled, actor: this.currentUser ? this.currentUser.email : 'admin@flagura.dev' })
 				});
 				if (res.ok) {
 					this.showToast('Flag ' + key + ' [' + env + '] ' + (isEnabled ? 'ENABLED' : 'DISABLED'));
+					return true;
+				} else {
+					if (res.status === 401) {
+						this.showToast('Session expired. Redirecting to login...', 'error');
+						setTimeout(() => { window.location.href = '/auth'; }, 1000);
+					} else if (res.status === 404) {
+						this.showToast('Flag "' + key + '" not found', 'error');
+					} else {
+						this.showToast('Toggle failed: server error (HTTP ' + res.status + ')', 'error');
+					}
+					return false;
 				}
 			} catch(e) {
-				this.showToast('Toggle failed', 'error');
+				this.showToast('Toggle failed: network error', 'error');
+				return false;
 			}
 		},
 		async toggleFlagStatus(key, isEnabled) {
@@ -650,10 +683,12 @@ document.addEventListener('alpine:init', () => {
 		async checkAuth() {
 			if (window.location.pathname.startsWith('/dashboard')) {
 				try {
-					const res = await fetch('/api/v1/auth/me');
+					const res = await fetch('/api/v1/auth/me', { credentials: 'same-origin' });
 					if (res.ok) {
 						const u = await res.json();
 						this.currentUser = u;
+					} else if (res.status === 401) {
+						window.location.href = '/auth?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
 					}
 				} catch(e) {}
 			}
@@ -858,15 +893,22 @@ document.addEventListener('alpine:init', () => {
 				const res = await fetch('/api/v1/evaluate', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
+					credentials: 'same-origin',
 					body: JSON.stringify({
 						flags: flagsList,
 						trace: true,
 						context: { ...this.context, ...parsedCustom, environment: this.currentEnv }
 					})
 				});
-				const data = await res.json();
-				this.evalResults = data.results || {};
-				this.evalTraces = data.traces || {};
+				if (res.ok) {
+					const data = await res.json();
+					this.evalResults = data.results || {};
+					this.evalTraces = data.traces || {};
+				} else if (res.status === 401 && window.showToast) {
+					window.showToast('Session expired. Please log in.', 'error');
+				}
+			} catch(e) {
+				// handled
 			} finally {
 				this.evaluating = false;
 			}
@@ -982,11 +1024,20 @@ document.addEventListener('alpine:init', () => {
 				const res = await fetch('/api/v1/benchmark', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
+					credentials: 'same-origin',
 					body: JSON.stringify({ iterations: Number(this.iterations), environment: this.currentEnv })
 				});
+				if (!res.ok) {
+					if (res.status === 401 && window.showToast) {
+						window.showToast('Session expired. Please log in.', 'error');
+					}
+					return;
+				}
 				const data = await res.json();
 				this.metrics = data;
 				this.$nextTick(() => this.renderHistogram(data.hashBuckets || []));
+			} catch(e) {
+				if (window.showToast) window.showToast('Benchmark failed: ' + e.message, 'error');
 			} finally {
 				this.isRunning = false;
 			}
