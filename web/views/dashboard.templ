@@ -4,8 +4,15 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
-templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, changeRequests []domain.ChangeRequest, driverName string, orgs []domain.Organization, projects []domain.Project, activeProjectID string) {
-	@Layout("Developer Console") {
+func resolveDashboardTitle(titles []string) string {
+	if len(titles) > 0 && titles[0] != "" {
+		return titles[0]
+	}
+	return "Developer Console"
+}
+
+templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, changeRequests []domain.ChangeRequest, driverName string, orgs []domain.Organization, projects []domain.Project, activeProjectID string, title ...string) {
+	@Layout(resolveDashboardTitle(title)) {
 		<div class="min-h-screen flex bg-[#FAFAFA] text-slate-900 relative">
 			<!-- Docked Left Sidebar -->
 			@Sidebar(user, flags, auditLogs, orgs, projects, activeProjectID)

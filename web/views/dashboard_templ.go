@@ -12,7 +12,14 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
-func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, changeRequests []domain.ChangeRequest, driverName string, orgs []domain.Organization, projects []domain.Project, activeProjectID string) templ.Component {
+func resolveDashboardTitle(titles []string) string {
+	if len(titles) > 0 && titles[0] != "" {
+		return titles[0]
+	}
+	return "Developer Console"
+}
+
+func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, changeRequests []domain.ChangeRequest, driverName string, orgs []domain.Organization, projects []domain.Project, activeProjectID string, title ...string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -171,7 +178,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = Layout("Developer Console").Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout(resolveDashboardTitle(title)).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

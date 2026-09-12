@@ -81,11 +81,18 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/dashboard", s.handleDashboard)
 	s.mux.HandleFunc("/dashboard/", s.handleDashboard)
 
-	// Top-level shortcuts to dashboard tabs
+	// Top-level shortcuts to dashboard views
 	for _, view := range []string{"overview", "flags", "analytics", "evaluator", "benchmark", "audit", "sdk", "profile", "settings"} {
 		v := view
 		s.mux.HandleFunc("/"+v, func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "/dashboard?tab="+v, http.StatusTemporaryRedirect)
+			target := "/dashboard/" + v
+			if v == "overview" {
+				target = "/dashboard"
+			}
+			if r.URL.RawQuery != "" {
+				target += "?" + r.URL.RawQuery
+			}
+			http.Redirect(w, r, target, http.StatusTemporaryRedirect)
 		})
 	}
 

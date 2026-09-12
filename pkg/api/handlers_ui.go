@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/web"
@@ -109,8 +110,42 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	logs, _ := s.store.ListAuditLogsByProject(r.Context(), projectID, 20)
 	changeRequests, _ := s.store.ListChangeRequestsByProject(r.Context(), projectID, "")
 
+	// Determine sub-view title from URL path or ?tab= query parameter
+	viewName := strings.TrimPrefix(r.URL.Path, "/dashboard")
+	viewName = strings.Trim(viewName, "/")
+	if viewName == "" {
+		viewName = r.URL.Query().Get("tab")
+	}
+	if viewName == "" {
+		viewName = r.URL.Query().Get("view")
+	}
+
+	pageTitle := "Developer Console"
+	switch strings.ToLower(viewName) {
+	case "flags", "matrix", "rollouts":
+		pageTitle = "Flags & Rollouts"
+	case "analytics", "telemetry", "stats":
+		pageTitle = "Analytics & Telemetry"
+	case "evaluator", "sandbox", "live":
+		pageTitle = "Live Evaluator"
+	case "benchmark", "latency", "perf":
+		pageTitle = "Latency Benchmark"
+	case "audit", "logs", "trail":
+		pageTitle = "Audit Trail"
+	case "sdk", "apikeys", "quickstart":
+		pageTitle = "SDK Integration"
+	case "profile", "settings", "account":
+		pageTitle = "Profile Settings"
+	case "editor", "new":
+		pageTitle = "Flag Editor"
+	case "overview", "home", "":
+		pageTitle = "Developer Console"
+	default:
+		pageTitle = "Developer Console"
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	component := views.Dashboard(user, flags, logs, changeRequests, s.store.DriverName(), orgs, projects, projectID)
+	component := views.Dashboard(user, flags, logs, changeRequests, s.store.DriverName(), orgs, projects, projectID, pageTitle)
 	if err := component.Render(r.Context(), w); err != nil {
 		http.Error(w, "Templ Render Error: "+err.Error(), http.StatusInternalServerError)
 	}

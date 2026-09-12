@@ -463,7 +463,14 @@ document.addEventListener('alpine:init', () => {
 			const tab = (params.get('tab') || params.get('view') || '').toLowerCase().trim();
 			const hash = (window.location.hash || '').replace('#', '').toLowerCase().trim();
 
-			const candidate = tab || hash || (path.startsWith('/dashboard/') ? path.replace(/^\/dashboard\/?/, '').split('/')[0] : '');
+			let pathSegment = '';
+			if (path.startsWith('/dashboard/')) {
+				pathSegment = path.replace(/^\/dashboard\/?/, '').split('/')[0].trim();
+			} else if (path !== '' && path !== '/' && path !== '/dashboard' && !path.startsWith('/api') && !path.startsWith('/static')) {
+				pathSegment = path.replace(/^\//, '').split('/')[0].trim();
+			}
+
+			const candidate = pathSegment || tab || hash;
 			const map = {
 				'overview': 'overview',
 				'home': 'overview',
@@ -526,11 +533,18 @@ document.addEventListener('alpine:init', () => {
 			try {
 				if (window.history && window.history.pushState) {
 					const url = new URL(window.location.href);
-					url.pathname = '/dashboard';
-					if (url.searchParams.get('tab') !== view) {
-						url.searchParams.set('tab', view);
-						window.history.pushState({ tab: view }, '', url.toString());
+					const targetPath = (view === 'overview' || !view) ? '/dashboard' : '/dashboard/' + view;
+					url.searchParams.delete('tab');
+					url.searchParams.delete('view');
+					const qs = url.searchParams.toString();
+					const targetUrl = targetPath + (qs ? '?' + qs : '') + (url.hash || '');
+					
+					if (window.location.pathname !== targetPath || window.location.search !== (qs ? '?' + qs : '')) {
+						window.history.pushState({ view }, '', targetUrl);
 					}
+					const viewTitle = this.getViewTitle();
+					const docTitle = (viewTitle === 'Overview' || viewTitle === 'Developer Console') ? 'Developer Console' : viewTitle;
+					document.title = docTitle + ' — Flagura';
 				}
 			} catch(e) {}
 		},
@@ -698,15 +712,30 @@ document.addEventListener('alpine:init', () => {
 			globalToastHandler = (msg, type = 'info') => this.showToast(msg, type);
 			window.showToast = globalToastHandler;
 
-			window.addEventListener('popstate', () => {
-				const v = resolveInitialView();
+			window.addEventListener('popstate', (e) => {
+				const v = (e.state && e.state.view) ? e.state.view : resolveInitialView();
 				if (v && this.activeView !== v) {
 					this.activeView = v;
 				}
+				const viewTitle = this.getViewTitle();
+				const docTitle = (viewTitle === 'Overview' || viewTitle === 'Developer Console') ? 'Developer Console' : viewTitle;
+				document.title = docTitle + ' — Flagura';
 			});
 
 			try {
 				const params = new URLSearchParams(window.location.search || '');
+				// Normalize any legacy query parameter (e.g. /dashboard?tab=analytics -> /dashboard/analytics)
+				if (params.has('tab') || params.has('view')) {
+					params.delete('tab');
+					params.delete('view');
+					const targetPath = (this.activeView === 'overview' || !this.activeView) ? '/dashboard' : '/dashboard/' + this.activeView;
+					const qs = params.toString();
+					const cleanUrl = targetPath + (qs ? '?' + qs : '') + (window.location.hash || '');
+					window.history.replaceState({ view: this.activeView }, '', cleanUrl);
+				}
+				const viewTitle = this.getViewTitle();
+				const docTitle = (viewTitle === 'Overview' || viewTitle === 'Developer Console') ? 'Developer Console' : viewTitle;
+				document.title = docTitle + ' — Flagura';
 				const envParam = (params.get('env') || '').toLowerCase().trim();
 				if (envParam && ['production', 'staging', 'development'].includes(envParam)) {
 					this.currentEnv = envParam;
