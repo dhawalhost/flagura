@@ -54,7 +54,33 @@ document.addEventListener('alpine:init', () => {
 			isOpen: false,
 			toggle() { this.isOpen = !this.isOpen; },
 			close() { this.isOpen = false; },
-			open() { this.isOpen = true; }
+			open() { this.isOpen = true; },
+			selectEnv(env) {
+				if (window.FlaguraApp && typeof window.FlaguraApp.switchEnv === 'function') {
+					window.FlaguraApp.switchEnv(env);
+				}
+				this.close();
+			},
+			openProfile() {
+				if (window.FlaguraApp && typeof window.FlaguraApp.navigateTo === 'function') {
+					window.FlaguraApp.navigateTo('profile');
+				}
+				this.close();
+			},
+			selectProject(el) {
+				if (window.FlaguraApp && typeof window.FlaguraApp.switchProject === 'function') {
+					window.FlaguraApp.switchProject(el);
+				}
+				this.close();
+			},
+			openCreateProject() {
+				this.close();
+				window.dispatchEvent(new CustomEvent('open-create-project-modal'));
+			},
+			openInvite() {
+				this.close();
+				window.dispatchEvent(new CustomEvent('open-invite-modal'));
+			}
 		};
 	}
 	Alpine.data('dropdownComponent', dropdownComponent);
@@ -409,11 +435,54 @@ document.addEventListener('alpine:init', () => {
 	Alpine.data('governanceModalComponent', governanceModalComponent);
 	window.governanceModalComponent = governanceModalComponent;
 
+	// Resolve active dashboard tab from URL pathname or search query
+	function resolveInitialView() {
+		try {
+			const path = (window.location.pathname || '').toLowerCase();
+			const params = new URLSearchParams(window.location.search || '');
+			const tab = (params.get('tab') || params.get('view') || '').toLowerCase().trim();
+			const hash = (window.location.hash || '').replace('#', '').toLowerCase().trim();
+
+			const candidate = tab || hash || (path.startsWith('/dashboard/') ? path.replace(/^\/dashboard\/?/, '').split('/')[0] : '');
+			const map = {
+				'overview': 'overview',
+				'home': 'overview',
+				'dashboard': 'overview',
+				'flags': 'flags',
+				'matrix': 'flags',
+				'rollouts': 'flags',
+				'analytics': 'analytics',
+				'telemetry': 'analytics',
+				'stats': 'analytics',
+				'evaluator': 'evaluator',
+				'sandbox': 'evaluator',
+				'live': 'evaluator',
+				'benchmark': 'benchmark',
+				'latency': 'benchmark',
+				'perf': 'benchmark',
+				'audit': 'audit',
+				'logs': 'audit',
+				'trail': 'audit',
+				'sdk': 'sdk',
+				'apikeys': 'sdk',
+				'quickstart': 'sdk',
+				'profile': 'profile',
+				'settings': 'profile',
+				'account': 'profile',
+				'editor': 'editor',
+				'new': 'editor'
+			};
+			return map[candidate] || 'overview';
+		} catch (e) {
+			return 'overview';
+		}
+	}
+
 	// Global App Root State
 	Alpine.data('globalApp', () => ({
 		toasts: [],
 		currentEnv: 'production',
-		activeView: 'overview',
+		activeView: resolveInitialView(),
 		previousView: 'overview',
 		searchQuery: '',
 		isMobileSidebarOpen: false,
@@ -426,9 +495,33 @@ document.addEventListener('alpine:init', () => {
 			{ id: 'warm-stone', name: 'Warm Stone Dunes', url: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=2560&q=85' }
 		],
 		currentUser: { id: 'dev-1', name: 'Dhawal (Developer)', email: 'dhawal@flagura.dev', role: 'developer' },
-		init() {
-			window.FlaguraApp = this;
-			this.checkAuth();
+		navigateTo(view) {
+			if (!view) return;
+			this.previousView = this.activeView;
+			this.activeView = view;
+			this.isMobileSidebarOpen = false;
+			this.syncUrl(view);
+		},
+		syncUrl(view) {
+			try {
+				if (window.history && window.history.pushState) {
+					const url = new URL(window.location.href);
+					url.pathname = '/dashboard';
+					if (url.searchParams.get('tab') !== view) {
+						url.searchParams.set('tab', view);
+						window.history.pushState({ tab: view }, '', url.toString());
+					}
+				}
+			} catch(e) {}
+		},
+		openGovernanceModal() {
+			this.isMobileSidebarOpen = false;
+			window.dispatchEvent(new CustomEvent('open-governance-modal'));
+		},
+		focusSearch(inputEl) {
+			if (document.activeElement && document.activeElement.tagName !== 'INPUT') {
+				if (inputEl && typeof inputEl.focus === 'function') inputEl.focus();
+			}
 		},
 		switchEnv(env) {
 			this.currentEnv = env;
@@ -478,11 +571,13 @@ document.addEventListener('alpine:init', () => {
 			this.previousView = this.activeView;
 			this.$dispatch('populate-editor', { isEditing: false, currentEnv: this.currentEnv });
 			this.activeView = 'editor';
+			this.syncUrl('editor');
 		},
 		openEditFlagEditor(key) {
 			this.previousView = this.activeView;
 			this.$dispatch('populate-editor', { isEditing: true, key, currentEnv: this.currentEnv });
 			this.activeView = 'editor';
+			this.syncUrl('editor');
 		},
 		openEvaluatorForFlag(flagKey) {
 			if (flagKey && flagKey.dataset && flagKey.dataset.key) {
@@ -490,6 +585,7 @@ document.addEventListener('alpine:init', () => {
 			}
 			this.$dispatch('select-evaluator-flag', flagKey);
 			this.activeView = 'evaluator';
+			this.syncUrl('evaluator');
 		},
 		async toggleFlagEnvStatus(key, env, isEnabled) {
 			try {
@@ -563,8 +659,39 @@ document.addEventListener('alpine:init', () => {
 			}
 		},
 		init() {
+			window.FlaguraApp = this;
 			globalToastHandler = (msg, type = 'info') => this.showToast(msg, type);
 			window.showToast = globalToastHandler;
+
+			window.addEventListener('popstate', () => {
+				const v = resolveInitialView();
+				if (v && this.activeView !== v) {
+					this.activeView = v;
+				}
+			});
+
+			try {
+				const params = new URLSearchParams(window.location.search || '');
+				const envParam = (params.get('env') || '').toLowerCase().trim();
+				if (envParam && ['production', 'staging', 'development'].includes(envParam)) {
+					this.currentEnv = envParam;
+				}
+				const searchParam = params.get('search');
+				if (searchParam) {
+					this.searchQuery = searchParam;
+				}
+				const modalParam = (params.get('tab') || params.get('modal') || '').toLowerCase().trim();
+				if (modalParam === 'governance' || modalParam === 'approvals') {
+					this.$nextTick(() => window.dispatchEvent(new CustomEvent('open-governance-modal')));
+				} else if (modalParam === 'hygiene' || modalParam === 'cleanup') {
+					this.$nextTick(() => window.dispatchEvent(new CustomEvent('open-hygiene-modal', { detail: {} })));
+				} else if (modalParam === 'project' || modalParam === 'new-project') {
+					this.$nextTick(() => window.dispatchEvent(new CustomEvent('open-create-project-modal')));
+				} else if (modalParam === 'invite') {
+					this.$nextTick(() => window.dispatchEvent(new CustomEvent('open-invite-modal')));
+				}
+			} catch(e) {}
+
 			this.checkAuth();
 		}
 	}));
@@ -693,6 +820,17 @@ document.addEventListener('alpine:init', () => {
 				this.evaluateNow();
 			});
 		},
+		setEnvAndEvaluate(env) {
+			this.currentEnv = env;
+			this.evaluateNow();
+		},
+		selectFlagAndEvaluate(key) {
+			this.selectedFlagKey = key;
+			this.evaluateNow();
+		},
+		getEvalResultsCount() {
+			return Object.keys(this.evalResults || {}).length;
+		},
 		applyPreset(uid, email, country, role, tier) {
 			if (uid && uid.dataset) {
 				const el = uid;
@@ -741,6 +879,10 @@ document.addEventListener('alpine:init', () => {
 			navigator.clipboard.writeText(this.getCurlCommand());
 			this.copiedCurl = true;
 			setTimeout(() => this.copiedCurl = false, 2000);
+		},
+		// CSP-safe wrapper for Math.min used in :style binding
+		clampBucket(v) {
+			return Math.min(v, 97);
 		}
 	}));
 
@@ -819,6 +961,16 @@ document.addEventListener('alpine:init', () => {
 		chart: null,
 		networkProbing: false,
 		networkResults: null,
+		formatNumber(val) {
+			return Number(val || 0).toLocaleString();
+		},
+		getTargetOrigin() {
+			return window.location.origin;
+		},
+		getSpeedupFactor() {
+			if (!this.networkResults || !this.networkResults.avg) return '0x';
+			return Math.round(this.networkResults.avg * 1000000 / 85).toLocaleString() + 'x';
+		},
 		init() {
 			this.$nextTick(() => {
 				if (!this.metrics) this.runStressTest();
@@ -928,6 +1080,14 @@ document.addEventListener('alpine:init', () => {
 		keyForm: { name: '', role: 'developer', environment: 'production' },
 		newlyCreatedKey: null,
 		keyCopied: false,
+		formatDate(dateStr) {
+			if (!dateStr) return '';
+			try {
+				return new Date(dateStr).toLocaleDateString();
+			} catch (e) {
+				return String(dateStr);
+			}
+		},
 		async fetchAPIKeys() {
 			try {
 				const res = await fetch('/api/v1/api-keys');
@@ -991,7 +1151,7 @@ document.addEventListener('alpine:init', () => {
 			if (this.sdkTab === 'go') {
 				return `package main\n\nimport (\n    "context"\n    "fmt"\n    flagura "github.com/dhawalhost/flagura/sdks/go"\n)\n\nfunc main() {\n    // Project scope and environment are automatically resolved from your API key\n    client := flagura.NewClient("${window.location.origin}", "flg_live_your_api_key",\n        flagura.WithLocalEvaluation(true),\n    )\n    defer client.Close()\n\n    res, _ := client.Evaluate(context.Background(), "ai-smart-search", flagura.Context{\n        UserID: "usr_dhawal_01",\n        Email:  "dhawal@flagura.dev",\n    })\n    fmt.Printf("Enabled: %v | Latency: %v ns\\n", res.Enabled, res.EvaluationLatencyNs)\n}`;
 			} else if (this.sdkTab === 'ts') {
-				return `import { FlaguraClient } from '@flagura/sdk';\n\n// Project scope is automatically resolved from your API key\nconst client = new FlaguraClient({\n  endpoint: '${window.location.origin}',\n  apiKey: 'flg_live_your_api_key'\n});\nconst { enabled, variant } = await client.evaluate('ai-smart-search', {\n  user_id: 'usr_dhawal_01',\n  email: 'dhawal@flagura.dev',\n});\n// Flag resolved: enabled=${enabled}, variant=${variant}`;
+				return `import { FlaguraClient } from '@flagura/sdk';\n\n// Project scope is automatically resolved from your API key\nconst client = new FlaguraClient({\n  endpoint: '${window.location.origin}',\n  apiKey: 'flg_live_your_api_key'\n});\nconst { enabled, variant } = await client.evaluate('ai-smart-search', {\n  user_id: 'usr_dhawal_01',\n  email: 'dhawal@flagura.dev',\n});\n// Flag resolved: enabled=\${enabled}, variant=\${variant}`;
 			} else if (this.sdkTab === 'python') {
 				return `from flagura import FlaguraClient, EvaluationContext\n\n# Project scope is automatically resolved from your API key\nclient = FlaguraClient("${window.location.origin}", api_key="flg_live_your_api_key")\nres = client.evaluate("ai-smart-search", EvaluationContext(user_id="usr_dhawal_01", email="dhawal@flagura.dev"))\nprint(res.enabled, res.variant)`;
 			} else if (this.sdkTab === 'rust') {
@@ -1026,6 +1186,9 @@ document.addEventListener('alpine:init', () => {
 				staging: { enabled: true, strategy: 'percentage', percentage: 100, rules: [] },
 				development: { enabled: true, strategy: 'boolean', percentage: 100, rules: [] }
 			}
+		},
+		closeEditor() {
+			this.navigateTo(this.previousView || 'overview');
 		},
 		init() {
 			window.addEventListener('populate-editor', async (e) => {
@@ -1210,6 +1373,10 @@ document.addEventListener('alpine:init', () => {
 			this.isHeroActive = this.isEvaluatedTrue;
 		},
 		updateHeroBucket() {
+			this.computeHashModulo();
+		},
+		selectTestUser(userId) {
+			this.testUserId = userId;
 			this.computeHashModulo();
 		},
 		randomizeUser() {
@@ -1545,7 +1712,26 @@ document.addEventListener('alpine:init', () => {
 		isOpen: false,
 		flagKey: '',
 		metricName: 'conversion',
-		report: null,
+		report: { variant_stats: {}, winner_variant: '', control_variant: '' },
+		getVariantStats() {
+			return (this.report && this.report.variant_stats) || {};
+		},
+		isWinner(variant) {
+			return Boolean(this.report && this.report.winner_variant === variant);
+		},
+		isControl(variant) {
+			return Boolean(this.report && this.report.control_variant === variant);
+		},
+		getBadgeClass(variant) {
+			if (this.isControl(variant)) return 'bg-slate-100 text-slate-700';
+			if (this.isWinner(variant)) return 'bg-emerald-100 text-emerald-800';
+			return 'bg-purple-100 text-purple-800';
+		},
+		getBadgeText(variant) {
+			if (this.isControl(variant)) return 'CONTROL BASELINE';
+			if (this.isWinner(variant)) return 'WINNER';
+			return 'TREATMENT';
+		},
 		openModal(key) {
 			this.flagKey = key;
 			this.isOpen = true;
@@ -1590,19 +1776,33 @@ document.addEventListener('alpine:init', () => {
 			} catch (e) {
 				// simulation error handled gracefully
 			}
+		},
+		// CSP-safe wrapper for Object.keys used in x-if binding
+		hasComparisons() {
+			return this.report && Object.keys(this.report.comparisons || {}).length > 0;
+		},
+		getWinningAction() {
+			if (!this.report || !this.report.winner_variant || !this.report.comparisons) return '';
+			const comp = this.report.comparisons[this.report.winner_variant];
+			return (comp && comp.recommended_action) || '';
 		}
 	}));
 
-	// Flag Hygiene / Technical Debt Cleanup Modal Component
+	// Hygiene Refactor Diff Modal Component
 	Alpine.data('hygieneModalComponent', () => ({
 		isOpen: false,
 		flagKey: '',
 		flagName: '',
-		flagStatus: 'READY_FOR_CLEANUP',
+		flagStatus: 'LAUNCHED_100',
 		flagReason: '',
-		flagAction: '',
+		flagAction: 'archive',
 		cleanupLang: 'go',
 		copiedDiff: false,
+		renderDiff() {
+			if (this.$refs.diffBox) {
+				this.$refs.diffBox.innerHTML = this.getDiffHtml();
+			}
+		},
 		openModal(data) {
 			this.flagKey = data.key || '';
 			this.flagName = data.name || '';
@@ -1707,145 +1907,146 @@ document.addEventListener('alpine:init', () => {
 			}
 		}
 	}));
-});
 
-// Profile Settings Component
-function profileSettingsComponent() {
-	return {
-		tab: 'general',
-		savingProfile: false,
-		savingPassword: false,
-		profileMessage: '',
-		passwordError: '',
-		passwordSuccess: '',
-		showCurrentPassword: false,
-		showNewPassword: false,
-		profile: {
-			id: '',
-			name: '',
-			email: '',
-			role: '',
-			avatarUrl: ''
-		},
-		form: {
-			name: '',
-			avatarUrl: ''
-		},
-		passwordForm: {
-			currentPassword: '',
-			newPassword: '',
-			confirmPassword: ''
-		},
-		get passRules() {
-			const p = this.passwordForm.newPassword || '';
-			return {
-				length: p.length >= 8,
-				upper: /[A-Z]/.test(p),
-				lower: /[a-z]/.test(p),
-				digit: /[0-9]/.test(p),
-				special: /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?~]/.test(p)
-			};
-		},
-		isPasswordValid() {
-			const r = this.passRules;
-			return r.length && r.upper && r.lower && r.digit && r.special &&
-				this.passwordForm.currentPassword.length > 0 &&
-				this.passwordForm.newPassword === this.passwordForm.confirmPassword;
-		},
-		init() {
-			this.fetchProfile();
-		},
-		getInitials(name) {
-			if (!name) return 'U';
-			const parts = name.trim().split(/\s+/);
-			if (parts.length >= 2) {
-				return (parts[0][0] + parts[1][0]).toUpperCase();
-			}
-			return name.substring(0, 2).toUpperCase();
-		},
-		async fetchProfile() {
-			try {
-				const res = await fetch('/api/v1/auth/me');
-				if (res.ok) {
+	// Profile Settings Component
+	function profileSettingsComponent() {
+		return {
+			tab: 'general',
+			savingProfile: false,
+			savingPassword: false,
+			profileMessage: '',
+			passwordError: '',
+			passwordSuccess: '',
+			showCurrentPassword: false,
+			showNewPassword: false,
+			profile: {
+				id: '',
+				name: '',
+				email: '',
+				role: '',
+				avatarUrl: ''
+			},
+			form: {
+				name: '',
+				avatarUrl: ''
+			},
+			passwordForm: {
+				currentPassword: '',
+				newPassword: '',
+				confirmPassword: ''
+			},
+			get passRules() {
+				const p = this.passwordForm.newPassword || '';
+				return {
+					length: p.length >= 8,
+					upper: /[A-Z]/.test(p),
+					lower: /[a-z]/.test(p),
+					digit: /[0-9]/.test(p),
+					special: /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?~]/.test(p)
+				};
+			},
+			isPasswordValid() {
+				const r = this.passRules;
+				return r.length && r.upper && r.lower && r.digit && r.special &&
+					this.passwordForm.currentPassword.length > 0 &&
+					this.passwordForm.newPassword === this.passwordForm.confirmPassword;
+			},
+			init() {
+				this.fetchProfile();
+			},
+			getInitials(name) {
+				if (!name) return 'U';
+				const parts = name.trim().split(/\s+/);
+				if (parts.length >= 2) {
+					return (parts[0][0] + parts[1][0]).toUpperCase();
+				}
+				return name.substring(0, 2).toUpperCase();
+			},
+			async fetchProfile() {
+				try {
+					const res = await fetch('/api/v1/auth/me');
+					if (res.ok) {
+						const data = await res.json();
+						this.profile = data;
+						this.form.name = data.name || '';
+						this.form.avatarUrl = data.avatarUrl || '';
+					}
+				} catch(e) {}
+			},
+			resetForm() {
+				this.form.name = this.profile.name || '';
+				this.form.avatarUrl = this.profile.avatarUrl || '';
+				this.profileMessage = '';
+			},
+			async saveProfile() {
+				if (!this.form.name.trim()) return;
+				this.savingProfile = true;
+				this.profileMessage = '';
+				try {
+					const res = await fetch('/api/v1/auth/profile', {
+						method: 'PATCH',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							name: this.form.name.trim(),
+							avatarUrl: this.form.avatarUrl.trim()
+						})
+					});
 					const data = await res.json();
-					this.profile = data;
-					this.form.name = data.name || '';
-					this.form.avatarUrl = data.avatarUrl || '';
+					if (!res.ok) {
+						throw new Error(data.message || 'Failed to update profile');
+					}
+					this.profile.name = this.form.name.trim();
+					this.profile.avatarUrl = this.form.avatarUrl.trim();
+					this.showToast('Profile updated successfully!', 'info');
+					this.profileMessage = 'Profile updated successfully!';
+				} catch (err) {
+					this.profileMessage = err.message;
+					this.showToast(err.message, 'error');
+				} finally {
+					this.savingProfile = false;
 				}
-			} catch(e) {}
-		},
-		resetForm() {
-			this.form.name = this.profile.name || '';
-			this.form.avatarUrl = this.profile.avatarUrl || '';
-			this.profileMessage = '';
-		},
-		async saveProfile() {
-			if (!this.form.name.trim()) return;
-			this.savingProfile = true;
-			this.profileMessage = '';
-			try {
-				const res = await fetch('/api/v1/auth/profile', {
-					method: 'PATCH',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						name: this.form.name.trim(),
-						avatarUrl: this.form.avatarUrl.trim()
-					})
+			},
+			async changePassword() {
+				if (!this.isPasswordValid()) return;
+				this.savingPassword = true;
+				this.passwordError = '';
+				this.passwordSuccess = '';
+				try {
+					const res = await fetch('/api/v1/auth/change-password', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							currentPassword: this.passwordForm.currentPassword,
+							newPassword: this.passwordForm.newPassword
+						})
+					});
+					const data = await res.json();
+					if (!res.ok) {
+						throw new Error(data.message || 'Failed to update password');
+					}
+					this.passwordSuccess = 'Password has been successfully updated!';
+					this.passwordForm.currentPassword = '';
+					this.passwordForm.newPassword = '';
+					this.passwordForm.confirmPassword = '';
+					this.showToast('Password updated successfully!', 'info');
+				} catch (err) {
+					this.passwordError = err.message;
+					this.showToast(err.message, 'error');
+				} finally {
+					this.savingPassword = false;
+				}
+			},
+			copyToClipboard(text, msg = 'Copied to clipboard') {
+				if (!text) return;
+				navigator.clipboard.writeText(text).then(() => {
+					this.showToast(msg, 'info');
 				});
-				const data = await res.json();
-				if (!res.ok) {
-					throw new Error(data.message || 'Failed to update profile');
-				}
-				this.profile.name = this.form.name.trim();
-				this.profile.avatarUrl = this.form.avatarUrl.trim();
-				this.showToast('Profile updated successfully!', 'info');
-				this.profileMessage = 'Profile updated successfully!';
-			} catch (err) {
-				this.profileMessage = err.message;
-				this.showToast(err.message, 'error');
-			} finally {
-				this.savingProfile = false;
 			}
-		},
-		async changePassword() {
-			if (!this.isPasswordValid()) return;
-			this.savingPassword = true;
-			this.passwordError = '';
-			this.passwordSuccess = '';
-			try {
-				const res = await fetch('/api/v1/auth/change-password', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						currentPassword: this.passwordForm.currentPassword,
-						newPassword: this.passwordForm.newPassword
-					})
-				});
-				const data = await res.json();
-				if (!res.ok) {
-					throw new Error(data.message || 'Failed to update password');
-				}
-				this.passwordSuccess = 'Password has been successfully updated!';
-				this.passwordForm.currentPassword = '';
-				this.passwordForm.newPassword = '';
-				this.passwordForm.confirmPassword = '';
-				this.showToast('Password updated successfully!', 'info');
-			} catch (err) {
-				this.passwordError = err.message;
-				this.showToast(err.message, 'error');
-			} finally {
-				this.savingPassword = false;
-			}
-		},
-		copyToClipboard(text, msg = 'Copied to clipboard') {
-			if (!text) return;
-			navigator.clipboard.writeText(text).then(() => {
-				this.showToast(msg, 'info');
-			});
-		}
-	};
-}
-window.profileSettingsComponent = profileSettingsComponent;
+		};
+	}
+	window.profileSettingsComponent = profileSettingsComponent;
+	Alpine.data('profileSettingsComponent', profileSettingsComponent);
+});
 
 // ==========================================
 // 3. UI Enhancements: Custom Cursor, Three.js, Lucide

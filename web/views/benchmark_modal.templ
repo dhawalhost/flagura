@@ -6,7 +6,7 @@ templ BenchmarkModal() {
 		<div class="glass-panel p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 shadow-xs">
 			<div class="flex items-center gap-3.5">
 				<button
-					@click="activeView = 'overview'"
+					@click="navigateTo('overview')"
 					class="p-2 text-slate-500 hover:text-slate-900 transition-colors rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-2xs flex items-center gap-1.5 text-xs font-semibold cursor-pointer font-mono"
 					title="Return to overview"
 				>
@@ -46,7 +46,7 @@ templ BenchmarkModal() {
 			<div class="flex-1 w-full space-y-2">
 				<div class="flex justify-between text-xs">
 					<span class="text-slate-600 font-semibold">Iterations Count</span>
-					<span class="font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-200" x-text="Number(iterations).toLocaleString()"></span>
+					<span class="font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-200" x-text="formatNumber(iterations)"></span>
 				</div>
 				<input
 					type="range"
@@ -63,7 +63,7 @@ templ BenchmarkModal() {
 				:disabled="isRunning"
 			>
 				<i data-lucide="play" class="h-4 w-4 text-white"></i>
-				<span x-text="isRunning ? 'Running...' : 'Run ' + Number(iterations).toLocaleString() + ' Evaluations'"></span>
+				<span x-text="isRunning ? 'Running...' : 'Run ' + formatNumber(iterations) + ' Evaluations'"></span>
 			</button>
 		</div>
 
@@ -73,7 +73,7 @@ templ BenchmarkModal() {
 				<div class="grid grid-cols-2 sm:grid-cols-4 gap-5 font-mono text-xs">
 					<div class="glass-panel p-5 bg-white border border-slate-200 shadow-xs">
 						<div class="text-xs text-slate-500 uppercase font-semibold">Throughput</div>
-						<div class="text-emerald-700 text-2xl font-bold mt-1.5" x-text="metrics.opsPerSec ? Number(metrics.opsPerSec).toLocaleString() + ' ops/s' : 'N/A'"></div>
+						<div class="text-emerald-700 text-2xl font-bold mt-1.5" x-text="metrics.opsPerSec ? formatNumber(metrics.opsPerSec) + ' ops/s' : 'N/A'"></div>
 					</div>
 					<div class="glass-panel p-5 bg-white border border-slate-200 shadow-xs">
 						<div class="text-xs text-slate-500 uppercase font-semibold">P50 Latency</div>
@@ -199,7 +199,7 @@ templ BenchmarkModal() {
 									<div class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
 									<span class="font-bold text-white">Live Network Probe Output (<span x-text="networkResults.samples.length"></span> Samples)</span>
 								</div>
-								<span class="text-[10px] text-slate-400" x-text="'Target: ' + window.location.origin"></span>
+								<span class="text-[10px] text-slate-400" x-text="'Target: ' + getTargetOrigin()"></span>
 							</div>
 
 							<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
@@ -217,7 +217,7 @@ templ BenchmarkModal() {
 								</div>
 								<div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700">
 									<div class="text-[10px] uppercase text-slate-400">Speedup Factor</div>
-									<div class="text-base font-extrabold text-amber-400" x-text="Math.round(networkResults.avg * 1000000 / 85).toLocaleString() + 'x'"></div>
+									<div class="text-base font-extrabold text-amber-400" x-text="getSpeedupFactor()"></div>
 								</div>
 							</div>
 						</div>

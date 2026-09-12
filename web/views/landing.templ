@@ -176,9 +176,9 @@ templ LandingPage() {
 										/>
 										<div class="flex items-center gap-1.5 pt-2 text-[10px] text-slate-400">
 											<span>Quick Test:</span>
-											<button type="button" @click="testUserId = 'usr_alex_42'; computeHashModulo()" class="px-2 py-0.5 rounded bg-slate-200/70 hover:bg-slate-300 text-slate-700 font-mono transition cursor-pointer">alex_42</button>
-											<button type="button" @click="testUserId = 'sarah@stripe.com'; computeHashModulo()" class="px-2 py-0.5 rounded bg-slate-200/70 hover:bg-slate-300 text-slate-700 font-mono transition cursor-pointer">sarah@stripe</button>
-											<button type="button" @click="testUserId = 'enterprise_vip'; computeHashModulo()" class="px-2 py-0.5 rounded bg-slate-200/70 hover:bg-slate-300 text-slate-700 font-mono transition cursor-pointer">vip_tenant</button>
+											<button type="button" @click="selectTestUser('usr_alex_42')" class="px-2 py-0.5 rounded bg-slate-200/70 hover:bg-slate-300 text-slate-700 font-mono transition cursor-pointer">alex_42</button>
+											<button type="button" @click="selectTestUser('sarah@stripe.com')" class="px-2 py-0.5 rounded bg-slate-200/70 hover:bg-slate-300 text-slate-700 font-mono transition cursor-pointer">sarah@stripe</button>
+											<button type="button" @click="selectTestUser('enterprise_vip')" class="px-2 py-0.5 rounded bg-slate-200/70 hover:bg-slate-300 text-slate-700 font-mono transition cursor-pointer">vip_tenant</button>
 										</div>
 									</div>
 

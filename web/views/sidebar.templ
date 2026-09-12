@@ -95,7 +95,7 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 								if p.OrganizationID == org.ID || (org.ID == "org_default" && p.OrganizationID == "") {
 									<button 
 										data-project-id={ p.ID }
-										@click="switchProject($el); close();"
+										@click="selectProject($el)"
 										class="w-full text-left px-2.5 py-2 rounded-xl text-xs font-mono flex items-center justify-between hover:bg-slate-50 text-slate-700 hover:text-slate-900 cursor-pointer transition-colors"
 									>
 										<div class="truncate">
@@ -112,14 +112,14 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 					</div>
 					<div class="border-t border-slate-100 pt-1.5 mt-1 space-y-0.5">
 						<button 
-							@click="close(); $dispatch('open-create-project-modal');"
+							@click="openCreateProject()"
 							class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold text-indigo-600 hover:bg-indigo-50 flex items-center gap-1.5 cursor-pointer"
 						>
 							<i data-lucide="plus" class="w-3.5 h-3.5"></i>
 							<span>Create Project Scope</span>
 						</button>
 						<button 
-							@click="close(); $dispatch('open-invite-modal');"
+							@click="openInvite()"
 							class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
 						>
 							<i data-lucide="user-plus" class="w-3.5 h-3.5 text-slate-500"></i>
@@ -133,7 +133,7 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 			<nav class="space-y-1 font-mono">
 				<!-- 1: Overview -->
 				<button 
-					@click="activeView = 'overview'; isMobileSidebarOpen = false;"
+					@click="navigateTo('overview')"
 					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
 					:class="activeView === 'overview' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
 				>
@@ -149,7 +149,7 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 
 				<!-- 2: Flags & Rollouts -->
 				<button 
-					@click="activeView = 'flags'; isMobileSidebarOpen = false;"
+					@click="navigateTo('flags')"
 					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
 					:class="activeView === 'flags' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
 				>
@@ -165,7 +165,7 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 
 				<!-- 3: Analytics & Telemetry -->
 				<button 
-					@click="activeView = 'analytics'; isMobileSidebarOpen = false;"
+					@click="navigateTo('analytics')"
 					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
 					:class="activeView === 'analytics' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
 				>
@@ -179,10 +179,25 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 					>24h</span>
 				</button>
 
+				<!-- 4: Live Evaluator -->
+				<button 
+					@click="navigateTo('evaluator')"
+					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
+					:class="activeView === 'evaluator' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
+				>
+					<div class="flex items-center gap-2.5">
+						<i data-lucide="zap" class="w-4 h-4"></i>
+						<span class="font-sans font-medium">Live Evaluator</span>
+					</div>
+					<span 
+						class="text-[10px] px-2 py-0.5 rounded-full font-bold"
+						:class="activeView === 'evaluator' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'"
+					>Sandbox</span>
+				</button>
 
 				<!-- 5: Latency Benchmark -->
 				<button 
-					@click="activeView = 'benchmark'; isMobileSidebarOpen = false;"
+					@click="navigateTo('benchmark')"
 					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
 					:class="activeView === 'benchmark' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
 				>
@@ -198,7 +213,7 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 
 				<!-- 6: Audit Trail -->
 				<button 
-					@click="activeView = 'audit'; isMobileSidebarOpen = false;"
+					@click="navigateTo('audit')"
 					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
 					:class="activeView === 'audit' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
 				>
@@ -214,7 +229,7 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 
 				<!-- 7: SDK Quickstart -->
 				<button 
-					@click="activeView = 'sdk'; isMobileSidebarOpen = false;"
+					@click="navigateTo('sdk')"
 					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
 					:class="activeView === 'sdk' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
 				>
@@ -230,7 +245,7 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 
 				<!-- 8: 4-Eyes Change Approvals -->
 				<button 
-					@click="$dispatch('open-governance-modal'); isMobileSidebarOpen = false;"
+					@click="openGovernanceModal()"
 					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer text-purple-700 hover:bg-purple-50"
 				>
 					<div class="flex items-center gap-2.5">
@@ -244,7 +259,7 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 
 				<!-- 9: Profile Settings -->
 				<button 
-					@click="activeView = 'profile'; isMobileSidebarOpen = false;"
+					@click="navigateTo('profile')"
 					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
 					:class="activeView === 'profile' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
 				>
@@ -274,7 +289,7 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 				<div class="text-[11px] text-slate-500 flex justify-between items-center">
 					<span>Session:</span>
 					<button 
-						@click="activeView = 'profile'"
+						@click="navigateTo('profile')"
 						class="text-slate-900 hover:text-indigo-600 font-bold truncate max-w-[110px] transition cursor-pointer text-left" 
 						title={ user.Email }
 					>

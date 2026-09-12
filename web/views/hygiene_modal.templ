@@ -110,7 +110,7 @@ templ HygieneModal() {
 								<span x-text="copiedDiff ? 'Copied!' : 'Copy Code'"></span>
 							</button>
 						</div>
-						<pre class="p-4 text-xs font-mono leading-relaxed overflow-x-auto text-slate-200" x-html="getDiffHtml()"></pre>
+						<pre class="p-4 text-xs font-mono leading-relaxed overflow-x-auto text-slate-200" x-ref="diffBox" x-effect="renderDiff()"></pre>
 					</div>
 				</div>
 

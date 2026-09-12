@@ -76,21 +76,21 @@ templ ExperimentModal() {
 						</div>
 						<div class="flex-1">
 							<div class="font-bold text-sm font-sans text-emerald-950">Winning Variant Detected: <span class="font-mono text-emerald-700 font-bold" x-text="report.winner_variant"></span></div>
-							<p class="text-xs text-slate-600 mt-0.5 font-sans" x-text="report.comparisons[report.winner_variant]?.recommended_action"></p>
+							<p class="text-xs text-slate-600 mt-0.5 font-sans" x-text="getWinningAction()"></p>
 						</div>
 					</div>
 				</template>
 
 				<!-- Variant Comparison Cards -->
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-					<template x-for="(stats, variant) in (report?.variant_stats || {})" :key="variant">
-						<div class="p-5 rounded-2xl border transition-all space-y-3 bg-white" :class="variant === report?.winner_variant ? 'border-emerald-300 bg-emerald-50/30' : 'border-slate-200'">
+					<template x-for="(stats, variant) in getVariantStats()" :key="variant">
+						<div class="p-5 rounded-2xl border transition-all space-y-3 bg-white" :class="isWinner(variant) ? 'border-emerald-300 bg-emerald-50/30' : 'border-slate-200'">
 							<div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
 								<span class="font-mono font-bold text-slate-900 text-sm" x-text="variant"></span>
 								<span
 									class="px-2 py-0.5 rounded text-[10px] font-mono font-bold"
-									:class="variant === report?.control_variant ? 'bg-slate-100 text-slate-700' : (variant === report?.winner_variant ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800')"
-									x-text="variant === report?.control_variant ? 'CONTROL BASELINE' : (variant === report?.winner_variant ? 'WINNER' : 'TREATMENT')"
+									:class="getBadgeClass(variant)"
+									x-text="getBadgeText(variant)"
 								></span>
 							</div>
 
@@ -114,7 +114,7 @@ templ ExperimentModal() {
 				</div>
 
 				<!-- Statistical Comparison Table -->
-				<template x-if="report && Object.keys(report.comparisons || {}).length > 0">
+				<template x-if="hasComparisons()">
 					<div class="rounded-2xl border border-slate-200 overflow-hidden bg-white">
 						<div class="bg-slate-50 px-4 py-2.5 font-bold text-slate-700 border-b border-slate-200">
 							Two-Tailed Z-Test Significance vs. Control

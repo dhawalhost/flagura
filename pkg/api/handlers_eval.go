@@ -160,13 +160,23 @@ func (s *Server) handleBenchmark(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, r, err)
 		return
 	}
-	allFlags, err := s.store.ListFlagsByProject(r.Context(), projectID)
-	if err != nil || len(allFlags) == 0 {
-		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, "no flags available for benchmark", http.StatusInternalServerError, err))
-		return
+	allFlags, _ := s.store.ListFlagsByProject(r.Context(), projectID)
+	var targetFlag domain.FeatureFlag
+	if len(allFlags) > 0 {
+		targetFlag = allFlags[0]
+	} else {
+		targetFlag = domain.FeatureFlag{
+			Key:  "benchmark-baseline",
+			Name: "Benchmark Baseline",
+			Type: "boolean",
+			Environments: map[domain.Environment]domain.EnvironmentConfig{
+				req.Environment: {
+					Enabled:  true,
+					Strategy: domain.StrategyBoolean,
+				},
+			},
+		}
 	}
-
-	targetFlag := allFlags[0]
 	metrics := engine.RunBenchmark(targetFlag, req.Environment, req.Iterations)
 
 	w.Header().Set("Content-Type", "application/json")

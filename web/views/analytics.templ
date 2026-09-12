@@ -35,14 +35,14 @@ templ AnalyticsDashboard(flags []domain.FeatureFlag) {
 			<!-- Global actions -->
 			<div class="flex items-center gap-2.5 font-mono">
 				<button
-					@click="activeView = 'flags'"
+					@click="navigateTo('flags')"
 					class="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
 				>
 					<i data-lucide="sliders" class="h-3.5 w-3.5 text-slate-500"></i>
 					<span>Manage Flags</span>
 				</button>
 				<button
-					@click="activeView = 'evaluator'"
+					@click="navigateTo('evaluator')"
 					class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1.5 hover:scale-[1.02]"
 				>
 					<i data-lucide="zap" class="h-3.5 w-3.5 text-white"></i>

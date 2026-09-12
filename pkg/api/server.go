@@ -79,6 +79,15 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/docs/", s.handleDocs)
 	s.mux.HandleFunc("/auth", s.handleAuth)
 	s.mux.HandleFunc("/dashboard", s.handleDashboard)
+	s.mux.HandleFunc("/dashboard/", s.handleDashboard)
+
+	// Top-level shortcuts to dashboard tabs
+	for _, view := range []string{"overview", "flags", "analytics", "evaluator", "benchmark", "audit", "sdk", "profile", "settings"} {
+		v := view
+		s.mux.HandleFunc("/"+v, func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/dashboard?tab="+v, http.StatusTemporaryRedirect)
+		})
+	}
 
 	// Auth API Routes (Rate limited for brute-force protection)
 	s.mux.HandleFunc("/api/v1/auth/signup", s.authLimiter.LimitHandler(s.handleSignUp))
