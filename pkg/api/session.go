@@ -28,6 +28,18 @@ func isCookieSecure(r *http.Request) bool {
 	if strings.EqualFold(os.Getenv("ALLOW_INSECURE_COOKIES"), "true") || strings.EqualFold(os.Getenv("SECURE_COOKIE"), "false") {
 		return false
 	}
+	if r != nil {
+		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+			return true
+		}
+		if strings.EqualFold(os.Getenv("FLAGURA_ENV"), "development") || strings.EqualFold(os.Getenv("ENV"), "development") {
+			return false
+		}
+		host := r.Host
+		if strings.HasPrefix(host, "localhost") || strings.HasPrefix(host, "127.0.0.1") {
+			return false
+		}
+	}
 	return true
 }
 
@@ -40,6 +52,22 @@ func (s *Server) setProjectCookie(w http.ResponseWriter, r *http.Request, projec
 		Value:    projectID,
 		Path:     "/",
 		Expires:  expiresAt,
+		HttpOnly: false,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   isSecure,
+	})
+}
+
+func (s *Server) clearProjectCookie(w http.ResponseWriter, r *http.Request) {
+	isSecure := isCookieSecure(r)
+
+	// #nosec G124 -- active project selection cookie configured with SameSite and dynamic TLS
+	http.SetCookie(w, &http.Cookie{
+		Name:     domain.CookieProjectName,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
 		HttpOnly: false,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   isSecure,

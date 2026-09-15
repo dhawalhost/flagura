@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/web"
@@ -100,6 +101,9 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 			projectID = projects[0].ID
 		}
 	}
+
+	// Always sync the active project cookie so client-side API requests match the rendered project scope
+	s.setProjectCookie(w, r, projectID, time.Now().Add(7*24*time.Hour))
 
 	flags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil {

@@ -184,8 +184,7 @@ document.addEventListener('alpine:init', () => {
 							ok = true;
 						} else {
 							if (res.status === 401) {
-								if (window.showToast) window.showToast('Session expired. Redirecting to login...', 'error');
-								setTimeout(() => { window.location.href = '/auth'; }, 1000);
+								if (window.showToast) window.showToast('Session expired or access denied.', 'error');
 							} else if (res.status === 404) {
 								if (window.showToast) window.showToast('Flag "' + flagKey + '" not found', 'error');
 							} else {
@@ -634,8 +633,7 @@ document.addEventListener('alpine:init', () => {
 					return true;
 				} else {
 					if (res.status === 401) {
-						this.showToast('Session expired. Redirecting to login...', 'error');
-						setTimeout(() => { window.location.href = '/auth'; }, 1000);
+						this.showToast('Session expired or access denied.', 'error');
 					} else if (res.status === 404) {
 						this.showToast('Flag "' + key + '" not found', 'error');
 					} else {
@@ -673,13 +671,26 @@ document.addEventListener('alpine:init', () => {
 		},
 		async deleteFlagRow(key) {
 			if (confirm('Permanently remove feature flag ' + key + '?')) {
-				const res = await fetch('/api/v1/flags/' + key, { method: 'DELETE' });
-				if (res.ok) {
-					const row = document.getElementById('flag-row-' + key);
-					if (row) row.remove();
-					const card = document.getElementById('flag-card-' + key);
-					if (card) card.remove();
-					this.showToast('Deleted flag ' + key);
+				try {
+					const res = await fetch('/api/v1/flags/' + key, { method: 'DELETE' });
+					if (res.ok) {
+						const row = document.getElementById('flag-row-' + key);
+						if (row) row.remove();
+						const card = document.getElementById('flag-card-' + key);
+						if (card) card.remove();
+						this.showToast('Deleted flag ' + key);
+					} else {
+						let errMsg = 'Failed to delete flag (HTTP ' + res.status + ')';
+						try {
+							const errData = await res.json();
+							if (errData && (errData.message || errData.error)) {
+								errMsg = errData.message || errData.error;
+							}
+						} catch (e) {}
+						this.showToast(errMsg, 'error');
+					}
+				} catch (err) {
+					this.showToast('Network error deleting flag: ' + err.message, 'error');
 				}
 			}
 		},

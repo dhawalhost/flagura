@@ -232,6 +232,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
+	} else if user.Role == domain.RoleAdmin {
+		s.setProjectCookie(w, r, domain.DefaultProjectID, expiresAt)
 	}
 
 	s.writeJSON(w, http.StatusOK, domain.AuthResponse{
@@ -247,6 +249,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.clearSessionCookie(w, r)
+	s.clearProjectCookie(w, r)
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

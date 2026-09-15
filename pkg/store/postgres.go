@@ -278,6 +278,15 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_org_invitations_token ON org_invitations(token);
 	CREATE INDEX IF NOT EXISTS idx_org_invitations_org ON org_invitations(organization_id);
+
+	-- Seed initial default organization and project (matching schema.sql)
+	INSERT INTO organizations (id, name, slug, description)
+	VALUES ('org_default', 'Default Organization', 'default-org', 'Primary workspace organization')
+	ON CONFLICT (id) DO NOTHING;
+
+	INSERT INTO projects (id, organization_id, name, slug, description)
+	VALUES ('proj_default', 'org_default', 'Default Project', 'default-project', 'Primary feature flag project')
+	ON CONFLICT (id) DO NOTHING;
 	`
 	if _, err := s.db.ExecContext(ctx, schema); err != nil {
 		return err
@@ -895,6 +904,10 @@ func (s *PostgresStore) CreateChangeRequest(ctx context.Context, cr domain.Chang
 	cr.Status = domain.ChangeRequestStatusPending
 	cr.CreatedAt = now
 
+	if cr.ProjectID == "" {
+		cr.ProjectID = DefaultProjectID
+	}
+
 	type proposedConfigEnvelope struct {
 		domain.EnvironmentConfig
 		BaseConfigVersion uint64 `json:"_base_config_version,omitempty"`
@@ -909,11 +922,11 @@ func (s *PostgresStore) CreateChangeRequest(ctx context.Context, cr domain.Chang
 
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO change_requests (
-			id, flag_key, environment, title, description,
+			id, project_id, flag_key, environment, title, description,
 			author_user_id, author_email, author_name,
 			proposed_config, status, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-	`, cr.ID, cr.FlagKey, cr.Environment, cr.Title, cr.Description,
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+	`, cr.ID, cr.ProjectID, cr.FlagKey, cr.Environment, cr.Title, cr.Description,
 		cr.AuthorUserID, cr.AuthorEmail, cr.AuthorName,
 		cfgBytes, cr.Status, cr.CreatedAt)
 
@@ -929,14 +942,14 @@ func (s *PostgresStore) GetChangeRequest(ctx context.Context, id string) (*domai
 	var reviewedAt, appliedAt sql.NullTime
 
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, flag_key, environment, title, description,
+		SELECT id, project_id, flag_key, environment, title, description,
 		       author_user_id, author_email, author_name,
 		       proposed_config, status, reviewer_user_id, reviewer_email,
 		       reviewer_name, review_comments, created_at, reviewed_at, applied_at
 		FROM change_requests
 		WHERE id = $1
 	`, id).Scan(
-		&cr.ID, &cr.FlagKey, &cr.Environment, &cr.Title, &cr.Description,
+		&cr.ID, &cr.ProjectID, &cr.FlagKey, &cr.Environment, &cr.Title, &cr.Description,
 		&cr.AuthorUserID, &cr.AuthorEmail, &cr.AuthorName,
 		&cfgBytes, &cr.Status, &cr.ReviewerUserID, &cr.ReviewerEmail,
 		&cr.ReviewerName, &cr.ReviewComments, &cr.CreatedAt, &reviewedAt, &appliedAt,
@@ -970,7 +983,7 @@ func (s *PostgresStore) ListChangeRequests(ctx context.Context, status domain.Ch
 
 	if status != "" {
 		rows, err = s.db.QueryContext(ctx, `
-			SELECT id, flag_key, environment, title, description,
+			SELECT id, project_id, flag_key, environment, title, description,
 			       author_user_id, author_email, author_name,
 			       proposed_config, status, reviewer_user_id, reviewer_email,
 			       reviewer_name, review_comments, created_at, reviewed_at, applied_at
@@ -980,7 +993,7 @@ func (s *PostgresStore) ListChangeRequests(ctx context.Context, status domain.Ch
 		`, status)
 	} else {
 		rows, err = s.db.QueryContext(ctx, `
-			SELECT id, flag_key, environment, title, description,
+			SELECT id, project_id, flag_key, environment, title, description,
 			       author_user_id, author_email, author_name,
 			       proposed_config, status, reviewer_user_id, reviewer_email,
 			       reviewer_name, review_comments, created_at, reviewed_at, applied_at
@@ -1001,7 +1014,7 @@ func (s *PostgresStore) ListChangeRequests(ctx context.Context, status domain.Ch
 		var reviewedAt, appliedAt sql.NullTime
 
 		if err := rows.Scan(
-			&cr.ID, &cr.FlagKey, &cr.Environment, &cr.Title, &cr.Description,
+			&cr.ID, &cr.ProjectID, &cr.FlagKey, &cr.Environment, &cr.Title, &cr.Description,
 			&cr.AuthorUserID, &cr.AuthorEmail, &cr.AuthorName,
 			&cfgBytes, &cr.Status, &cr.ReviewerUserID, &cr.ReviewerEmail,
 			&cr.ReviewerName, &cr.ReviewComments, &cr.CreatedAt, &reviewedAt, &appliedAt,
@@ -1208,6 +1221,7 @@ func (s *PostgresStore) RevokeAPIKey(ctx context.Context, id string, actor strin
 
 	audit := domain.AuditLogEntry{
 		ID:          fmt.Sprintf("audit_%d", time.Now().UnixNano()),
+		ProjectID:   DefaultProjectID,
 		FlagKey:     "api-keys",
 		Action:      "API_KEY_REVOKED",
 		Environment: "all",
@@ -1217,9 +1231,9 @@ func (s *PostgresStore) RevokeAPIKey(ctx context.Context, id string, actor strin
 	}
 	now := time.Now().UTC()
 	_, _ = s.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (id, flag_key, environment, action, actor, timestamp, details)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, audit.ID, audit.FlagKey, audit.Environment, audit.Action, audit.Actor, now, audit.Details)
+		INSERT INTO audit_logs (id, project_id, flag_key, environment, action, actor, timestamp, details)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, audit.ID, audit.ProjectID, audit.FlagKey, audit.Environment, audit.Action, audit.Actor, now, audit.Details)
 
 	return nil
 }
@@ -1243,6 +1257,7 @@ func (s *PostgresStore) RevokeAPIKeyByProject(ctx context.Context, projectID, id
 
 	audit := domain.AuditLogEntry{
 		ID:          fmt.Sprintf("audit_%d", time.Now().UnixNano()),
+		ProjectID:   projectID,
 		FlagKey:     "api-keys",
 		Action:      "API_KEY_REVOKED",
 		Environment: "all",
@@ -1252,9 +1267,9 @@ func (s *PostgresStore) RevokeAPIKeyByProject(ctx context.Context, projectID, id
 	}
 	now := time.Now().UTC()
 	_, _ = s.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (id, flag_key, environment, action, actor, timestamp, details)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, audit.ID, audit.FlagKey, audit.Environment, audit.Action, audit.Actor, now, audit.Details)
+		INSERT INTO audit_logs (id, project_id, flag_key, environment, action, actor, timestamp, details)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, audit.ID, audit.ProjectID, audit.FlagKey, audit.Environment, audit.Action, audit.Actor, now, audit.Details)
 
 	return nil
 }

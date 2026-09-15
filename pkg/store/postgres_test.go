@@ -414,7 +414,7 @@ func TestPostgresStore_GovernanceAndMultiTenancy(t *testing.T) {
 		WithArgs(apiKey.ID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), "api-keys", "all", "API_KEY_REVOKED", "admin@flagura.dev", sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), DefaultProjectID, "api-keys", "all", "API_KEY_REVOKED", "admin@flagura.dev", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	if err := st.RevokeAPIKey(ctx, apiKey.ID, "admin@flagura.dev"); err != nil {
@@ -440,7 +440,7 @@ func TestPostgresStore_GovernanceAndMultiTenancy(t *testing.T) {
 	crJSON, _ := json.Marshal(cr.ProposedConfig)
 
 	mock.ExpectExec(`INSERT INTO change_requests`).
-		WithArgs(cr.ID, cr.FlagKey, string(cr.Environment), cr.Title, cr.Description, cr.AuthorUserID, cr.AuthorEmail, cr.AuthorName, crJSON, string(cr.Status), sqlmock.AnyArg()).
+		WithArgs(cr.ID, cr.ProjectID, cr.FlagKey, string(cr.Environment), cr.Title, cr.Description, cr.AuthorUserID, cr.AuthorEmail, cr.AuthorName, crJSON, string(cr.Status), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	createdCR, err := st.CreateChangeRequest(ctx, cr)
@@ -448,19 +448,19 @@ func TestPostgresStore_GovernanceAndMultiTenancy(t *testing.T) {
 		t.Fatalf("CreateChangeRequest failed: %v", err)
 	}
 
-	mock.ExpectQuery(`SELECT id, flag_key, environment, title, description, author_user_id, author_email, author_name, proposed_config, status, reviewer_user_id, reviewer_email, reviewer_name, review_comments, created_at, reviewed_at, applied_at FROM change_requests WHERE id = \$1`).
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, environment, title, description, author_user_id, author_email, author_name, proposed_config, status, reviewer_user_id, reviewer_email, reviewer_name, review_comments, created_at, reviewed_at, applied_at FROM change_requests WHERE id = \$1`).
 		WithArgs(cr.ID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "flag_key", "environment", "title", "description", "author_user_id", "author_email", "author_name", "proposed_config", "status", "reviewer_user_id", "reviewer_email", "reviewer_name", "review_comments", "created_at", "reviewed_at", "applied_at"}).
-			AddRow(cr.ID, cr.FlagKey, string(cr.Environment), cr.Title, cr.Description, cr.AuthorUserID, "alice@flagura.dev", "Alice", crJSON, string(cr.Status), "", "", "", "", cr.CreatedAt, nil, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "flag_key", "environment", "title", "description", "author_user_id", "author_email", "author_name", "proposed_config", "status", "reviewer_user_id", "reviewer_email", "reviewer_name", "review_comments", "created_at", "reviewed_at", "applied_at"}).
+			AddRow(cr.ID, cr.ProjectID, cr.FlagKey, string(cr.Environment), cr.Title, cr.Description, cr.AuthorUserID, "alice@flagura.dev", "Alice", crJSON, string(cr.Status), "", "", "", "", cr.CreatedAt, nil, nil))
 
 	fetchedCR, err := st.GetChangeRequest(ctx, cr.ID)
 	if err != nil || fetchedCR.ID != cr.ID {
 		t.Fatalf("GetChangeRequest failed: %v", err)
 	}
 
-	mock.ExpectQuery(`SELECT id, flag_key, environment, title, description, author_user_id, author_email, author_name, proposed_config, status, reviewer_user_id, reviewer_email, reviewer_name, review_comments, created_at, reviewed_at, applied_at FROM change_requests ORDER BY created_at DESC`).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "flag_key", "environment", "title", "description", "author_user_id", "author_email", "author_name", "proposed_config", "status", "reviewer_user_id", "reviewer_email", "reviewer_name", "review_comments", "created_at", "reviewed_at", "applied_at"}).
-			AddRow(cr.ID, cr.FlagKey, string(cr.Environment), cr.Title, cr.Description, cr.AuthorUserID, "alice@flagura.dev", "Alice", crJSON, string(cr.Status), "", "", "", "", cr.CreatedAt, nil, nil))
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, environment, title, description, author_user_id, author_email, author_name, proposed_config, status, reviewer_user_id, reviewer_email, reviewer_name, review_comments, created_at, reviewed_at, applied_at FROM change_requests ORDER BY created_at DESC`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "flag_key", "environment", "title", "description", "author_user_id", "author_email", "author_name", "proposed_config", "status", "reviewer_user_id", "reviewer_email", "reviewer_name", "review_comments", "created_at", "reviewed_at", "applied_at"}).
+			AddRow(cr.ID, cr.ProjectID, cr.FlagKey, string(cr.Environment), cr.Title, cr.Description, cr.AuthorUserID, "alice@flagura.dev", "Alice", crJSON, string(cr.Status), "", "", "", "", cr.CreatedAt, nil, nil))
 
 	crs, err := st.ListChangeRequests(ctx, "")
 	if err != nil || len(crs) != 1 {
@@ -743,10 +743,10 @@ func TestPostgresStore_GovernanceAndAuthExtended(t *testing.T) {
 		Status:       domain.ChangeRequestStatusPending,
 		CreatedAt:    time.Now(),
 	}
-	mock.ExpectQuery(`SELECT id, flag_key, environment, title, description, author_user_id, author_email, author_name, proposed_config, status, reviewer_user_id, reviewer_email, reviewer_name, review_comments, created_at, reviewed_at, applied_at FROM change_requests WHERE id = \$1`).
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, environment, title, description, author_user_id, author_email, author_name, proposed_config, status, reviewer_user_id, reviewer_email, reviewer_name, review_comments, created_at, reviewed_at, applied_at FROM change_requests WHERE id = \$1`).
 		WithArgs(cr.ID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "flag_key", "environment", "title", "description", "author_user_id", "author_email", "author_name", "proposed_config", "status", "reviewer_user_id", "reviewer_email", "reviewer_name", "review_comments", "created_at", "reviewed_at", "applied_at"}).
-			AddRow(cr.ID, cr.FlagKey, string(cr.Environment), cr.Title, "", cr.AuthorUserID, "author@test.com", "Author", []byte(`{}`), string(cr.Status), "", "", "", "", cr.CreatedAt, nil, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "flag_key", "environment", "title", "description", "author_user_id", "author_email", "author_name", "proposed_config", "status", "reviewer_user_id", "reviewer_email", "reviewer_name", "review_comments", "created_at", "reviewed_at", "applied_at"}).
+			AddRow(cr.ID, "proj_default", cr.FlagKey, string(cr.Environment), cr.Title, "", cr.AuthorUserID, "author@test.com", "Author", []byte(`{}`), string(cr.Status), "", "", "", "", cr.CreatedAt, nil, nil))
 
 	mock.ExpectExec(`UPDATE change_requests SET status = \$1, reviewer_user_id = \$2, reviewer_email = \$3, reviewer_name = \$4, review_comments = \$5, reviewed_at = \$6 WHERE id = \$7`).
 		WithArgs(string(domain.ChangeRequestStatusApproved), "u_reviewer_01", "reviewer@test.com", "Reviewer", "LGTM", sqlmock.AnyArg(), cr.ID).
@@ -758,10 +758,10 @@ func TestPostgresStore_GovernanceAndAuthExtended(t *testing.T) {
 	}
 
 	// 3. ApplyChangeRequest
-	mock.ExpectQuery(`SELECT id, flag_key, environment, title, description, author_user_id, author_email, author_name, proposed_config, status, reviewer_user_id, reviewer_email, reviewer_name, review_comments, created_at, reviewed_at, applied_at FROM change_requests WHERE id = \$1`).
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, environment, title, description, author_user_id, author_email, author_name, proposed_config, status, reviewer_user_id, reviewer_email, reviewer_name, review_comments, created_at, reviewed_at, applied_at FROM change_requests WHERE id = \$1`).
 		WithArgs(cr.ID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "flag_key", "environment", "title", "description", "author_user_id", "author_email", "author_name", "proposed_config", "status", "reviewer_user_id", "reviewer_email", "reviewer_name", "review_comments", "created_at", "reviewed_at", "applied_at"}).
-			AddRow(cr.ID, cr.FlagKey, string(cr.Environment), cr.Title, "", cr.AuthorUserID, "author@test.com", "Author", []byte(`{"enabled":true,"percentage":100}`), string(domain.ChangeRequestStatusApproved), "u_reviewer_01", "reviewer@test.com", "Reviewer", "LGTM", cr.CreatedAt, time.Now(), nil))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "flag_key", "environment", "title", "description", "author_user_id", "author_email", "author_name", "proposed_config", "status", "reviewer_user_id", "reviewer_email", "reviewer_name", "review_comments", "created_at", "reviewed_at", "applied_at"}).
+			AddRow(cr.ID, "proj_default", cr.FlagKey, string(cr.Environment), cr.Title, "", cr.AuthorUserID, "author@test.com", "Author", []byte(`{"enabled":true,"percentage":100}`), string(domain.ChangeRequestStatusApproved), "u_reviewer_01", "reviewer@test.com", "Reviewer", "LGTM", cr.CreatedAt, time.Now(), nil))
 
 	mock.ExpectQuery(`SELECT id, project_id, config_version, key, name, description, type, tags, environments, created_at, updated_at FROM feature_flags WHERE project_id = \$1 AND \(key = \$2 OR id = \$2\) LIMIT 1`).
 		WithArgs(DefaultProjectID, cr.FlagKey).

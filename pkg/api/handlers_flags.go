@@ -109,12 +109,16 @@ func (s *Server) resolveAndAuthorizeProjectID(r *http.Request) (string, error) {
 
 	// Candidate project from request
 	targetID := ""
+	fromExplicit := false
 	if p := r.Header.Get(domain.HeaderProjectID); p != "" {
 		targetID = p
+		fromExplicit = true
 	} else if p := r.URL.Query().Get("project_id"); p != "" {
 		targetID = p
+		fromExplicit = true
 	} else if p := r.URL.Query().Get("projectId"); p != "" {
 		targetID = p
+		fromExplicit = true
 	} else if c, err := r.Cookie(domain.CookieProjectName); err == nil && c.Value != "" {
 		targetID = c.Value
 	}
@@ -141,9 +145,14 @@ func (s *Server) resolveAndAuthorizeProjectID(r *http.Request) (string, error) {
 	if user != nil {
 		if targetID != "" {
 			if err := s.authorizeProjectAccess(r, targetID); err != nil {
-				return "", err
+				if fromExplicit {
+					return "", err
+				}
+				// Stale/mismatched cookie project ID; clear candidate and auto-resolve user's authorized project
+				targetID = ""
+			} else {
+				return targetID, nil
 			}
-			return targetID, nil
 		}
 
 		// Platform Admin has access to all projects

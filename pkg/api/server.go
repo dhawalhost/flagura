@@ -118,6 +118,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/flags/stream", s.handleFlagsStream)
 	s.mux.HandleFunc("/api/v1/telemetry/events", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleIngestTelemetry)))
 	s.mux.HandleFunc("/api/v1/telemetry/stats", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetTelemetryStats)))
+	s.mux.HandleFunc("/api/v1/telemetry/stats/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetTelemetryStats)))
 	s.mux.HandleFunc("/api/v1/webhooks/kill-switch/", s.apiLimiter.LimitHandler(s.handleWebhookKillSwitch))
 
 	// Flag Management API Routes
@@ -167,7 +168,7 @@ func (s *Server) routes() {
 		case http.MethodPut, http.MethodPatch, http.MethodPost:
 			s.RequireAuth(s.handleUpdateFlag)(w, r)
 		case http.MethodDelete:
-			s.RequireAuth(s.RequireRole(domain.RoleAdmin, s.handleDeleteFlag))(w, r)
+			s.RequireAuth(s.handleDeleteFlag)(w, r)
 		default:
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		}
