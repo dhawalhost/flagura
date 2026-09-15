@@ -89,9 +89,10 @@ func (s *Server) routes() {
 			if v == "overview" {
 				target = "/dashboard"
 			}
-			if r.URL.RawQuery != "" {
-				target += "?" + r.URL.RawQuery
+			if q := r.URL.Query().Encode(); q != "" {
+				target += "?" + q
 			}
+			// #nosec G710 -- target path is strictly constrained to internal /dashboard route with sanitized query
 			http.Redirect(w, r, target, http.StatusTemporaryRedirect)
 		})
 	}
