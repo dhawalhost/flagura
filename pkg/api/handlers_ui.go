@@ -58,6 +58,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	// Verify authenticated session
 	user, err := s.getUserFromRequest(r)
 	if err != nil || user == nil {
+		s.clearSessionCookie(w, r)
 		http.Redirect(w, r, "/auth", http.StatusSeeOther)
 		return
 	}
@@ -104,6 +105,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 	// Always sync the active project cookie so client-side API requests match the rendered project scope
 	s.setProjectCookie(w, r, projectID, time.Now().Add(7*24*time.Hour))
+	s.enrichUserOrgMembership(r.Context(), user, projectID)
 
 	flags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil {

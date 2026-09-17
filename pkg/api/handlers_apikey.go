@@ -75,8 +75,17 @@ func (s *Server) handleListOrCreateAPIKeys(w http.ResponseWriter, r *http.Reques
 		if role == "" {
 			role = domain.RoleDeveloper
 		}
-		// If requesting admin role, ensure caller is admin
-		if role == domain.RoleAdmin && (user == nil || user.Role != domain.RoleAdmin) {
+
+		// Resolve effective org-scoped role for privilege gates.
+		// In Flagura's SaaS model: org owners and org admins have elevated
+		// privileges within their own workspace. Global users.role == "admin"
+		// is reserved for Flagura platform staff only.
+		projectID := s.resolveProjectID(r)
+		s.enrichUserOrgMembership(r.Context(), user, projectID)
+		privileged := user.IsPrivileged()
+
+		// Org owners and admins may create admin-role API keys within their workspace.
+		if role == domain.RoleAdmin && !privileged {
 			role = domain.RoleDeveloper
 		}
 
@@ -84,9 +93,9 @@ func (s *Server) handleListOrCreateAPIKeys(w http.ResponseWriter, r *http.Reques
 		if env == "" {
 			env = string(domain.EnvProduction)
 		}
-		// Only admins can create 'all' environment tokens
+		// Only org owners/admins can create 'all' environment tokens.
 		if env == string(domain.EnvAll) || env == "*" {
-			if user == nil || user.Role != domain.RoleAdmin {
+			if !privileged {
 				env = string(domain.EnvProduction)
 			}
 		} else if env != string(domain.EnvProduction) && env != string(domain.EnvStaging) && env != string(domain.EnvDevelopment) {
@@ -100,8 +109,9 @@ func (s *Server) handleListOrCreateAPIKeys(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		projectID, err := s.resolveAndAuthorizeProjectID(r)
-		if err != nil {
+		// projectID was already resolved above for the privilege check;
+		// run a full authorization check to confirm access.
+		if err := s.authorizeProjectAccess(r, projectID); err != nil {
 			s.writeError(w, r, err)
 			return
 		}

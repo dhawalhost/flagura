@@ -207,13 +207,13 @@ func (s *Server) handleReviewChangeRequest(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// 4-Eyes Governance: Verify reviewer is an authorized reviewer (Admin, Org Owner/Admin, or in FLAGURA_GOVERNANCE_EMAILS)
-	isAuthorizedReviewer := false
-	if user.Role == domain.RoleAdmin {
-		isAuthorizedReviewer = true
-	}
+	// 4-Eyes Governance: Verify reviewer is an authorized reviewer.
+	// Authorized reviewers are: org owners, org admins,
+	// Flagura platform admins, or designated governance email list members.
+	s.enrichUserOrgMembership(r.Context(), user, cr.ProjectID)
+	isAuthorizedReviewer := user.IsPrivileged()
 
-	// Check governance emails list
+	// Also honor the FLAGURA_GOVERNANCE_EMAILS allowlist (for external reviewers).
 	if !isAuthorizedReviewer && s.mailer != nil {
 		for _, govEmail := range s.mailer.GetGovernanceEmails() {
 			if strings.EqualFold(user.Email, govEmail) {
@@ -228,20 +228,6 @@ func (s *Server) handleReviewChangeRequest(w http.ResponseWriter, r *http.Reques
 				if strings.EqualFold(strings.TrimSpace(user.Email), strings.TrimSpace(govEmail)) {
 					isAuthorizedReviewer = true
 					break
-				}
-			}
-		}
-	}
-
-	// Check Org Member role (owner or admin)
-	if !isAuthorizedReviewer {
-		if proj, err := s.store.GetProject(r.Context(), cr.ProjectID); err == nil {
-			if members, err := s.store.ListOrgMembers(r.Context(), proj.OrganizationID); err == nil {
-				for _, m := range members {
-					if m.UserID == user.ID && (m.Role == "owner" || m.Role == "admin") {
-						isAuthorizedReviewer = true
-						break
-					}
 				}
 			}
 		}

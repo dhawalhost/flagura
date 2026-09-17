@@ -754,6 +754,14 @@ func TestMemoryStore_OrgMembersAndInvitations(t *testing.T) {
 		t.Fatalf("ListUserOrganizations failed: %v", err)
 	}
 
+	gotMember, err := memStore.GetOrgMember(ctx, org.ID, "usr_owner")
+	if err != nil || gotMember == nil || gotMember.Role != "owner" {
+		t.Fatalf("GetOrgMember failed: %v, got: %+v", err, gotMember)
+	}
+	if _, err := memStore.GetOrgMember(ctx, org.ID, "non_existent"); err == nil {
+		t.Fatalf("Expected GetOrgMember to fail for non_existent user, got nil")
+	}
+
 	// 3. Create Invitation
 	invite := domain.OrgInvitation{
 		OrganizationID: org.ID,

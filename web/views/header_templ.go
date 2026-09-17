@@ -9,8 +9,8 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"fmt"
 	"github.com/dhawalhost/flagura/pkg/domain"
+	"strings"
 )
 
 func HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string) templ.Component {
@@ -122,32 +122,77 @@ func HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string)
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div><div class=\"inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-mono uppercase bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if user != nil {
-			var templ_7745c5c3_Var6 string
-			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("Role: %s", user.Role))
+		var templ_7745c5c3_Var6 = []any{"inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-mono uppercase font-bold " + orgRoleClass(user)}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var6...)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div class=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var7 string
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var6).String())
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/header.templ`, Line: 1, Col: 0}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if user != nil && user.EffectiveRole() != "" {
+			var templ_7745c5c3_Var8 string
+			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs("Role: " + strings.ToUpper(user.EffectiveRole()[:1]) + strings.ToLower(user.EffectiveRole()[1:]))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/header.templ`, Line: 159, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/header.templ`, Line: 159, Col: 106}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "Role: Member")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "Role: Member")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div></div><button @click=\"openProfile()\" class=\"w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 flex items-center gap-2 cursor-pointer transition font-sans font-medium\"><i data-lucide=\"user-cog\" class=\"w-3.5 h-3.5 text-indigo-600\"></i> <span>Profile Settings</span></button> <a href=\"/\" class=\"w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-50 text-slate-700 flex items-center gap-2 cursor-pointer transition font-sans\"><i data-lucide=\"external-link\" class=\"w-3.5 h-3.5 text-slate-400\"></i> <span>Landing Page</span></a><div class=\"border-t border-slate-100 my-1\"></div><!-- Real Logout Button --><button @click=\"logout()\" class=\"w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-red-50 text-red-600 flex items-center gap-2 cursor-pointer transition font-semibold font-sans\"><i data-lucide=\"log-out\" class=\"w-3.5 h-3.5 text-red-600\"></i> <span>Sign Out</span></button></div></div><!-- Create Flag Button --><button @click=\"openNewFlagEditor()\" class=\"px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-sm hover:shadow flex items-center gap-1.5 cursor-pointer hover:scale-[1.02]\"><i data-lucide=\"plus\" class=\"w-3.5 h-3.5 text-white\"></i> <span class=\"hidden sm:inline\">New Flag</span></button></div></header>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</div></div><button @click=\"openProfile()\" class=\"w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 flex items-center gap-2 cursor-pointer transition font-sans font-medium\"><i data-lucide=\"user-cog\" class=\"w-3.5 h-3.5 text-indigo-600\"></i> <span>Profile Settings</span></button> <a href=\"/\" class=\"w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-50 text-slate-700 flex items-center gap-2 cursor-pointer transition font-sans\"><i data-lucide=\"external-link\" class=\"w-3.5 h-3.5 text-slate-400\"></i> <span>Landing Page</span></a><div class=\"border-t border-slate-100 my-1\"></div><!-- Real Logout Button --><button @click=\"logout()\" class=\"w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-red-50 text-red-600 flex items-center gap-2 cursor-pointer transition font-semibold font-sans\"><i data-lucide=\"log-out\" class=\"w-3.5 h-3.5 text-red-600\"></i> <span>Sign Out</span></button></div></div><!-- Create Flag Button --><button @click=\"openNewFlagEditor()\" class=\"px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-sm hover:shadow flex items-center gap-1.5 cursor-pointer hover:scale-[1.02]\"><i data-lucide=\"plus\" class=\"w-3.5 h-3.5 text-white\"></i> <span class=\"hidden sm:inline\">New Flag</span></button></div></header>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		return nil
 	})
+}
+
+// orgRoleClass returns Tailwind CSS classes for the role badge based on the
+// org-scoped role. Owner/Admin get a distinct color to signal elevated access.
+func orgRoleClass(user *domain.User) string {
+	if user == nil {
+		return "bg-slate-50 text-slate-600 border border-slate-200"
+	}
+	switch user.EffectiveRole() {
+	case "owner":
+		return "bg-purple-50 text-purple-700 border border-purple-200"
+	case "admin":
+		if user.Role == domain.RoleAdmin && user.ActiveMembership == nil {
+			return "bg-rose-50 text-rose-700 border border-rose-200"
+		}
+		return "bg-indigo-50 text-indigo-700 border border-indigo-200"
+	case "developer":
+		return "bg-sky-50 text-sky-700 border border-sky-200"
+	case "viewer":
+		return "bg-slate-50 text-slate-600 border border-slate-200"
+	default:
+		return "bg-slate-50 text-slate-600 border border-slate-200"
+	}
 }
 
 var _ = templruntime.GeneratedTemplate

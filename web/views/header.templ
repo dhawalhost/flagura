@@ -2,7 +2,7 @@ package views
 
 import (
 	"github.com/dhawalhost/flagura/pkg/domain"
-	"fmt"
+	"strings"
 )
 
 templ HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string) {
@@ -154,9 +154,9 @@ templ HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string
 								user@flagura.dev
 							}
 						</div>
-						<div class="inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-mono uppercase bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold">
-							if user != nil {
-								{ fmt.Sprintf("Role: %s", user.Role) }
+						<div class={"inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-mono uppercase font-bold " + orgRoleClass(user)}>
+							if user != nil && user.EffectiveRole() != "" {
+								{ "Role: " + strings.ToUpper(user.EffectiveRole()[:1]) + strings.ToLower(user.EffectiveRole()[1:]) }
 							} else {
 								Role: Member
 							}
@@ -202,4 +202,27 @@ templ HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string
 			</button>
 		</div>
 	</header>
+}
+
+// orgRoleClass returns Tailwind CSS classes for the role badge based on the
+// org-scoped role. Owner/Admin get a distinct color to signal elevated access.
+func orgRoleClass(user *domain.User) string {
+	if user == nil {
+		return "bg-slate-50 text-slate-600 border border-slate-200"
+	}
+	switch user.EffectiveRole() {
+	case "owner":
+		return "bg-purple-50 text-purple-700 border border-purple-200"
+	case "admin":
+		if user.Role == domain.RoleAdmin && user.ActiveMembership == nil {
+			return "bg-rose-50 text-rose-700 border border-rose-200"
+		}
+		return "bg-indigo-50 text-indigo-700 border border-indigo-200"
+	case "developer":
+		return "bg-sky-50 text-sky-700 border border-sky-200"
+	case "viewer":
+		return "bg-slate-50 text-slate-600 border border-slate-200"
+	default:
+		return "bg-slate-50 text-slate-600 border border-slate-200"
+	}
 }

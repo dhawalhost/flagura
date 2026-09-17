@@ -244,8 +244,19 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	var token string
 	if cookie, err := r.Cookie(SessionCookieName); err == nil && cookie.Value != "" {
-		_ = s.store.DeleteSession(r.Context(), cookie.Value)
+		token = cookie.Value
+	}
+	if token == "" {
+		authHeader := r.Header.Get(domain.HeaderAuthorization)
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			token = strings.TrimPrefix(authHeader, "Bearer ")
+		}
+	}
+	token = strings.Trim(strings.TrimSpace(token), "\"")
+	if token != "" {
+		_ = s.store.DeleteSession(r.Context(), token)
 	}
 
 	s.clearSessionCookie(w, r)

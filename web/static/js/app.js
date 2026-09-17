@@ -589,6 +589,7 @@ document.addEventListener('alpine:init', () => {
 				const res = await fetch('/api/v1/projects/active', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
+					credentials: 'same-origin',
 					body: JSON.stringify({ project_id: projectID })
 				});
 				if (res.ok) {
@@ -651,6 +652,7 @@ document.addEventListener('alpine:init', () => {
 				const res = await fetch('/api/v1/flags/' + key + '/toggle', {
 					method: 'PATCH',
 					headers: { 'Content-Type': 'application/json' },
+					credentials: 'same-origin',
 					body: JSON.stringify({ environment: this.currentEnv, enabled: isEnabled, actor: this.currentUser ? this.currentUser.email : 'admin@flagura.dev' })
 				});
 				if (res.ok) {
@@ -664,6 +666,7 @@ document.addEventListener('alpine:init', () => {
 			fetch('/api/v1/flags/' + key + '/rollout', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
+				credentials: 'same-origin',
 				body: JSON.stringify({ environment: this.currentEnv, percentage: Number(pct), actor: this.currentUser ? this.currentUser.email : 'admin@flagura.dev' })
 			}).then(() => {
 				this.showToast('Rollout for ' + key + ' set to ' + pct + '%');
@@ -672,7 +675,10 @@ document.addEventListener('alpine:init', () => {
 		async deleteFlagRow(key) {
 			if (confirm('Permanently remove feature flag ' + key + '?')) {
 				try {
-					const res = await fetch('/api/v1/flags/' + key, { method: 'DELETE' });
+					const res = await fetch('/api/v1/flags/' + key, {
+						method: 'DELETE',
+						credentials: 'same-origin'
+					});
 					if (res.ok) {
 						const row = document.getElementById('flag-row-' + key);
 						if (row) row.remove();
@@ -696,7 +702,10 @@ document.addEventListener('alpine:init', () => {
 		},
 		async logout() {
 			try {
-				await fetch('/api/v1/auth/logout', { method: 'POST' });
+				await fetch('/api/v1/auth/logout', {
+					method: 'POST',
+					credentials: 'same-origin'
+				});
 				this.showToast('Logged out');
 				setTimeout(() => {
 					window.location.href = '/auth';
@@ -796,7 +805,10 @@ document.addEventListener('alpine:init', () => {
 		async bulkDelete() {
 			if (confirm('Permanently delete ' + this.selectedFlags.length + ' selected flags?')) {
 				for (const key of this.selectedFlags) {
-					await fetch('/api/v1/flags/' + key, { method: 'DELETE' });
+					await fetch('/api/v1/flags/' + key, {
+						method: 'DELETE',
+						credentials: 'same-origin'
+					});
 				}
 				this.showToast('Deleted ' + this.selectedFlags.length + ' flags');
 				setTimeout(() => window.location.reload(), 500);
@@ -1181,7 +1193,9 @@ document.addEventListener('alpine:init', () => {
 		},
 		async fetchAPIKeys() {
 			try {
-				const res = await fetch('/api/v1/api-keys');
+				const res = await fetch('/api/v1/api-keys', {
+					credentials: 'same-origin'
+				});
 				if (res.ok) {
 					const data = await res.json();
 					this.apiKeys = data.api_keys || [];
@@ -1196,6 +1210,7 @@ document.addEventListener('alpine:init', () => {
 				const res = await fetch('/api/v1/api-keys', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
+					credentials: 'same-origin',
 					body: JSON.stringify(this.keyForm)
 				});
 				if (res.ok) {
@@ -1215,7 +1230,10 @@ document.addEventListener('alpine:init', () => {
 		async revokeAPIKey(id) {
 			if (!confirm('Are you sure you want to revoke this API key? This action is immediate and cannot be undone.')) return;
 			try {
-				const res = await fetch('/api/v1/api-keys/' + id, { method: 'DELETE' });
+				const res = await fetch('/api/v1/api-keys/' + id, {
+					method: 'DELETE',
+					credentials: 'same-origin'
+				});
 				if (res.ok) {
 					this.fetchAPIKeys();
 				}
@@ -1362,7 +1380,10 @@ document.addEventListener('alpine:init', () => {
 		async promoteEnvironment(from, to) {
 			if (!confirm(`Are you sure you want to promote ${from} rules directly to ${to}? This will overwrite ${to} configuration.`)) return;
 			try {
-				const res = await fetch(`/api/v1/flags/${this.form.key}/promote?from=${from}&to=${to}`, { method: 'POST' });
+				const res = await fetch(`/api/v1/flags/${this.form.key}/promote?from=${from}&to=${to}`, {
+					method: 'POST',
+					credentials: 'same-origin'
+				});
 				if (res.ok) {
 					this.showToast(`Successfully promoted ${this.form.key} from ${from} to ${to}!`);
 					setTimeout(() => window.location.reload(), 700);
@@ -1402,6 +1423,7 @@ document.addEventListener('alpine:init', () => {
 				const res = await fetch('/api/v1/flags', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
+					credentials: 'same-origin',
 					body: JSON.stringify(payload)
 				});
 				if (res.ok) {
@@ -1986,7 +2008,10 @@ document.addEventListener('alpine:init', () => {
 		async deleteFlag(key) {
 			if (!confirm(`Permanently delete feature flag '${key}' from database?`)) return;
 			try {
-				const res = await fetch('/api/v1/flags/' + key, { method: 'DELETE' });
+				const res = await fetch('/api/v1/flags/' + key, {
+					method: 'DELETE',
+					credentials: 'same-origin'
+				});
 				if (res.ok) {
 					this.closeModal();
 					window.location.reload();
@@ -2055,7 +2080,9 @@ document.addEventListener('alpine:init', () => {
 			},
 			async fetchProfile() {
 				try {
-					const res = await fetch('/api/v1/auth/me');
+					const res = await fetch('/api/v1/auth/me', {
+						credentials: 'same-origin'
+					});
 					if (res.ok) {
 						const data = await res.json();
 						this.profile = data;
@@ -2077,6 +2104,7 @@ document.addEventListener('alpine:init', () => {
 					const res = await fetch('/api/v1/auth/profile', {
 						method: 'PATCH',
 						headers: { 'Content-Type': 'application/json' },
+						credentials: 'same-origin',
 						body: JSON.stringify({
 							name: this.form.name.trim(),
 							avatarUrl: this.form.avatarUrl.trim()
@@ -2106,6 +2134,7 @@ document.addEventListener('alpine:init', () => {
 					const res = await fetch('/api/v1/auth/change-password', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
+						credentials: 'same-origin',
 						body: JSON.stringify({
 							currentPassword: this.passwordForm.currentPassword,
 							newPassword: this.passwordForm.newPassword

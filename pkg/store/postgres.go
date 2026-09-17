@@ -1673,6 +1673,22 @@ func (s *PostgresStore) CreateOrgMember(ctx context.Context, member domain.OrgMe
 	return &member, nil
 }
 
+func (s *PostgresStore) GetOrgMember(ctx context.Context, organizationID, userID string) (*domain.OrgMember, error) {
+	var m domain.OrgMember
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, organization_id, user_id, role, created_at
+		FROM org_members
+		WHERE organization_id = $1 AND user_id = $2
+	`, organizationID, userID).Scan(&m.ID, &m.OrganizationID, &m.UserID, &m.Role, &m.CreatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	return &m, nil
+}
+
 func (s *PostgresStore) ListOrgMembers(ctx context.Context, organizationID string) ([]domain.OrgMember, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, organization_id, user_id, role, created_at

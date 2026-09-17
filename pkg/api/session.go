@@ -24,27 +24,63 @@ func generateSessionToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
+func isRequestHTTPS(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	if r.TLS != nil {
+		return true
+	}
+	// Check X-Forwarded-Proto (standard reverse proxy header)
+	proto := r.Header.Get("X-Forwarded-Proto")
+	if proto != "" {
+		// In multi-hop setups, take the first hop (the client-to-proxy connection)
+		parts := strings.Split(proto, ",")
+		if strings.EqualFold(strings.TrimSpace(parts[0]), "https") {
+			return true
+		}
+	}
+	// Cloudflare, AWS ALB, Nginx, Front-End headers
+	if strings.EqualFold(r.Header.Get("X-Forwarded-Ssl"), "on") ||
+		strings.EqualFold(r.Header.Get("Front-End-Https"), "on") ||
+		strings.EqualFold(r.Header.Get("X-Url-Scheme"), "https") ||
+		strings.Contains(r.Header.Get("CF-Visitor"), `"https"`) {
+		return true
+	}
+	return false
+}
+
 func isCookieSecure(r *http.Request) bool {
 	if strings.EqualFold(os.Getenv("ALLOW_INSECURE_COOKIES"), "true") || strings.EqualFold(os.Getenv("SECURE_COOKIE"), "false") {
 		return false
 	}
-	if r != nil {
-		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
-			return true
-		}
-		if strings.EqualFold(os.Getenv("FLAGURA_ENV"), "development") || strings.EqualFold(os.Getenv("ENV"), "development") {
-			return false
-		}
-		host := r.Host
-		if strings.HasPrefix(host, "localhost") || strings.HasPrefix(host, "127.0.0.1") {
-			return false
-		}
+	if strings.EqualFold(os.Getenv("SECURE_COOKIE"), "true") {
+		return true
 	}
-	return true
+	if r == nil {
+		return true
+	}
+	if isRequestHTTPS(r) {
+		return true
+	}
+	if strings.EqualFold(os.Getenv("FLAGURA_ENV"), "development") || strings.EqualFold(os.Getenv("ENV"), "development") {
+		return false
+	}
+	host := r.Host
+	if strings.HasPrefix(host, "localhost") || strings.HasPrefix(host, "127.0.0.1") || strings.HasPrefix(host, "[::1]") {
+		return false
+	}
+	// Fallback: If connection is not HTTPS, setting Secure=true causes modern browsers
+	// to drop the cookie completely (RFC 6265bis). Only return true if request is HTTPS.
+	return isRequestHTTPS(r)
 }
 
 func (s *Server) setProjectCookie(w http.ResponseWriter, r *http.Request, projectID string, expiresAt time.Time) {
 	isSecure := isCookieSecure(r)
+	maxAge := int(time.Until(expiresAt).Seconds())
+	if maxAge < 0 {
+		maxAge = 0
+	}
 
 	// #nosec G124 -- active project selection cookie configured with SameSite and dynamic TLS
 	http.SetCookie(w, &http.Cookie{
@@ -52,6 +88,7 @@ func (s *Server) setProjectCookie(w http.ResponseWriter, r *http.Request, projec
 		Value:    projectID,
 		Path:     "/",
 		Expires:  expiresAt,
+		MaxAge:   maxAge,
 		HttpOnly: false,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   isSecure,
@@ -76,6 +113,10 @@ func (s *Server) clearProjectCookie(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) setSessionCookie(w http.ResponseWriter, r *http.Request, token string, expiresAt time.Time) {
 	isSecure := isCookieSecure(r)
+	maxAge := int(time.Until(expiresAt).Seconds())
+	if maxAge < 0 {
+		maxAge = 0
+	}
 
 	// #nosec G124 -- dynamic secure flag based on TLS and environment
 	http.SetCookie(w, &http.Cookie{
@@ -83,6 +124,7 @@ func (s *Server) setSessionCookie(w http.ResponseWriter, r *http.Request, token 
 		Value:    token,
 		Path:     "/",
 		Expires:  expiresAt,
+		MaxAge:   maxAge,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   isSecure,
@@ -125,6 +167,9 @@ func (s *Server) getUserFromRequest(r *http.Request) (*domain.User, error) {
 	if token == "" {
 		token = r.Header.Get(domain.HeaderAPIKey)
 	}
+
+	// Clean token: strip whitespace and possible surrounding quotes
+	token = strings.Trim(strings.TrimSpace(token), "\"")
 
 	if token == "" {
 		return nil, domain.ErrUnauthorized

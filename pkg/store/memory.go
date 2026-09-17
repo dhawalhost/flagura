@@ -1322,6 +1322,18 @@ func (s *MemoryStore) CreateOrgMember(ctx context.Context, member domain.OrgMemb
 	return &member, nil
 }
 
+func (s *MemoryStore) GetOrgMember(ctx context.Context, organizationID, userID string) (*domain.OrgMember, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	key := organizationID + ":" + userID
+	if m, ok := s.orgMembers[key]; ok {
+		cp := m
+		return &cp, nil
+	}
+	return nil, domain.ErrNotFound
+}
+
 func (s *MemoryStore) ListOrgMembers(ctx context.Context, organizationID string) ([]domain.OrgMember, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

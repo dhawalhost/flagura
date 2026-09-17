@@ -1202,6 +1202,24 @@ func (s *SQLiteStore) CreateOrgMember(ctx context.Context, member domain.OrgMemb
 	return &member, nil
 }
 
+func (s *SQLiteStore) GetOrgMember(ctx context.Context, organizationID, userID string) (*domain.OrgMember, error) {
+	var m domain.OrgMember
+	var createdStr string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, organization_id, user_id, role, created_at
+		FROM org_members
+		WHERE organization_id = ? AND user_id = ?
+	`, organizationID, userID).Scan(&m.ID, &m.OrganizationID, &m.UserID, &m.Role, &createdStr)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	m.CreatedAt, _ = time.Parse(time.RFC3339, createdStr)
+	return &m, nil
+}
+
 func (s *SQLiteStore) ListOrgMembers(ctx context.Context, organizationID string) ([]domain.OrgMember, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, organization_id, user_id, role, created_at

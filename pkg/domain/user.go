@@ -5,15 +5,44 @@ import (
 )
 
 type User struct {
-	ID           string    `json:"id"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"`
-	Name         string    `json:"name"`
-	Role         UserRole  `json:"role"`
-	AvatarURL    string    `json:"avatarUrl,omitempty"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	ID               string      `json:"id"`
+	Email            string      `json:"email"`
+	PasswordHash     string      `json:"-"`
+	Name             string      `json:"name"`
+	Role             UserRole    `json:"role"`
+	AvatarURL        string      `json:"avatarUrl,omitempty"`
+	CreatedAt        time.Time   `json:"createdAt"`
+	UpdatedAt        time.Time   `json:"updatedAt"`
+	ActiveMembership *OrgMember  `json:"activeMembership,omitempty"`
 }
+
+// EffectiveRole returns the caller's role in the active organization scope.
+// If the user has global platform admin status (Flagura staff), it returns "admin".
+// Otherwise it returns the role from ActiveMembership (e.g. "owner", "admin", "developer", "viewer").
+// If no active membership is set, it falls back to the user's base role.
+func (u *User) EffectiveRole() string {
+	if u == nil {
+		return ""
+	}
+	if u.Role == RoleAdmin {
+		return "admin"
+	}
+	if u.ActiveMembership != nil && u.ActiveMembership.Role != "" {
+		return u.ActiveMembership.Role
+	}
+	return string(u.Role)
+}
+
+// IsPrivileged returns true if the user has management-level privileges
+// ("owner" or "admin") in the active organization scope.
+func (u *User) IsPrivileged() bool {
+	if u == nil {
+		return false
+	}
+	role := u.EffectiveRole()
+	return role == "owner" || role == "admin"
+}
+
 
 type Session struct {
 	Token     string    `json:"token"`

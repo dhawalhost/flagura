@@ -24,6 +24,7 @@ type Store interface {
 	ListUserOrganizations(ctx context.Context, userID string) ([]domain.Organization, error)
 
 	CreateOrgMember(ctx context.Context, member domain.OrgMember) (*domain.OrgMember, error)
+	GetOrgMember(ctx context.Context, organizationID, userID string) (*domain.OrgMember, error)
 	ListOrgMembers(ctx context.Context, organizationID string) ([]domain.OrgMember, error)
 
 	CreateOrgInvitation(ctx context.Context, inv domain.OrgInvitation) (*domain.OrgInvitation, error)

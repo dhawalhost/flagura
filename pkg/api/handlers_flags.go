@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -102,6 +103,29 @@ func (s *Server) authorizeProjectAccess(r *http.Request, projectID string) error
 	)
 }
 
+// enrichUserOrgMembership populates user.ActiveMembership for the given projectID.
+// Platform superadmins (Flagura staff) receive an active membership role of "admin".
+func (s *Server) enrichUserOrgMembership(ctx context.Context, user *domain.User, projectID string) {
+	if user == nil || projectID == "" {
+		return
+	}
+	if user.Role == domain.RoleAdmin {
+		user.ActiveMembership = &domain.OrgMember{
+			UserID: user.ID,
+			Role:   "admin",
+		}
+		return
+	}
+	proj, err := s.store.GetProject(ctx, projectID)
+	if err != nil || proj == nil {
+		return
+	}
+	member, err := s.store.GetOrgMember(ctx, proj.OrganizationID, user.ID)
+	if err == nil && member != nil {
+		user.ActiveMembership = member
+	}
+}
+
 // resolveAndAuthorizeProjectID resolves the project ID for the request and validates
 // that the authenticated caller (API key or User session) is strictly authorized to access it.
 func (s *Server) resolveAndAuthorizeProjectID(r *http.Request) (string, error) {
@@ -151,24 +175,28 @@ func (s *Server) resolveAndAuthorizeProjectID(r *http.Request) (string, error) {
 				// Stale/mismatched cookie project ID; clear candidate and auto-resolve user's authorized project
 				targetID = ""
 			} else {
+				s.enrichUserOrgMembership(ctx, user, targetID)
 				return targetID, nil
 			}
 		}
 
 		// Platform Admin has access to all projects
 		if user.Role == domain.RoleAdmin {
-			// If DefaultProjectID exists, use it as the default project when none specified
-			if _, err := s.store.GetProject(ctx, domain.DefaultProjectID); err == nil {
-				return domain.DefaultProjectID, nil
-			}
-			// Admin without targetID: first project from user's member orgs
+			// Prioritize projects from user's member orgs if they have any
 			if orgs, err := s.store.ListUserOrganizations(ctx, user.ID); err == nil && len(orgs) > 0 {
 				for _, org := range orgs {
 					if projs, err := s.store.ListProjects(ctx, org.ID); err == nil && len(projs) > 0 {
+						s.enrichUserOrgMembership(ctx, user, projs[0].ID)
 						return projs[0].ID, nil
 					}
 				}
 			}
+			// If DefaultProjectID exists, use it as the fallback
+			if _, err := s.store.GetProject(ctx, domain.DefaultProjectID); err == nil {
+				s.enrichUserOrgMembership(ctx, user, domain.DefaultProjectID)
+				return domain.DefaultProjectID, nil
+			}
+			s.enrichUserOrgMembership(ctx, user, domain.DefaultProjectID)
 			return domain.DefaultProjectID, nil
 		}
 
@@ -191,6 +219,7 @@ func (s *Server) resolveAndAuthorizeProjectID(r *http.Request) (string, error) {
 		}
 		for _, org := range userOrgs {
 			if projs, err := s.store.ListProjects(ctx, org.ID); err == nil && len(projs) > 0 {
+				s.enrichUserOrgMembership(ctx, user, projs[0].ID)
 				return projs[0].ID, nil
 			}
 		}

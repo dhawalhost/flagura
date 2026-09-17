@@ -314,3 +314,36 @@ func (s *Server) RequireRole(role domain.UserRole, next http.HandlerFunc) http.H
 		next(w, r)
 	}
 }
+
+// resolveEffectiveOrgRole returns the caller's org_members.role for the organization
+// that owns the given project. Platform superadmins (users.role == "admin") always receive
+// "admin" regardless of org membership. Returns "" when the user is not a member of
+// the project's org (access denied).
+//
+// This is the authoritative source for all org-scoped privilege checks in Flagura's
+// multi-tenant SaaS model. Use isOrgPrivileged(role) to test for elevated access.
+func (s *Server) resolveEffectiveOrgRole(ctx context.Context, user *domain.User, projectID string) string {
+	if user == nil {
+		return ""
+	}
+	// Platform superadmin (Flagura staff) bypasses org membership checks entirely.
+	if user.Role == domain.RoleAdmin {
+		return "admin"
+	}
+	if user.ActiveMembership != nil && user.ActiveMembership.Role != "" {
+		return user.ActiveMembership.Role
+	}
+	s.enrichUserOrgMembership(ctx, user, projectID)
+	if user.ActiveMembership != nil {
+		return user.ActiveMembership.Role
+	}
+	return "" // user is not a member of this org
+}
+
+// isOrgPrivileged returns true when the given org-scoped role has management-level
+// permissions within a workspace (i.e., "owner" or "admin"). Use this to gate
+// actions such as creating admin-role API keys, approving change requests, or
+// generating cross-environment tokens.
+func isOrgPrivileged(role string) bool {
+	return role == "owner" || role == "admin"
+}
