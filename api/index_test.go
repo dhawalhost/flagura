@@ -74,12 +74,53 @@ func TestVercelHandlerRouting(t *testing.T) {
 	}
 }
 
-func TestInitServerWithDatabaseURLFallback(t *testing.T) {
-	_ = os.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/flagura_invalid?sslmode=disable")
-	defer os.Unsetenv("DATABASE_URL")
+func TestServerlessDatabaseConnectionUnavailable(t *testing.T) {
+	serverMu.Lock()
+	oldServer := server
+	server = nil
+	serverMu.Unlock()
+	defer func() {
+		serverMu.Lock()
+		server = oldServer
+		serverMu.Unlock()
+	}()
 
-	initServer()
-	if server == nil {
-		t.Fatalf("expected server initialized with fallback memory store")
+	t.Setenv("DATABASE_URL", "postgres://invalid:invalid@localhost:54321/db?sslmode=disable&connect_timeout=1")
+	t.Setenv("ALLOW_MEMORY_FALLBACK", "false")
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+
+	Handler(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected status 503 Service Unavailable when DB is down, got %d", rec.Code)
+	}
+	if rec.Header().Get("Retry-After") != "2" {
+		t.Errorf("expected Retry-After: 2 header, got %q", rec.Header().Get("Retry-After"))
+	}
+}
+
+func TestServerlessDatabaseConnectionFallbackAllowed(t *testing.T) {
+	serverMu.Lock()
+	oldServer := server
+	server = nil
+	serverMu.Unlock()
+	defer func() {
+		serverMu.Lock()
+		server = oldServer
+		serverMu.Unlock()
+	}()
+
+	t.Setenv("DATABASE_URL", "postgres://invalid:invalid@localhost:54321/db?sslmode=disable&connect_timeout=1")
+	t.Setenv("ALLOW_MEMORY_FALLBACK", "true")
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+
+	Handler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK when memory fallback allowed, got %d", rec.Code)
 	}
 }

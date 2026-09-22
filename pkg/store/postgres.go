@@ -44,12 +44,13 @@ func NewPostgresStore(databaseURL string) (*PostgresStore, error) {
 		return nil, fmt.Errorf("failed to open postgres connection: %w", err)
 	}
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
-	db.SetConnMaxLifetime(15 * time.Minute)
-	db.SetConnMaxIdleTime(5 * time.Minute)
+	// Serverless-hardened connection pool sizing to prevent pooler exhaustion
+	db.SetMaxOpenConns(4)
+	db.SetMaxIdleConns(2)
+	db.SetConnMaxLifetime(10 * time.Minute)
+	db.SetConnMaxIdleTime(1 * time.Minute)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
@@ -764,6 +765,13 @@ func (s *PostgresStore) GetSession(ctx context.Context, token string) (*domain.S
 	if sess.IsExpired() {
 		_ = s.DeleteSession(ctx, token)
 		return nil, fmt.Errorf("session expired")
+	}
+
+	// Sliding session window: if session has less than 48h remaining, extend expiration by 7 days
+	if time.Until(sess.ExpiresAt) < 48*time.Hour {
+		newExp := time.Now().UTC().Add(7 * 24 * time.Hour)
+		_, _ = s.db.ExecContext(ctx, `UPDATE sessions SET expires_at = $1 WHERE token = $2`, newExp, token)
+		sess.ExpiresAt = newExp
 	}
 
 	// Fetch user

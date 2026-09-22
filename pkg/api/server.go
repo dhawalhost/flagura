@@ -243,9 +243,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if allowedOrigin != "" {
 		if allowedOrigin == "*" {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
-		} else if origin == allowedOrigin {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		} else if origin != "" {
+			for _, ao := range strings.Split(allowedOrigin, ",") {
+				ao = strings.TrimSpace(ao)
+				if ao == origin {
+					w.Header().Set("Access-Control-Allow-Origin", origin)
+					w.Header().Set("Access-Control-Allow-Credentials", "true")
+					w.Header().Set("Vary", "Origin")
+					break
+				}
+			}
 		}
 	} else if origin != "" {
 		// By default only allow exact same-host origins or localhost/127.0.0.1 in development
@@ -253,6 +260,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if parsed.Host == r.Host || parsed.Hostname() == "localhost" || parsed.Hostname() == "127.0.0.1" {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Vary", "Origin")
 			}
 		}
 	}

@@ -795,6 +795,29 @@ document.addEventListener('alpine:init', () => {
 				this.selectedFlags = [];
 			}
 		},
+		async toggleFlagEnvStatus(key, env, isEnabled) {
+			if (window.FlaguraApp && typeof window.FlaguraApp.toggleFlagEnvStatus === 'function') {
+				return await window.FlaguraApp.toggleFlagEnvStatus(key, env, isEnabled);
+			}
+			try {
+				const res = await fetch('/api/v1/flags/' + key + '/toggle', {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					credentials: 'same-origin',
+					body: JSON.stringify({ environment: env, enabled: isEnabled })
+				});
+				return res.ok;
+			} catch(e) {
+				return false;
+			}
+		},
+		showToast(msg, type) {
+			if (window.FlaguraApp && typeof window.FlaguraApp.showToast === 'function') {
+				window.FlaguraApp.showToast(msg, type);
+			} else if (typeof showToast === 'function') {
+				showToast(msg, type);
+			}
+		},
 		async bulkToggleEnv(env, enabled) {
 			for (const key of this.selectedFlags) {
 				await this.toggleFlagEnvStatus(key, env, enabled);
@@ -1717,6 +1740,7 @@ document.addEventListener('alpine:init', () => {
 				const res = await fetch('/api/v1/auth/login', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
+					credentials: 'same-origin',
 					body: JSON.stringify({
 						email: this.loginForm.email,
 						password: this.loginForm.passphrase
@@ -1753,6 +1777,7 @@ document.addEventListener('alpine:init', () => {
 				const res = await fetch('/api/v1/auth/signup', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
+					credentials: 'same-origin',
 					body: JSON.stringify({
 						name: this.signUpForm.name,
 						email: this.signUpForm.email,
