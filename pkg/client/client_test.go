@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -389,4 +390,58 @@ func TestSDKAllOptionsAndBatchLocalEvaluation(t *testing.T) {
 	nopLog.Errorf("error %s", "msg")
 
 	_ = updateNotified
+}
+
+func TestConnectionStateTransitions(t *testing.T) {
+	c := New("http://localhost:18999",
+		WithFallbackPollInterval(1*time.Second),
+		WithDisabledTelemetry(),
+	)
+	defer c.Close()
+
+	if c.ConnectionState() != StateDisconnected {
+		t.Fatalf("expected initial state DISCONNECTED, got %s", c.ConnectionState())
+	}
+
+	var stateHistory []struct {
+		prev ConnectionState
+		next ConnectionState
+	}
+	var mu sync.Mutex
+
+	c.OnConnectionStateChange(func(prev, next ConnectionState) {
+		mu.Lock()
+		defer mu.Unlock()
+		stateHistory = append(stateHistory, struct {
+			prev ConnectionState
+			next ConnectionState
+		}{prev, next})
+	})
+
+	// Manually transition states
+	c.setConnectionState(StateConnecting)
+	c.setConnectionState(StateConnectedSSE)
+	c.setConnectionState(StateConnectedPolling)
+	c.setConnectionState(StateConnectedPolling) // Duplicate transition should be no-op
+
+	mu.Lock()
+	if len(stateHistory) != 3 {
+		t.Fatalf("expected 3 transitions, got %d", len(stateHistory))
+	}
+	if stateHistory[0].prev != StateDisconnected || stateHistory[0].next != StateConnecting {
+		t.Errorf("expected transition 0 DISCONNECTED->CONNECTING, got %v", stateHistory[0])
+	}
+	if stateHistory[1].prev != StateConnecting || stateHistory[1].next != StateConnectedSSE {
+		t.Errorf("expected transition 1 CONNECTING->CONNECTED_SSE, got %v", stateHistory[1])
+	}
+	if stateHistory[2].prev != StateConnectedSSE || stateHistory[2].next != StateConnectedPolling {
+		t.Errorf("expected transition 2 CONNECTED_SSE->CONNECTED_POLLING, got %v", stateHistory[2])
+	}
+	mu.Unlock()
+
+	// Verify Close transitions to DISCONNECTED
+	c.Close()
+	if c.ConnectionState() != StateDisconnected {
+		t.Errorf("expected DISCONNECTED after Close(), got %s", c.ConnectionState())
+	}
 }

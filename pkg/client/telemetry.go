@@ -7,7 +7,15 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
+)
+
+const (
+	// DefaultMaxBufferedFlags is the maximum distinct feature flags tracked in memory.
+	DefaultMaxBufferedFlags = 1000
+	// DefaultMaxVariantsPerFlag is the maximum distinct variants tracked per flag.
+	DefaultMaxVariantsPerFlag = 50
 )
 
 // FlagMetric tracks aggregated evaluation counts and variant distributions for a single flag.
@@ -18,17 +26,21 @@ type FlagMetric struct {
 
 // TelemetryPayload represents the batch telemetry payload flushed to the server.
 type TelemetryPayload struct {
-	Timestamp int64                 `json:"timestamp"`
-	Events    map[string]FlagMetric `json:"events"`
+	Timestamp     int64                 `json:"timestamp"`
+	Events        map[string]FlagMetric `json:"events"`
+	DroppedEvents uint64                `json:"dropped_events,omitempty"`
 }
 
 // TelemetryBuffer aggregates in-memory evaluations and periodically flushes them to Flagura.
 type TelemetryBuffer struct {
-	mu         sync.Mutex
-	endpoint   string
-	apiKey     string
-	httpClient *http.Client
-	metrics    map[string]*FlagMetric
+	mu            sync.Mutex
+	endpoint      string
+	apiKey        string
+	httpClient    *http.Client
+	metrics       map[string]*FlagMetric
+	maxFlags      int
+	maxVariants   int
+	droppedEvents uint64
 }
 
 // NewTelemetryBuffer creates a new TelemetryBuffer.
@@ -37,11 +49,36 @@ func NewTelemetryBuffer(endpoint string, apiKey string, httpClient *http.Client)
 		httpClient = &http.Client{Timeout: 5 * time.Second}
 	}
 	return &TelemetryBuffer{
-		endpoint:   endpoint,
-		apiKey:     apiKey,
-		httpClient: httpClient,
-		metrics:    make(map[string]*FlagMetric),
+		endpoint:    endpoint,
+		apiKey:      apiKey,
+		httpClient:  httpClient,
+		metrics:     make(map[string]*FlagMetric),
+		maxFlags:    DefaultMaxBufferedFlags,
+		maxVariants: DefaultMaxVariantsPerFlag,
 	}
+}
+
+// SetCapacityBounds allows configuring custom limits for in-memory flag and variant telemetry buffers.
+func (tb *TelemetryBuffer) SetCapacityBounds(maxFlags, maxVariants int) {
+	if tb == nil {
+		return
+	}
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
+	if maxFlags > 0 {
+		tb.maxFlags = maxFlags
+	}
+	if maxVariants > 0 {
+		tb.maxVariants = maxVariants
+	}
+}
+
+// DroppedEvents returns the count of dropped evaluation events due to buffer capacity bounds.
+func (tb *TelemetryBuffer) DroppedEvents() uint64 {
+	if tb == nil {
+		return 0
+	}
+	return atomic.LoadUint64(&tb.droppedEvents)
 }
 
 // Record atomically increments the evaluation count and variant counter for a given flag.
@@ -50,21 +87,33 @@ func (tb *TelemetryBuffer) Record(flagKey string, variant string) {
 		return
 	}
 
+	if variant == "" {
+		variant = "off"
+	}
+
 	tb.mu.Lock()
 	defer tb.mu.Unlock()
 
 	m, exists := tb.metrics[flagKey]
 	if !exists {
+		if len(tb.metrics) >= tb.maxFlags {
+			atomic.AddUint64(&tb.droppedEvents, 1)
+			return
+		}
 		m = &FlagMetric{
 			Variants: make(map[string]uint64),
 		}
 		tb.metrics[flagKey] = m
 	}
 
-	m.Evaluations++
-	if variant == "" {
-		variant = "off"
+	if _, vExists := m.Variants[variant]; !vExists {
+		if len(m.Variants) >= tb.maxVariants {
+			atomic.AddUint64(&tb.droppedEvents, 1)
+			return
+		}
 	}
+
+	m.Evaluations++
 	m.Variants[variant]++
 }
 
@@ -75,7 +124,8 @@ func (tb *TelemetryBuffer) Flush(ctx context.Context) error {
 	}
 
 	tb.mu.Lock()
-	if len(tb.metrics) == 0 {
+	dropped := atomic.SwapUint64(&tb.droppedEvents, 0)
+	if len(tb.metrics) == 0 && dropped == 0 {
 		tb.mu.Unlock()
 		return nil
 	}
@@ -96,8 +146,9 @@ func (tb *TelemetryBuffer) Flush(ctx context.Context) error {
 	tb.mu.Unlock()
 
 	payload := TelemetryPayload{
-		Timestamp: time.Now().UTC().UnixMilli(),
-		Events:    snapshot,
+		Timestamp:     time.Now().UTC().UnixMilli(),
+		Events:        snapshot,
+		DroppedEvents: dropped,
 	}
 
 	data, err := json.Marshal(payload)
@@ -118,11 +169,14 @@ func (tb *TelemetryBuffer) Flush(ctx context.Context) error {
 
 	resp, err := tb.httpClient.Do(req)
 	if err != nil {
+		// Restore dropped counter on network failure
+		atomic.AddUint64(&tb.droppedEvents, dropped)
 		return fmt.Errorf("telemetry flush failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
+		atomic.AddUint64(&tb.droppedEvents, dropped)
 		return fmt.Errorf("telemetry flush returned status %d", resp.StatusCode)
 	}
 

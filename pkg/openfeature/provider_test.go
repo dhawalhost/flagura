@@ -461,3 +461,50 @@ func TestDirectProviderEvaluations_AllBranches(t *testing.T) {
 		t.Errorf("expected ErrorReason on closed server, got %s", oErr.Reason)
 	}
 }
+
+func TestProviderConnectionStateEvents(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"flags": []domain.FeatureFlag{}})
+	}))
+	defer ts.Close()
+
+	c := client.New(ts.URL,
+		client.WithDisabledTelemetry(),
+		client.WithLocalEvaluation(10*time.Second),
+		client.WithStreaming(false), // Connected polling
+	)
+
+	provider := NewProvider(c)
+	ch := provider.EventChannel()
+
+	// 1. Check for ProviderReady event on connect
+	var gotReady bool
+	select {
+	case evt := <-ch:
+		if evt.EventType == of.ProviderReady {
+			gotReady = true
+		}
+	case <-time.After(1 * time.Second):
+	}
+
+	if !gotReady {
+		t.Errorf("expected ProviderReady event on connected state")
+	}
+
+	// 2. Disconnect client via Close()
+	c.Close()
+
+	var gotError bool
+	select {
+	case evt := <-ch:
+		if evt.EventType == of.ProviderError {
+			gotError = true
+		}
+	case <-time.After(1 * time.Second):
+	}
+
+	if !gotError {
+		t.Errorf("expected ProviderError event on client Close()/disconnect")
+	}
+}

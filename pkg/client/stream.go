@@ -3,13 +3,23 @@ package client
 import (
 	"bufio"
 	"context"
+	crand "crypto/rand"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dhawalhost/flagura/pkg/domain"
+)
+
+const (
+	// InitialStreamBufferSize is the initial scanner buffer size (64 KB).
+	InitialStreamBufferSize = 64 * 1024
+	// MaxStreamPayloadSize is the maximum token size for incoming SSE events (10 MB).
+	MaxStreamPayloadSize = 10 * 1024 * 1024
 )
 
 func (c *Client) updateFlags(flags []domain.FeatureFlag) {
@@ -39,10 +49,95 @@ func (c *Client) updateFlags(flags []domain.FeatureFlag) {
 	}
 }
 
-// startSSEStream maintains an active Server-Sent Events stream for instant flag updates.
+// computeJitteredBackoff computes exponential backoff with full jitter to avoid thundering herds.
+func computeJitteredBackoff(attempt int, base, max time.Duration) time.Duration {
+	if base <= 0 {
+		base = 500 * time.Millisecond
+	}
+	if max <= 0 {
+		max = 30 * time.Second
+	}
+	multiplier := 1 << attempt
+	if multiplier <= 0 || multiplier > 1024 {
+		multiplier = 1024
+	}
+	backoff := base * time.Duration(multiplier)
+	if backoff > max {
+		backoff = max
+	}
+
+	// Cryptographically secure jitter in [0, base)
+	var jitter time.Duration
+	if n, err := crand.Int(crand.Reader, big.NewInt(int64(base))); err == nil {
+		jitter = time.Duration(n.Int64())
+	}
+	total := backoff + jitter
+	if total > max {
+		return max
+	}
+	return total
+}
+
+// startSSEStream maintains an active Server-Sent Events stream for instant flag updates,
+// falling back to periodic HTTP polling if the SSE connection drops or is blocked.
 func (c *Client) startSSEStream() {
-	backoff := 500 * time.Millisecond
-	maxBackoff := 15 * time.Second
+	baseBackoff := 500 * time.Millisecond
+	maxBackoff := 30 * time.Second
+	attempt := 0
+
+	var fallbackCancel context.CancelFunc
+	var fallbackMu sync.Mutex
+
+	startFallback := func() {
+		fallbackMu.Lock()
+		defer fallbackMu.Unlock()
+		if fallbackCancel != nil {
+			return // already running
+		}
+		c.setConnectionState(StateConnectedPolling)
+		// #nosec G118 -- cancel function is stored in fallbackCancel and invoked via stopFallback()
+		ctx, cancel := context.WithCancel(context.Background())
+		fallbackCancel = cancel
+
+		interval := c.config.FallbackPollInterval
+		if interval <= 0 {
+			interval = 5 * time.Second
+		}
+
+		go func() {
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+
+			// Immediate initial poll on fallback
+			pollCtx, pCancel := context.WithTimeout(ctx, 5*time.Second)
+			_ = c.syncFlags(pollCtx)
+			pCancel()
+
+			for {
+				select {
+				case <-ticker.C:
+					pCtx, pCancel := context.WithTimeout(ctx, 5*time.Second)
+					_ = c.syncFlags(pCtx)
+					pCancel()
+				case <-ctx.Done():
+					return
+				case <-c.stopCh:
+					return
+				}
+			}
+		}()
+	}
+
+	stopFallback := func() {
+		fallbackMu.Lock()
+		defer fallbackMu.Unlock()
+		if fallbackCancel != nil {
+			fallbackCancel()
+			fallbackCancel = nil
+		}
+	}
+
+	defer stopFallback()
 
 	for {
 		select {
@@ -51,24 +146,30 @@ func (c *Client) startSSEStream() {
 		default:
 		}
 
-		err := c.listenSSEStream()
+		err := c.listenSSEStream(func() {
+			stopFallback()
+			c.setConnectionState(StateConnectedSSE)
+			attempt = 0
+		})
+
 		if err != nil {
+			startFallback()
+			backoffDuration := computeJitteredBackoff(attempt, baseBackoff, maxBackoff)
+			attempt++
+
 			select {
 			case <-c.stopCh:
 				return
-			case <-time.After(backoff):
-				backoff *= 2
-				if backoff > maxBackoff {
-					backoff = maxBackoff
-				}
+			case <-time.After(backoffDuration):
 			}
 		} else {
-			backoff = 500 * time.Millisecond
+			startFallback()
+			attempt = 0
 		}
 	}
 }
 
-func (c *Client) listenSSEStream() error {
+func (c *Client) listenSSEStream(onConnected func()) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -110,7 +211,20 @@ func (c *Client) listenSSEStream() error {
 		return fmt.Errorf("unexpected SSE response status: %d", resp.StatusCode)
 	}
 
+	var connectedOnce sync.Once
+	signalConnected := func() {
+		connectedOnce.Do(func() {
+			if onConnected != nil {
+				onConnected()
+			}
+		})
+	}
+	signalConnected()
+
 	scanner := bufio.NewScanner(resp.Body)
+	buf := make([]byte, InitialStreamBufferSize)
+	scanner.Buffer(buf, MaxStreamPayloadSize)
+
 	var currentEvent string
 	var currentData strings.Builder
 
@@ -129,6 +243,12 @@ func (c *Client) listenSSEStream() error {
 
 		if strings.HasPrefix(line, "data:") {
 			dataContent := strings.TrimPrefix(line, "data:")
+			if currentData.Len()+len(dataContent) > MaxStreamPayloadSize {
+				c.config.Logger.Warnf("flagura: stream event payload exceeded max size (%d bytes), discarding", currentData.Len())
+				currentEvent = ""
+				currentData.Reset()
+				continue
+			}
 			currentData.WriteString(strings.TrimSpace(dataContent))
 			continue
 		}

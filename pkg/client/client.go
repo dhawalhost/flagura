@@ -27,6 +27,16 @@ const (
 	EnvDevelopment = domain.EnvDevelopment
 )
 
+// ConnectionState represents the connectivity status between SDK client and Flagura control plane.
+type ConnectionState string
+
+const (
+	StateDisconnected     ConnectionState = "DISCONNECTED"
+	StateConnecting       ConnectionState = "CONNECTING"
+	StateConnectedSSE     ConnectionState = "CONNECTED_SSE"
+	StateConnectedPolling ConnectionState = "CONNECTED_POLLING"
+)
+
 // Context represents the user or request context for flag evaluation.
 type Context struct {
 	UserID      string                 `json:"user_id"`
@@ -108,6 +118,9 @@ type Config struct {
 
 	// DisableTelemetry disables client-side evaluation telemetry push
 	DisableTelemetry bool
+
+	// FallbackPollInterval is the polling cadence when SSE stream is disconnected (default: 5s)
+	FallbackPollInterval time.Duration
 
 	// ProjectID optionally binds the SDK client to a specific project scope (default: "proj_default")
 	ProjectID string
@@ -207,9 +220,21 @@ func WithDisabledTelemetry() Option {
 	}
 }
 
+// WithFallbackPollInterval configures the polling cadence during SSE stream disruptions.
+func WithFallbackPollInterval(d time.Duration) Option {
+	return func(c *Config) {
+		c.FallbackPollInterval = d
+	}
+}
+
 // Client is the Flagura evaluation SDK client.
 type Client struct {
 	config Config
+
+	// Connection state
+	connMu        sync.RWMutex
+	connState     ConnectionState
+	connListeners []func(prev, next ConnectionState)
 
 	// Local cache state
 	mu        sync.RWMutex
@@ -219,6 +244,37 @@ type Client struct {
 	closeOnce sync.Once
 	cb        *CircuitBreaker
 	telemetry *TelemetryBuffer
+}
+
+// ConnectionState returns the current connection state of the SDK client.
+func (c *Client) ConnectionState() ConnectionState {
+	c.connMu.RLock()
+	defer c.connMu.RUnlock()
+	return c.connState
+}
+
+// OnConnectionStateChange registers a callback invoked whenever the SDK's connection state transitions.
+func (c *Client) OnConnectionStateChange(fn func(prev, next ConnectionState)) {
+	c.connMu.Lock()
+	defer c.connMu.Unlock()
+	c.connListeners = append(c.connListeners, fn)
+}
+
+func (c *Client) setConnectionState(next ConnectionState) {
+	c.connMu.Lock()
+	prev := c.connState
+	if prev == next {
+		c.connMu.Unlock()
+		return
+	}
+	c.connState = next
+	listeners := make([]func(prev, next ConnectionState), len(c.connListeners))
+	copy(listeners, c.connListeners)
+	c.connMu.Unlock()
+
+	for _, fn := range listeners {
+		fn(prev, next)
+	}
 }
 
 // RegisterUpdateListener registers a callback invoked when feature flags are synchronized or updated.
@@ -237,6 +293,7 @@ func New(endpoint string, opts ...Option) *Client {
 			Timeout: 5 * time.Second,
 		},
 		SyncInterval:            30 * time.Second,
+		FallbackPollInterval:    5 * time.Second,
 		CircuitBreakerThreshold: 5,
 		CircuitBreakerCooldown:  10 * time.Second,
 		TelemetryFlushInterval:  60 * time.Second,
@@ -256,10 +313,11 @@ func New(endpoint string, opts ...Option) *Client {
 	}
 
 	c := &Client{
-		config: cfg,
-		flags:  make(map[string]domain.FeatureFlag),
-		stopCh: make(chan struct{}),
-		cb:     cb,
+		config:    cfg,
+		connState: StateDisconnected,
+		flags:     make(map[string]domain.FeatureFlag),
+		stopCh:    make(chan struct{}),
+		cb:        cb,
 	}
 
 	if !cfg.DisableTelemetry {
@@ -272,9 +330,12 @@ func New(endpoint string, opts ...Option) *Client {
 	}
 
 	if c.config.LocalEvaluation {
+		c.setConnectionState(StateConnecting)
 		// Attempt initial sync. If server unreachable, fallback to snapshot
 		if err := c.syncFlags(context.Background()); err != nil && c.config.SnapshotFile != "" {
 			_ = c.loadSnapshot()
+		} else if err == nil && c.config.DisableStreaming {
+			c.setConnectionState(StateConnectedPolling)
 		}
 		if !c.config.DisableStreaming {
 			go c.startSSEStream()
@@ -655,5 +716,6 @@ func (c *Client) Track(ctx context.Context, flagKey, variant, metricName string,
 func (c *Client) Close() {
 	c.closeOnce.Do(func() {
 		close(c.stopCh)
+		c.setConnectionState(StateDisconnected)
 	})
 }

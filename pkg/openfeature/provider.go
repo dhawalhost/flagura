@@ -33,6 +33,20 @@ func NewProvider(c *client.Client) *Provider {
 	}
 
 	if c != nil {
+		initialState := c.ConnectionState()
+		if initialState == client.StateConnectedSSE || initialState == client.StateConnectedPolling {
+			select {
+			case p.eventsChan <- of.Event{
+				ProviderName: "flagura-go-provider",
+				EventType:    of.ProviderReady,
+				ProviderEventDetails: of.ProviderEventDetails{
+					Message: fmt.Sprintf("Flagura provider connected (%s)", initialState),
+				},
+			}:
+			default:
+			}
+		}
+
 		c.RegisterUpdateListener(func(flags map[string]domain.FeatureFlag, changedKeys []string) {
 			select {
 			case p.eventsChan <- of.Event{
@@ -41,6 +55,32 @@ func NewProvider(c *client.Client) *Provider {
 				ProviderEventDetails: of.ProviderEventDetails{
 					Message:     "Flag configurations synchronized from Flagura control plane",
 					FlagChanges: changedKeys,
+				},
+			}:
+			default:
+			}
+		})
+
+		c.OnConnectionStateChange(func(prev, next client.ConnectionState) {
+			var eventType of.EventType
+			var msg string
+			switch next {
+			case client.StateConnectedSSE, client.StateConnectedPolling:
+				eventType = of.ProviderReady
+				msg = fmt.Sprintf("Flagura provider connected (%s)", next)
+			case client.StateDisconnected:
+				eventType = of.ProviderError
+				msg = "Flagura client disconnected from control plane"
+			default:
+				return
+			}
+
+			select {
+			case p.eventsChan <- of.Event{
+				ProviderName: "flagura-go-provider",
+				EventType:    eventType,
+				ProviderEventDetails: of.ProviderEventDetails{
+					Message: msg,
 				},
 			}:
 			default:
