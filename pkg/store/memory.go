@@ -60,6 +60,7 @@ type MemoryStore struct {
 	apiKeys             map[string]domain.APIKey // indexed by key ID
 	apiKeysByHash       map[string]string        // hash -> key ID
 	passwordResetTokens map[string]domain.PasswordResetToken
+	canarySchedules     map[string]domain.CanarySchedule // projectID:flagKey -> schedule
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -76,6 +77,7 @@ func NewMemoryStore() *MemoryStore {
 		apiKeys:             make(map[string]domain.APIKey),
 		apiKeysByHash:       make(map[string]string),
 		passwordResetTokens: make(map[string]domain.PasswordResetToken),
+		canarySchedules:     make(map[string]domain.CanarySchedule),
 	}
 
 	initialSnap := newFlagSnapshot([]domain.FeatureFlag{})
@@ -1493,4 +1495,81 @@ func (s *MemoryStore) ListOrgInvitations(ctx context.Context, organizationID str
 		}
 	}
 	return res, nil
+}
+
+// Progressive Canary Rollouts & Scheduling
+
+func (s *MemoryStore) SaveCanarySchedule(ctx context.Context, sched domain.CanarySchedule) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if sched.ProjectID == "" {
+		sched.ProjectID = DefaultProjectID
+	}
+	now := time.Now().UTC()
+	if sched.CreatedAt.IsZero() {
+		sched.CreatedAt = now
+	}
+	sched.UpdatedAt = now
+
+	key := sched.ProjectID + ":" + sched.FlagKey
+	s.canarySchedules[key] = sched
+	return nil
+}
+
+func (s *MemoryStore) GetCanarySchedule(ctx context.Context, projectID, flagKey string) (*domain.CanarySchedule, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+	key := projectID + ":" + flagKey
+	sched, ok := s.canarySchedules[key]
+	if !ok {
+		return nil, nil
+	}
+	copySched := sched
+	return &copySched, nil
+}
+
+func (s *MemoryStore) ListActiveCanarySchedules(ctx context.Context) ([]domain.CanarySchedule, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var result []domain.CanarySchedule
+	for _, sched := range s.canarySchedules {
+		if sched.Status == domain.CanaryStatusActive {
+			result = append(result, sched)
+		}
+	}
+	return result, nil
+}
+
+func (s *MemoryStore) ListCanarySchedulesByProject(ctx context.Context, projectID string) ([]domain.CanarySchedule, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+	var result []domain.CanarySchedule
+	for _, sched := range s.canarySchedules {
+		if sched.ProjectID == projectID {
+			result = append(result, sched)
+		}
+	}
+	return result, nil
+}
+
+func (s *MemoryStore) DeleteCanarySchedule(ctx context.Context, projectID, flagKey string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+	key := projectID + ":" + flagKey
+	delete(s.canarySchedules, key)
+	return nil
 }

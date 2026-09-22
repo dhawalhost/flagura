@@ -395,3 +395,97 @@ func TestCanaryScheduler_PersistenceFailures(t *testing.T) {
 		t.Fatalf("expected CurrentStageIdx to be 1, got %d", recoveredSched.CurrentStageIdx)
 	}
 }
+
+func TestCanaryScheduler_MultiReplicaConsistency(t *testing.T) {
+	ctx := context.Background()
+	sharedStore := store.NewMemoryStore()
+
+	// Seed flag in shared store
+	flagKey := "multi-replica-canary"
+	_, err := sharedStore.SaveFlag(ctx, domain.FeatureFlag{
+		Key:       flagKey,
+		ProjectID: "proj_cluster",
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {Enabled: true, Percentage: 0},
+		},
+	}, "test")
+	if err != nil {
+		t.Fatalf("SaveFlag failed: %v", err)
+	}
+
+	// Create two distinct scheduler replicas sharing the exact same store
+	replica1 := NewCanaryScheduler(sharedStore, nil)
+	defer replica1.Close()
+	replica2 := NewCanaryScheduler(sharedStore, nil)
+	defer replica2.Close()
+
+	now := time.Now().UTC()
+
+	// 1. Submit canary schedule on Replica 1
+	subSched, err := replica1.SubmitSchedule(ctx, domain.CanarySchedule{
+		ProjectID:   "proj_cluster",
+		FlagKey:     flagKey,
+		Environment: domain.EnvProduction,
+		Stages: []domain.CanaryStage{
+			{Index: 0, TargetPercentage: 10, DurationSec: 60, StartedAt: now.Add(-100 * time.Second)},
+			{Index: 1, TargetPercentage: 50, DurationSec: 60},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SubmitSchedule on replica 1 failed: %v", err)
+	}
+	if subSched.Status != domain.CanaryStatusActive {
+		t.Fatalf("expected ACTIVE status, got %s", subSched.Status)
+	}
+
+	// 2. Replica 2 should immediately be able to fetch the schedule from the shared store
+	r2Sched, ok := replica2.GetSchedule("proj_cluster", flagKey)
+	if !ok || r2Sched == nil {
+		t.Fatalf("replica 2 failed to read schedule submitted on replica 1")
+	}
+	if r2Sched.FlagKey != flagKey || r2Sched.CurrentStageIdx != 0 {
+		t.Fatalf("replica 2 read inconsistent schedule: %+v", r2Sched)
+	}
+
+	// 3. Replica 2 runs background evaluation loop; stage duration (60s) has elapsed at now + 70s, so it advances stage
+	evalTime := now.Add(70 * time.Second)
+	advanced := replica2.EvaluateSchedules(evalTime)
+	if advanced != 1 {
+		t.Fatalf("expected replica 2 to advance 1 schedule, got %d", advanced)
+	}
+
+	// 4. Replica 1 should now observe the advanced stage (index 1, 50%)
+	// Ensure store sync by calling EvaluateSchedules or reading from store
+	r1Sched, ok := replica1.GetSchedule("proj_cluster", flagKey)
+	if !ok || r1Sched == nil {
+		t.Fatalf("replica 1 failed to read schedule after replica 2 advanced it")
+	}
+	// Check underlying flag rollout in shared store
+	liveFlag, err := sharedStore.GetFlagByProject(ctx, "proj_cluster", flagKey)
+	if err != nil {
+		t.Fatalf("GetFlagByProject failed: %v", err)
+	}
+	if liveFlag.Environments[domain.EnvProduction].Percentage != 50.0 {
+		t.Fatalf("expected rollout to be 50%% after replica 2 advanced stage, got %.2f%%", liveFlag.Environments[domain.EnvProduction].Percentage)
+	}
+
+	// 5. Replica 1 triggers health rollback; verify both replicas and shared store reflect ROLLED_BACK
+	if err := replica1.TriggerHealthRollback(ctx, "proj_cluster", flagKey, "APM breach on replica 1"); err != nil {
+		t.Fatalf("replica 1 rollback failed: %v", err)
+	}
+
+	// Check shared store directly
+	savedSched, err := sharedStore.GetCanarySchedule(ctx, "proj_cluster", flagKey)
+	if err != nil || savedSched == nil {
+		t.Fatalf("failed to get canary schedule from shared store: %v", err)
+	}
+	if savedSched.Status != domain.CanaryStatusRolledBack {
+		t.Fatalf("expected ROLLED_BACK status in shared store, got %s", savedSched.Status)
+	}
+
+	// Verify live flag rollout reverted to 0%
+	flagAfterRollback, _ := sharedStore.GetFlagByProject(ctx, "proj_cluster", flagKey)
+	if flagAfterRollback.Environments[domain.EnvProduction].Percentage != 0.0 {
+		t.Fatalf("expected rollout to be 0%% after rollback, got %.2f%%", flagAfterRollback.Environments[domain.EnvProduction].Percentage)
+	}
+}

@@ -1034,3 +1034,78 @@ func TestMemoryStore_ApplyChangeRequest_ConflictDetection(t *testing.T) {
 		t.Fatalf("emergency kill switch was silently undone by stale change request!")
 	}
 }
+
+func TestMemoryStore_CanarySchedules(t *testing.T) {
+	ctx := context.Background()
+	memStore := NewMemoryStore()
+
+	sched := domain.CanarySchedule{
+		ProjectID:       "proj_canary_test",
+		FlagKey:         "new-checkout",
+		Environment:     domain.EnvProduction,
+		Status:          domain.CanaryStatusActive,
+		CurrentStageIdx: 0,
+		Stages: []domain.CanaryStage{
+			{Index: 0, TargetPercentage: 10, DurationSec: 60, StartedAt: time.Now().UTC()},
+			{Index: 1, TargetPercentage: 50, DurationSec: 120},
+		},
+		Guardrails: domain.CanaryGuardrails{
+			MaxErrorRatePct: 1.0,
+			MaxP99LatencyMs: 250,
+			AutoRollback:    true,
+		},
+	}
+
+	// 1. Save schedule
+	if err := memStore.SaveCanarySchedule(ctx, sched); err != nil {
+		t.Fatalf("SaveCanarySchedule failed: %v", err)
+	}
+
+	// 2. Get schedule
+	got, err := memStore.GetCanarySchedule(ctx, "proj_canary_test", "new-checkout")
+	if err != nil {
+		t.Fatalf("GetCanarySchedule failed: %v", err)
+	}
+	if got == nil || got.FlagKey != "new-checkout" || got.Status != domain.CanaryStatusActive {
+		t.Fatalf("GetCanarySchedule returned unexpected data: %+v", got)
+	}
+	if len(got.Stages) != 2 || got.Guardrails.MaxP99LatencyMs != 250 {
+		t.Fatalf("Stages or guardrails corrupted: %+v", got)
+	}
+
+	// 3. List active
+	active, err := memStore.ListActiveCanarySchedules(ctx)
+	if err != nil {
+		t.Fatalf("ListActiveCanarySchedules failed: %v", err)
+	}
+	if len(active) != 1 || active[0].FlagKey != "new-checkout" {
+		t.Fatalf("expected 1 active schedule, got %d", len(active))
+	}
+
+	// 4. Update status and save
+	got.Status = domain.CanaryStatusRolledBack
+	got.RollbackReason = "error rate breach"
+	if err := memStore.SaveCanarySchedule(ctx, *got); err != nil {
+		t.Fatalf("SaveCanarySchedule update failed: %v", err)
+	}
+
+	activeAfter, err := memStore.ListActiveCanarySchedules(ctx)
+	if err != nil {
+		t.Fatalf("ListActiveCanarySchedules failed: %v", err)
+	}
+	if len(activeAfter) != 0 {
+		t.Fatalf("expected 0 active schedules after rollback, got %d", len(activeAfter))
+	}
+
+	// 5. Delete schedule
+	if err := memStore.DeleteCanarySchedule(ctx, "proj_canary_test", "new-checkout"); err != nil {
+		t.Fatalf("DeleteCanarySchedule failed: %v", err)
+	}
+	deleted, err := memStore.GetCanarySchedule(ctx, "proj_canary_test", "new-checkout")
+	if err != nil {
+		t.Fatalf("GetCanarySchedule after delete failed: %v", err)
+	}
+	if deleted != nil {
+		t.Fatalf("expected nil after delete, got: %+v", deleted)
+	}
+}

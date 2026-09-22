@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 	"time"
 
@@ -933,5 +934,179 @@ func TestPostgresStore_OrgMembersAndInvitations(t *testing.T) {
 	keys, err := st.ListAPIKeysByProject(ctx, "proj_test_01")
 	if err != nil || len(keys) != 1 {
 		t.Fatalf("ListAPIKeysByProject failed: %v", err)
+	}
+}
+
+func TestPostgresStore_CanarySchedules(t *testing.T) {
+	st, mock := newMockPostgresStore(t)
+	ctx := context.Background()
+
+	sched := domain.CanarySchedule{
+		ID:              "canary_pg_01",
+		ProjectID:       "proj_pg_canary",
+		FlagKey:         "ai-summarizer",
+		Environment:     domain.EnvProduction,
+		Status:          domain.CanaryStatusActive,
+		CurrentStageIdx: 0,
+		Stages: []domain.CanaryStage{
+			{Index: 0, TargetPercentage: 10, DurationSec: 60},
+		},
+		Guardrails: domain.CanaryGuardrails{
+			MaxErrorRatePct: 1.0,
+			MaxP99LatencyMs: 200,
+			AutoRollback:    true,
+		},
+	}
+
+	// 1. Save
+	mock.ExpectExec(`INSERT INTO canary_schedules`).
+		WithArgs(
+			sched.ID, sched.ProjectID, sched.FlagKey, string(sched.Environment),
+			string(sched.Status), sched.CurrentStageIdx, sqlmock.AnyArg(), sqlmock.AnyArg(),
+			sched.RollbackReason, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	if err := st.SaveCanarySchedule(ctx, sched); err != nil {
+		t.Fatalf("SaveCanarySchedule failed: %v", err)
+	}
+
+	// 2. Get
+	stagesJSON, _ := json.Marshal(sched.Stages)
+	guardrailsJSON, _ := json.Marshal(sched.Guardrails)
+	now := time.Now().UTC()
+
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, environment, status, current_stage_idx, stages, guardrails, rollback_reason, created_at, updated_at, last_evaluated_at FROM canary_schedules WHERE project_id = \$1 AND flag_key = \$2`).
+		WithArgs("proj_pg_canary", "ai-summarizer").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "project_id", "flag_key", "environment", "status", "current_stage_idx",
+			"stages", "guardrails", "rollback_reason", "created_at", "updated_at", "last_evaluated_at",
+		}).AddRow(
+			sched.ID, sched.ProjectID, sched.FlagKey, string(sched.Environment), string(sched.Status),
+			sched.CurrentStageIdx, stagesJSON, guardrailsJSON, sched.RollbackReason, now, now, now,
+		))
+
+	got, err := st.GetCanarySchedule(ctx, "proj_pg_canary", "ai-summarizer")
+	if err != nil {
+		t.Fatalf("GetCanarySchedule failed: %v", err)
+	}
+	if got == nil || got.FlagKey != "ai-summarizer" {
+		t.Fatalf("GetCanarySchedule unexpected result: %+v", got)
+	}
+
+	// 3. List Active
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, environment, status, current_stage_idx, stages, guardrails, rollback_reason, created_at, updated_at, last_evaluated_at FROM canary_schedules WHERE status = \$1`).
+		WithArgs(string(domain.CanaryStatusActive)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "project_id", "flag_key", "environment", "status", "current_stage_idx",
+			"stages", "guardrails", "rollback_reason", "created_at", "updated_at", "last_evaluated_at",
+		}).AddRow(
+			sched.ID, sched.ProjectID, sched.FlagKey, string(sched.Environment), string(sched.Status),
+			sched.CurrentStageIdx, stagesJSON, guardrailsJSON, sched.RollbackReason, now, now, now,
+		))
+
+	active, err := st.ListActiveCanarySchedules(ctx)
+	if err != nil {
+		t.Fatalf("ListActiveCanarySchedules failed: %v", err)
+	}
+	if len(active) != 1 {
+		t.Fatalf("expected 1 active schedule, got %d", len(active))
+	}
+
+	// 4. Delete
+	mock.ExpectExec(`DELETE FROM canary_schedules WHERE project_id = \$1 AND flag_key = \$2`).
+		WithArgs("proj_pg_canary", "ai-summarizer").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	if err := st.DeleteCanarySchedule(ctx, "proj_pg_canary", "ai-summarizer"); err != nil {
+		t.Fatalf("DeleteCanarySchedule failed: %v", err)
+	}
+}
+
+func TestPostgresStore_RealDB_CanaryLifecycle(t *testing.T) {
+	dbURL := os.Getenv("TEST_POSTGRES_URL")
+	if dbURL == "" {
+		t.Skip("TEST_POSTGRES_URL not set, skipping live Postgres test")
+	}
+
+	ctx := context.Background()
+	st, err := NewPostgresStore(dbURL)
+	if err != nil {
+		t.Fatalf("failed to connect to real postgres: %v", err)
+	}
+	defer st.db.Close()
+
+	sched := domain.CanarySchedule{
+		ProjectID:       DefaultProjectID,
+		FlagKey:         "live-search",
+		Environment:     domain.EnvProduction,
+		Status:          domain.CanaryStatusActive,
+		CurrentStageIdx: 0,
+		Stages: []domain.CanaryStage{
+			{Index: 0, TargetPercentage: 10, DurationSec: 60, StartedAt: time.Now().UTC()},
+			{Index: 1, TargetPercentage: 50, DurationSec: 120},
+		},
+		Guardrails: domain.CanaryGuardrails{
+			MaxErrorRatePct: 0.5,
+			MaxP99LatencyMs: 180,
+			AutoRollback:    true,
+		},
+	}
+
+	// 1. Save (INSERT)
+	if err := st.SaveCanarySchedule(ctx, sched); err != nil {
+		t.Fatalf("SaveCanarySchedule failed on real postgres: %v", err)
+	}
+
+	// 2. Get (SELECT)
+	got, err := st.GetCanarySchedule(ctx, DefaultProjectID, "live-search")
+	if err != nil {
+		t.Fatalf("GetCanarySchedule failed on real postgres: %v", err)
+	}
+	if got == nil || got.FlagKey != "live-search" || got.Status != domain.CanaryStatusActive {
+		t.Fatalf("GetCanarySchedule unexpected result: %+v", got)
+	}
+	if len(got.Stages) != 2 || got.Guardrails.MaxErrorRatePct != 0.5 {
+		t.Fatalf("JSON unmarshal mismatch: %+v", got)
+	}
+
+	// 3. List Active and By Project
+	active, err := st.ListActiveCanarySchedules(ctx)
+	if err != nil {
+		t.Fatalf("ListActiveCanarySchedules failed: %v", err)
+	}
+	if len(active) == 0 {
+		t.Fatalf("expected at least 1 active schedule, got %d", len(active))
+	}
+
+	byProj, err := st.ListCanarySchedulesByProject(ctx, DefaultProjectID)
+	if err != nil {
+		t.Fatalf("ListCanarySchedulesByProject failed: %v", err)
+	}
+	if len(byProj) == 0 {
+		t.Fatalf("expected at least 1 schedule for project %s, got %d", DefaultProjectID, len(byProj))
+	}
+
+	// 4. Update (UPSERT test)
+	got.Status = domain.CanaryStatusRolledBack
+	got.RollbackReason = "error spike"
+	if err := st.SaveCanarySchedule(ctx, *got); err != nil {
+		t.Fatalf("SaveCanarySchedule upsert failed on real postgres: %v", err)
+	}
+	updated, err := st.GetCanarySchedule(ctx, DefaultProjectID, "live-search")
+	if err != nil || updated.Status != domain.CanaryStatusRolledBack {
+		t.Fatalf("expected ROLLED_BACK after upsert, got: %+v (err: %v)", updated, err)
+	}
+
+	// 5. Delete (DELETE)
+	if err := st.DeleteCanarySchedule(ctx, DefaultProjectID, "live-search"); err != nil {
+		t.Fatalf("DeleteCanarySchedule failed on real postgres: %v", err)
+	}
+	deleted, err := st.GetCanarySchedule(ctx, DefaultProjectID, "live-search")
+	if err != nil {
+		t.Fatalf("GetCanarySchedule after delete failed: %v", err)
+	}
+	if deleted != nil {
+		t.Fatalf("expected nil after delete, got: %+v", deleted)
 	}
 }

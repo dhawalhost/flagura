@@ -279,6 +279,24 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	CREATE INDEX IF NOT EXISTS idx_org_invitations_token ON org_invitations(token);
 	CREATE INDEX IF NOT EXISTS idx_org_invitations_org ON org_invitations(organization_id);
 
+	CREATE TABLE IF NOT EXISTS canary_schedules (
+		id TEXT NOT NULL,
+		project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+		flag_key TEXT NOT NULL,
+		environment TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT 'ACTIVE',
+		current_stage_idx INT NOT NULL DEFAULT 0,
+		stages JSONB NOT NULL DEFAULT '[]'::jsonb,
+		guardrails JSONB NOT NULL DEFAULT '{}'::jsonb,
+		rollback_reason TEXT DEFAULT '',
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		last_evaluated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		PRIMARY KEY (project_id, flag_key)
+	);
+	CREATE INDEX IF NOT EXISTS idx_canary_schedules_status ON canary_schedules(status);
+	CREATE INDEX IF NOT EXISTS idx_canary_schedules_project ON canary_schedules(project_id);
+
 	-- Seed initial default organization and project (matching schema.sql)
 	INSERT INTO organizations (id, name, slug, description)
 	VALUES ('org_default', 'Default Organization', 'default-org', 'Primary workspace organization')
@@ -1860,4 +1878,178 @@ func (s *PostgresStore) ListOrgInvitations(ctx context.Context, organizationID s
 		invitations = append(invitations, inv)
 	}
 	return invitations, nil
+}
+
+// Progressive Canary Rollouts & Scheduling
+
+func (s *PostgresStore) SaveCanarySchedule(ctx context.Context, sched domain.CanarySchedule) error {
+	if sched.ProjectID == "" {
+		sched.ProjectID = DefaultProjectID
+	}
+	now := time.Now().UTC()
+	if sched.CreatedAt.IsZero() {
+		sched.CreatedAt = now
+	}
+	sched.UpdatedAt = now
+	if sched.LastEvaluatedAt.IsZero() {
+		sched.LastEvaluatedAt = now
+	}
+	if sched.ID == "" {
+		b := make([]byte, 4)
+		_, _ = rand.Read(b)
+		sched.ID = fmt.Sprintf("canary_%d_%s", now.UnixNano(), hex.EncodeToString(b))
+	}
+
+	stagesBytes, err := json.Marshal(sched.Stages)
+	if err != nil {
+		return fmt.Errorf("failed to marshal canary stages: %w", err)
+	}
+	guardrailsBytes, err := json.Marshal(sched.Guardrails)
+	if err != nil {
+		return fmt.Errorf("failed to marshal canary guardrails: %w", err)
+	}
+
+	query := `
+	INSERT INTO canary_schedules (
+		id, project_id, flag_key, environment, status, current_stage_idx,
+		stages, guardrails, rollback_reason, created_at, updated_at, last_evaluated_at
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+	ON CONFLICT (project_id, flag_key) DO UPDATE SET
+		status = EXCLUDED.status,
+		current_stage_idx = EXCLUDED.current_stage_idx,
+		stages = EXCLUDED.stages,
+		guardrails = EXCLUDED.guardrails,
+		rollback_reason = EXCLUDED.rollback_reason,
+		updated_at = EXCLUDED.updated_at,
+		last_evaluated_at = EXCLUDED.last_evaluated_at;
+	`
+	_, err = s.db.ExecContext(ctx, query,
+		sched.ID,
+		sched.ProjectID,
+		sched.FlagKey,
+		string(sched.Environment),
+		string(sched.Status),
+		sched.CurrentStageIdx,
+		stagesBytes,
+		guardrailsBytes,
+		sched.RollbackReason,
+		sched.CreatedAt,
+		sched.UpdatedAt,
+		sched.LastEvaluatedAt,
+	)
+	return err
+}
+
+func (s *PostgresStore) scanCanarySchedule(row interface{ Scan(dest ...any) error }) (*domain.CanarySchedule, error) {
+	var sched domain.CanarySchedule
+	var envStr, statusStr string
+	var stagesBytes, guardrailsBytes []byte
+
+	err := row.Scan(
+		&sched.ID,
+		&sched.ProjectID,
+		&sched.FlagKey,
+		&envStr,
+		&statusStr,
+		&sched.CurrentStageIdx,
+		&stagesBytes,
+		&guardrailsBytes,
+		&sched.RollbackReason,
+		&sched.CreatedAt,
+		&sched.UpdatedAt,
+		&sched.LastEvaluatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	sched.Environment = domain.Environment(envStr)
+	sched.Status = domain.CanaryStatus(statusStr)
+	_ = json.Unmarshal(stagesBytes, &sched.Stages)
+	_ = json.Unmarshal(guardrailsBytes, &sched.Guardrails)
+	return &sched, nil
+}
+
+func (s *PostgresStore) GetCanarySchedule(ctx context.Context, projectID, flagKey string) (*domain.CanarySchedule, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, project_id, flag_key, environment, status, current_stage_idx,
+		       stages, guardrails, rollback_reason, created_at, updated_at, last_evaluated_at
+		FROM canary_schedules
+		WHERE project_id = $1 AND flag_key = $2
+	`, projectID, flagKey)
+
+	return s.scanCanarySchedule(row)
+}
+
+func (s *PostgresStore) ListActiveCanarySchedules(ctx context.Context) ([]domain.CanarySchedule, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, project_id, flag_key, environment, status, current_stage_idx,
+		       stages, guardrails, rollback_reason, created_at, updated_at, last_evaluated_at
+		FROM canary_schedules
+		WHERE status = $1
+	`, string(domain.CanaryStatusActive))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []domain.CanarySchedule
+	for rows.Next() {
+		sched, err := s.scanCanarySchedule(rows)
+		if err != nil {
+			return nil, err
+		}
+		if sched != nil {
+			result = append(result, *sched)
+		}
+	}
+	return result, rows.Err()
+}
+
+func (s *PostgresStore) ListCanarySchedulesByProject(ctx context.Context, projectID string) ([]domain.CanarySchedule, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, project_id, flag_key, environment, status, current_stage_idx,
+		       stages, guardrails, rollback_reason, created_at, updated_at, last_evaluated_at
+		FROM canary_schedules
+		WHERE project_id = $1
+	`, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []domain.CanarySchedule
+	for rows.Next() {
+		sched, err := s.scanCanarySchedule(rows)
+		if err != nil {
+			return nil, err
+		}
+		if sched != nil {
+			result = append(result, *sched)
+		}
+	}
+	return result, rows.Err()
+}
+
+func (s *PostgresStore) DeleteCanarySchedule(ctx context.Context, projectID, flagKey string) error {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	_, err := s.db.ExecContext(ctx, `
+		DELETE FROM canary_schedules
+		WHERE project_id = $1 AND flag_key = $2
+	`, projectID, flagKey)
+	return err
 }

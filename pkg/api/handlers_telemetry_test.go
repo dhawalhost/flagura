@@ -191,3 +191,129 @@ func TestTelemetryBoundedCapacity(t *testing.T) {
 		t.Fatalf("expected at most 1000 flags in memory, got %d", len(flagsMap))
 	}
 }
+
+func TestTelemetryIngestion_StorePersistenceAndDeduplication(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	server, err := NewServer(memStore)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	ts := httptest.NewServer(server)
+	defer ts.Close()
+
+	ctx := context.Background()
+	proj := "proj_exp_dedup"
+	flagKey := "checkout-v2"
+
+	// Seed flag in store
+	_, err = memStore.SaveFlag(ctx, domain.FeatureFlag{
+		Key:       flagKey,
+		ProjectID: proj,
+		Type:      "multivariate",
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {
+				Enabled:   true,
+				Strategy:  domain.StrategyMultivariate,
+				OffVariant: "control",
+				Variants: []domain.FlagVariant{
+					{Key: "control", Weight: 50},
+					{Key: "treatment", Weight: 50},
+				},
+			},
+		},
+	}, "admin")
+	if err != nil {
+		t.Fatalf("SaveFlag failed: %v", err)
+	}
+
+	key, prefix, hash, _ := generateRawAPIKey()
+	_, _ = memStore.CreateAPIKey(ctx, domain.APIKey{
+		ID:        "k_exp_dedup",
+		Key:       key,
+		KeyHash:   hash,
+		KeyPrefix: prefix,
+		ProjectID: proj,
+		Name:      "Exp Dedup Key",
+		Role:      domain.RoleDeveloper,
+		CreatedAt: time.Now(),
+	})
+
+	// 1. Simulate 50 evaluations for user_alpha (same user repeatedly evaluated)
+	// and 1 evaluation for user_beta (distinct user)
+	var trackEvents []map[string]interface{}
+	for i := 0; i < 50; i++ {
+		trackEvents = append(trackEvents, map[string]interface{}{
+			"flag_key":    flagKey,
+			"variant":     "treatment",
+			"user_id":     "user_alpha",
+			"environment": "production",
+		})
+	}
+	trackEvents = append(trackEvents, map[string]interface{}{
+		"flag_key":    flagKey,
+		"variant":     "treatment",
+		"user_id":     "user_beta",
+		"environment": "production",
+	})
+	// Add control exposure
+	trackEvents = append(trackEvents, map[string]interface{}{
+		"flag_key":    flagKey,
+		"variant":     "control",
+		"user_id":     "user_gamma",
+		"environment": "production",
+	})
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"events": trackEvents,
+	})
+
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/telemetry/events", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(domain.HeaderAPIKey, key)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatalf("failed to ingest track events: %v (code %v)", err, resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	// 2. Verify events were persisted to the backing store
+	storedEvents, err := memStore.GetExperimentEventsByProject(ctx, proj, flagKey, 100)
+	if err != nil {
+		t.Fatalf("GetExperimentEventsByProject failed: %v", err)
+	}
+	if len(storedEvents) != 52 {
+		t.Fatalf("expected 52 events in backing store, got %d", len(storedEvents))
+	}
+
+	// 3. Verify handleGetExperimentReport computes unique user sample sizes
+	// Treatment should have 2 unique users (user_alpha, user_beta), NOT 51!
+	reportReq, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/v1/experiments/"+flagKey+"?env=production&control=control", nil)
+	reportReq.Header.Set(domain.HeaderAPIKey, key)
+	reportResp, err := http.DefaultClient.Do(reportReq)
+	if err != nil || reportResp.StatusCode != http.StatusOK {
+		t.Fatalf("failed to get experiment report: %v (code %v)", err, reportResp.StatusCode)
+	}
+	defer reportResp.Body.Close()
+
+	var report domain.ExperimentReport
+	if err := json.NewDecoder(reportResp.Body).Decode(&report); err != nil {
+		t.Fatalf("failed to decode experiment report: %v", err)
+	}
+
+	treatmentStats, ok := report.VariantStats["treatment"]
+	if !ok {
+		t.Fatalf("treatment variant missing from report: %+v", report)
+	}
+	if treatmentStats.Exposures != 2 {
+		t.Fatalf("BUG: expected 2 unique user exposures for treatment (deduplicated), but got: %d", treatmentStats.Exposures)
+	}
+
+	controlStats, ok := report.VariantStats["control"]
+	if !ok {
+		t.Fatalf("control variant missing from report: %+v", report)
+	}
+	if controlStats.Exposures != 1 {
+		t.Fatalf("expected 1 unique user exposure for control, got: %d", controlStats.Exposures)
+	}
+}

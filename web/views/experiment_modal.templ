@@ -68,6 +68,15 @@ templ ExperimentModal() {
 					</div>
 				</div>
 
+				<!-- Statistical Sample Reliability Notice (REQ-D01) -->
+				<div class="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-center gap-2.5 text-slate-700">
+					<i data-lucide="shield-check" class="h-4 w-4 text-indigo-600 shrink-0"></i>
+					<p class="text-[11px] font-sans leading-tight">
+						<span class="font-bold text-indigo-950">Independent Samples:</span>
+						Sample sizes represent distinct exposed user IDs. Repeated evaluations from the same user ID are deduplicated to ensure valid Z-test significance.
+					</p>
+				</div>
+
 				<!-- Statistical Summary Banner -->
 				<template x-if="report && report.winner_variant">
 					<div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-slate-900 flex items-center gap-3">

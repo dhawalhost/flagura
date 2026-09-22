@@ -311,6 +311,47 @@ func (s *Server) handleIngestTelemetry(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+
+		// Persist exposure & conversion events to backing store for cross-replica aggregation (REQ-A03, REQ-D01)
+		if s.store != nil {
+			expEvents := make([]domain.ExperimentEvent, 0, len(trackReq.Events))
+			now := time.Now().UTC()
+			for _, ev := range trackReq.Events {
+				if ev.FlagKey == "" {
+					continue
+				}
+				evType := domain.EventTypeExposure
+				if ev.MetricName != "" {
+					evType = domain.EventTypeConversion
+				}
+				val := 1.0
+				switch v := ev.Value.(type) {
+				case float64:
+					val = v
+				case int:
+					val = float64(v)
+				}
+				env := domain.Environment(ev.Environment)
+				if env == "" {
+					env = domain.EnvProduction
+				}
+				expEvents = append(expEvents, domain.ExperimentEvent{
+					ProjectID:   projectID,
+					FlagKey:     ev.FlagKey,
+					Variant:     ev.Variant,
+					EventType:   evType,
+					MetricName:  ev.MetricName,
+					Value:       val,
+					UserID:      ev.UserID,
+					Environment: env,
+					Timestamp:   now,
+				})
+			}
+			if len(expEvents) > 0 {
+				_ = s.store.RecordExperimentEvents(r.Context(), expEvents)
+			}
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":          "ok",

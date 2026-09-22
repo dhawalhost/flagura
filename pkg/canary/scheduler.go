@@ -90,11 +90,18 @@ func (cs *CanaryScheduler) SubmitSchedule(ctx context.Context, sched domain.Cana
 	key := scheduleKey(sched.ProjectID, sched.FlagKey)
 	cs.schedules[key] = &sched
 
-	// Apply initial stage rollout immediately
+	// 1. Apply initial stage rollout immediately
 	initialPct := sched.Stages[0].TargetPercentage
 	_, _, err := cs.store.UpdateRolloutByProject(ctx, sched.ProjectID, sched.FlagKey, sched.Environment, initialPct, "canary-scheduler-auto")
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply initial canary rollout percentage: %w", err)
+	}
+
+	// 2. Persist canary schedule to store for multi-replica consistency
+	if cs.store != nil {
+		if err := cs.store.SaveCanarySchedule(ctx, sched); err != nil {
+			return nil, fmt.Errorf("failed to persist canary schedule: %w", err)
+		}
 	}
 
 	if cs.broadcaster != nil {
@@ -106,15 +113,25 @@ func (cs *CanaryScheduler) SubmitSchedule(ctx context.Context, sched domain.Cana
 
 // GetSchedule returns the active schedule for a flag in a project.
 func (cs *CanaryScheduler) GetSchedule(projectID, flagKey string) (*domain.CanarySchedule, bool) {
-	cs.mu.RLock()
-	defer cs.mu.RUnlock()
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
 
-	sched, ok := cs.schedules[scheduleKey(projectID, flagKey)]
-	if !ok {
-		return nil, false
+	key := scheduleKey(projectID, flagKey)
+	if sched, ok := cs.schedules[key]; ok {
+		copySched := *sched
+		return &copySched, true
 	}
-	copySched := *sched
-	return &copySched, true
+
+	// Fallback to backing store for cross-replica schedule resolution
+	if cs.store != nil {
+		sched, err := cs.store.GetCanarySchedule(context.Background(), projectID, flagKey)
+		if err == nil && sched != nil {
+			cs.schedules[key] = sched
+			copySched := *sched
+			return &copySched, true
+		}
+	}
+	return nil, false
 }
 
 // CancelSchedule halts and removes an active canary schedule.
@@ -123,12 +140,20 @@ func (cs *CanaryScheduler) CancelSchedule(projectID, flagKey string) bool {
 	defer cs.mu.Unlock()
 
 	key := scheduleKey(projectID, flagKey)
+	found := false
 	if sched, ok := cs.schedules[key]; ok {
 		sched.Status = domain.CanaryStatusPaused
 		delete(cs.schedules, key)
-		return true
+		found = true
 	}
-	return false
+
+	if cs.store != nil {
+		if sched, err := cs.store.GetCanarySchedule(context.Background(), projectID, flagKey); err == nil && sched != nil {
+			_ = cs.store.DeleteCanarySchedule(context.Background(), projectID, flagKey)
+			found = true
+		}
+	}
+	return found
 }
 
 // EvaluateSchedules checks all active schedules for stage advancement or health-gate rollbacks.
@@ -138,6 +163,20 @@ func (cs *CanaryScheduler) EvaluateSchedules(now time.Time) int {
 
 	advancedCount := 0
 	ctx := context.Background()
+
+	// 0. Synchronize active schedules from backing store to pick up schedules created by other replicas
+	if cs.store != nil {
+		if storeSchedules, err := cs.store.ListActiveCanarySchedules(ctx); err == nil {
+			for _, s := range storeSchedules {
+				k := scheduleKey(s.ProjectID, s.FlagKey)
+				existing, exists := cs.schedules[k]
+				if !exists || s.UpdatedAt.After(existing.UpdatedAt) {
+					sCopy := s
+					cs.schedules[k] = &sCopy
+				}
+			}
+		}
+	}
 
 	for _, sched := range cs.schedules {
 		if sched.Status != domain.CanaryStatusActive {
@@ -151,6 +190,9 @@ func (cs *CanaryScheduler) EvaluateSchedules(now time.Time) int {
 		if canAdvance {
 			if isCompletion {
 				sched.CommitStageAdvancement(now)
+				if cs.store != nil {
+					_ = cs.store.SaveCanarySchedule(ctx, *sched)
+				}
 				if cs.broadcaster != nil {
 					cs.broadcaster.Broadcast("canary_completed", map[string]interface{}{
 						"project_id": sched.ProjectID,
@@ -165,9 +207,15 @@ func (cs *CanaryScheduler) EvaluateSchedules(now time.Time) int {
 					sched.Status = domain.CanaryStatusNeedsAttention
 					sched.RollbackReason = fmt.Sprintf("stage advancement failed to persist: %v", err)
 					sched.UpdatedAt = now
+					if cs.store != nil {
+						_ = cs.store.SaveCanarySchedule(ctx, *sched)
+					}
 				} else {
 					// Persistence confirmed: advance in-memory stage
 					sched.CommitStageAdvancement(now)
+					if cs.store != nil {
+						_ = cs.store.SaveCanarySchedule(ctx, *sched)
+					}
 					advancedCount++
 					if cs.broadcaster != nil {
 						cs.broadcaster.Broadcast("canary_stage_advanced", map[string]interface{}{
@@ -192,6 +240,13 @@ func (cs *CanaryScheduler) TriggerHealthRollback(ctx context.Context, projectID,
 
 	key := scheduleKey(projectID, flagKey)
 	sched, ok := cs.schedules[key]
+	if !ok && cs.store != nil {
+		if stSched, err := cs.store.GetCanarySchedule(ctx, projectID, flagKey); err == nil && stSched != nil {
+			cs.schedules[key] = stSched
+			sched = stSched
+			ok = true
+		}
+	}
 	if !ok {
 		return fmt.Errorf("no active canary schedule for flag %s in project %s", flagKey, projectID)
 	}
@@ -204,13 +259,19 @@ func (cs *CanaryScheduler) TriggerHealthRollback(ctx context.Context, projectID,
 		sched.Status = domain.CanaryStatusNeedsAttention
 		sched.RollbackReason = fmt.Sprintf("rollback failed to persist: %v", err)
 		sched.UpdatedAt = now
+		if cs.store != nil {
+			_ = cs.store.SaveCanarySchedule(ctx, *sched)
+		}
 		return fmt.Errorf("failed to revert rollout to 0%%: %w", err)
 	}
 
-	// 2. Only mutate in-memory schedule AFTER underlying store write succeeds
+	// 2. Only mutate schedule AFTER underlying store write succeeds
 	sched.Status = domain.CanaryStatusRolledBack
 	sched.RollbackReason = reason
 	sched.UpdatedAt = now
+	if cs.store != nil {
+		_ = cs.store.SaveCanarySchedule(ctx, *sched)
+	}
 
 	if cs.broadcaster != nil {
 		cs.broadcaster.Broadcast("canary_rollback", map[string]interface{}{

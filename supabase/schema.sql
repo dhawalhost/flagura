@@ -251,3 +251,24 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 );
 CREATE INDEX IF NOT EXISTS idx_reset_tokens_email ON password_reset_tokens(email);
 CREATE INDEX IF NOT EXISTS idx_reset_tokens_expires ON password_reset_tokens(expires_at);
+
+-- ============================================================================
+-- 11. Progressive Canary Schedules
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS canary_schedules (
+    id TEXT NOT NULL,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    flag_key TEXT NOT NULL,
+    environment TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'ACTIVE',
+    current_stage_idx INT NOT NULL DEFAULT 0,
+    stages JSONB NOT NULL DEFAULT '[]'::jsonb,
+    guardrails JSONB NOT NULL DEFAULT '{}'::jsonb,
+    rollback_reason TEXT DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_evaluated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (project_id, flag_key)
+);
+CREATE INDEX IF NOT EXISTS idx_canary_schedules_status ON canary_schedules(status);
+CREATE INDEX IF NOT EXISTS idx_canary_schedules_project ON canary_schedules(project_id);

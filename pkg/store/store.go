@@ -92,4 +92,11 @@ type Store interface {
 	GetAPIKeyByID(ctx context.Context, id string) (*domain.APIKey, error)
 	RevokeAPIKey(ctx context.Context, id string, actor string) error
 	RevokeAPIKeyByProject(ctx context.Context, projectID, id, actor string) error
+
+	// Progressive Canary Rollouts & Scheduling
+	SaveCanarySchedule(ctx context.Context, sched domain.CanarySchedule) error
+	GetCanarySchedule(ctx context.Context, projectID, flagKey string) (*domain.CanarySchedule, error)
+	ListActiveCanarySchedules(ctx context.Context) ([]domain.CanarySchedule, error)
+	ListCanarySchedulesByProject(ctx context.Context, projectID string) ([]domain.CanarySchedule, error)
+	DeleteCanarySchedule(ctx context.Context, projectID, flagKey string) error
 }

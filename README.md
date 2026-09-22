@@ -14,7 +14,7 @@
 **Persisted in SQLite or PostgreSQL. Evaluated in CPU Cache.**  
 _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes governance, and zero PII leakage — without the per-MAU billing trap._
 
-[Quickstart](#-quickstart) • [Architecture](#-architecture) • [OpenFeature](#-openfeature-polyglot-ecosystem) • [Code Hygiene](docs/product/code-hygiene-and-flag-debt.md) • [Examples](examples/README.md) • [API Reference](#-rest-api-reference) • [Go SDK](sdks/go) • [Runbooks](docs/runbooks/README.md)
+[Quickstart](#-quickstart) • [Architecture](#-architecture) • [Scaling & HA](docs/scaling-and-ha.md) • [OpenFeature](#-openfeature-polyglot-ecosystem) • [Code Hygiene](docs/product/code-hygiene-and-flag-debt.md) • [Examples](examples/README.md) • [API Reference](#-rest-api-reference) • [Go SDK](sdks/go) • [Runbooks](docs/runbooks/README.md)
 
 </div>
 
@@ -87,6 +87,8 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 │  4. Resolve Value / Variant locally in nanoseconds                     │
 └────────────────────────────────────────────────────────────────────────┘
 ```
+
+> 💡 **Deploying at Enterprise Scale?** See the **[Scaling and High Availability Guide](docs/scaling-and-ha.md)** covering multi-replica PostgreSQL topologies, token-bucket rate limiter sizing, and Kubernetes deployment.
 
 ### 🔬 Reproducible In-Memory Benchmarks
 

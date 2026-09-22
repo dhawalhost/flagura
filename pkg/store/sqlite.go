@@ -235,6 +235,22 @@ func (s *SQLiteStore) autoMigrate(ctx context.Context) error {
 		expires_at TEXT NOT NULL,
 		accepted_at TEXT
 	);
+
+	CREATE TABLE IF NOT EXISTS canary_schedules (
+		id TEXT NOT NULL,
+		project_id TEXT NOT NULL DEFAULT 'proj_default',
+		flag_key TEXT NOT NULL,
+		environment TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT 'ACTIVE',
+		current_stage_idx INTEGER NOT NULL DEFAULT 0,
+		stages TEXT NOT NULL DEFAULT '[]',
+		guardrails TEXT NOT NULL DEFAULT '{}',
+		rollback_reason TEXT DEFAULT '',
+		created_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL,
+		last_evaluated_at TEXT NOT NULL,
+		PRIMARY KEY (project_id, flag_key)
+	);
 	`
 	_, err := s.db.ExecContext(ctx, schema)
 	return err
@@ -1962,4 +1978,199 @@ func generateHexToken(n int) string {
 	b := make([]byte, n)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// Progressive Canary Rollouts & Scheduling
+
+func (s *SQLiteStore) SaveCanarySchedule(ctx context.Context, sched domain.CanarySchedule) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if sched.ProjectID == "" {
+		sched.ProjectID = DefaultProjectID
+	}
+	now := time.Now().UTC()
+	if sched.CreatedAt.IsZero() {
+		sched.CreatedAt = now
+	}
+	sched.UpdatedAt = now
+	if sched.LastEvaluatedAt.IsZero() {
+		sched.LastEvaluatedAt = now
+	}
+	if sched.ID == "" {
+		sched.ID = fmt.Sprintf("canary_%d_%s", now.UnixNano(), generateHexToken(4))
+	}
+
+	stagesBytes, err := json.Marshal(sched.Stages)
+	if err != nil {
+		return fmt.Errorf("failed to marshal canary stages: %w", err)
+	}
+	guardrailsBytes, err := json.Marshal(sched.Guardrails)
+	if err != nil {
+		return fmt.Errorf("failed to marshal canary guardrails: %w", err)
+	}
+
+	query := `
+	INSERT INTO canary_schedules (
+		id, project_id, flag_key, environment, status, current_stage_idx,
+		stages, guardrails, rollback_reason, created_at, updated_at, last_evaluated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	ON CONFLICT(project_id, flag_key) DO UPDATE SET
+		status = excluded.status,
+		current_stage_idx = excluded.current_stage_idx,
+		stages = excluded.stages,
+		guardrails = excluded.guardrails,
+		rollback_reason = excluded.rollback_reason,
+		updated_at = excluded.updated_at,
+		last_evaluated_at = excluded.last_evaluated_at;
+	`
+	_, err = s.db.ExecContext(ctx, query,
+		sched.ID,
+		sched.ProjectID,
+		sched.FlagKey,
+		string(sched.Environment),
+		string(sched.Status),
+		sched.CurrentStageIdx,
+		string(stagesBytes),
+		string(guardrailsBytes),
+		sched.RollbackReason,
+		sched.CreatedAt.Format(time.RFC3339),
+		sched.UpdatedAt.Format(time.RFC3339),
+		sched.LastEvaluatedAt.Format(time.RFC3339),
+	)
+	return err
+}
+
+func (s *SQLiteStore) scanCanarySchedule(row interface{ Scan(dest ...any) error }) (*domain.CanarySchedule, error) {
+	var sched domain.CanarySchedule
+	var envStr, statusStr, stagesStr, guardrailsStr, createdAtStr, updatedAtStr, lastEvalStr string
+
+	err := row.Scan(
+		&sched.ID,
+		&sched.ProjectID,
+		&sched.FlagKey,
+		&envStr,
+		&statusStr,
+		&sched.CurrentStageIdx,
+		&stagesStr,
+		&guardrailsStr,
+		&sched.RollbackReason,
+		&createdAtStr,
+		&updatedAtStr,
+		&lastEvalStr,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	sched.Environment = domain.Environment(envStr)
+	sched.Status = domain.CanaryStatus(statusStr)
+	_ = json.Unmarshal([]byte(stagesStr), &sched.Stages)
+	_ = json.Unmarshal([]byte(guardrailsStr), &sched.Guardrails)
+	if t, err := time.Parse(time.RFC3339, createdAtStr); err == nil {
+		sched.CreatedAt = t
+	}
+	if t, err := time.Parse(time.RFC3339, updatedAtStr); err == nil {
+		sched.UpdatedAt = t
+	}
+	if t, err := time.Parse(time.RFC3339, lastEvalStr); err == nil {
+		sched.LastEvaluatedAt = t
+	}
+	return &sched, nil
+}
+
+func (s *SQLiteStore) GetCanarySchedule(ctx context.Context, projectID, flagKey string) (*domain.CanarySchedule, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, project_id, flag_key, environment, status, current_stage_idx,
+		       stages, guardrails, rollback_reason, created_at, updated_at, last_evaluated_at
+		FROM canary_schedules
+		WHERE project_id = ? AND flag_key = ?
+	`, projectID, flagKey)
+
+	return s.scanCanarySchedule(row)
+}
+
+func (s *SQLiteStore) ListActiveCanarySchedules(ctx context.Context) ([]domain.CanarySchedule, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, project_id, flag_key, environment, status, current_stage_idx,
+		       stages, guardrails, rollback_reason, created_at, updated_at, last_evaluated_at
+		FROM canary_schedules
+		WHERE status = ?
+	`, string(domain.CanaryStatusActive))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []domain.CanarySchedule
+	for rows.Next() {
+		sched, err := s.scanCanarySchedule(rows)
+		if err != nil {
+			return nil, err
+		}
+		if sched != nil {
+			result = append(result, *sched)
+		}
+	}
+	return result, rows.Err()
+}
+
+func (s *SQLiteStore) ListCanarySchedulesByProject(ctx context.Context, projectID string) ([]domain.CanarySchedule, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, project_id, flag_key, environment, status, current_stage_idx,
+		       stages, guardrails, rollback_reason, created_at, updated_at, last_evaluated_at
+		FROM canary_schedules
+		WHERE project_id = ?
+	`, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []domain.CanarySchedule
+	for rows.Next() {
+		sched, err := s.scanCanarySchedule(rows)
+		if err != nil {
+			return nil, err
+		}
+		if sched != nil {
+			result = append(result, *sched)
+		}
+	}
+	return result, rows.Err()
+}
+
+func (s *SQLiteStore) DeleteCanarySchedule(ctx context.Context, projectID, flagKey string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	_, err := s.db.ExecContext(ctx, `
+		DELETE FROM canary_schedules
+		WHERE project_id = ? AND flag_key = ?
+	`, projectID, flagKey)
+	return err
 }

@@ -272,3 +272,90 @@ func TestSQLiteStore_Lifecycle(t *testing.T) {
 		t.Errorf("expected 1 experiment event, got %d (err: %v)", len(events), err)
 	}
 }
+
+func TestSQLiteStore_CanarySchedules(t *testing.T) {
+	ctx := context.Background()
+	s, err := NewSQLiteStore(":memory:")
+	if err != nil {
+		t.Fatalf("failed to create sqlite store: %v", err)
+	}
+	defer s.Close()
+
+	sched := domain.CanarySchedule{
+		ProjectID:       "proj_sqlite_canary",
+		FlagKey:         "dark-mode",
+		Environment:     domain.EnvProduction,
+		Status:          domain.CanaryStatusActive,
+		CurrentStageIdx: 0,
+		Stages: []domain.CanaryStage{
+			{Index: 0, TargetPercentage: 5, DurationSec: 30, StartedAt: time.Now().UTC()},
+			{Index: 1, TargetPercentage: 25, DurationSec: 60},
+		},
+		Guardrails: domain.CanaryGuardrails{
+			MaxErrorRatePct: 0.5,
+			MaxP99LatencyMs: 150,
+			AutoRollback:    true,
+		},
+	}
+
+	// 1. Save schedule
+	if err := s.SaveCanarySchedule(ctx, sched); err != nil {
+		t.Fatalf("SaveCanarySchedule failed: %v", err)
+	}
+
+	// 2. Get schedule
+	got, err := s.GetCanarySchedule(ctx, "proj_sqlite_canary", "dark-mode")
+	if err != nil {
+		t.Fatalf("GetCanarySchedule failed: %v", err)
+	}
+	if got == nil || got.FlagKey != "dark-mode" || got.Status != domain.CanaryStatusActive {
+		t.Fatalf("GetCanarySchedule returned unexpected data: %+v", got)
+	}
+	if len(got.Stages) != 2 || got.Guardrails.MaxErrorRatePct != 0.5 {
+		t.Fatalf("Stages or guardrails corrupted: %+v", got)
+	}
+
+	// 3. List active and by project
+	active, err := s.ListActiveCanarySchedules(ctx)
+	if err != nil {
+		t.Fatalf("ListActiveCanarySchedules failed: %v", err)
+	}
+	if len(active) != 1 || active[0].FlagKey != "dark-mode" {
+		t.Fatalf("expected 1 active schedule, got %d", len(active))
+	}
+
+	byProj, err := s.ListCanarySchedulesByProject(ctx, "proj_sqlite_canary")
+	if err != nil {
+		t.Fatalf("ListCanarySchedulesByProject failed: %v", err)
+	}
+	if len(byProj) != 1 || byProj[0].FlagKey != "dark-mode" {
+		t.Fatalf("expected 1 schedule by project, got %d", len(byProj))
+	}
+
+	// 4. Update status and save (upsert)
+	got.Status = domain.CanaryStatusRolledBack
+	got.RollbackReason = "latency breach"
+	if err := s.SaveCanarySchedule(ctx, *got); err != nil {
+		t.Fatalf("SaveCanarySchedule upsert failed: %v", err)
+	}
+
+	activeAfter, err := s.ListActiveCanarySchedules(ctx)
+	if err != nil {
+		t.Fatalf("ListActiveCanarySchedules failed: %v", err)
+	}
+	if len(activeAfter) != 0 {
+		t.Fatalf("expected 0 active schedules after rollback, got %d", len(activeAfter))
+	}
+
+	// 5. Delete schedule
+	if err := s.DeleteCanarySchedule(ctx, "proj_sqlite_canary", "dark-mode"); err != nil {
+		t.Fatalf("DeleteCanarySchedule failed: %v", err)
+	}
+	deleted, err := s.GetCanarySchedule(ctx, "proj_sqlite_canary", "dark-mode")
+	if err != nil {
+		t.Fatalf("GetCanarySchedule after delete failed: %v", err)
+	}
+	if deleted != nil {
+		t.Fatalf("expected nil after delete, got: %+v", deleted)
+	}
+}

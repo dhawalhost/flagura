@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -235,3 +236,108 @@ func TestAPIKeyEnvironmentScopingAndRestrictions(t *testing.T) {
 		}
 	}
 }
+
+func TestAPIKey_OrgScopedRoles_OwnerAndDeveloper(t *testing.T) {
+	ctx := context.Background()
+	memStore := store.NewMemoryStore()
+	server, err := NewServer(memStore)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	orgID := "org_test_scope"
+	projID := "proj_test_scope"
+	_, _ = memStore.CreateOrganization(ctx, domain.Organization{
+		ID:   orgID,
+		Name: "Scope Test Org",
+		Slug: "scope-test-org",
+	})
+	_, _ = memStore.CreateProject(ctx, domain.Project{
+		ID:             projID,
+		OrganizationID: orgID,
+		Name:           "Scope Test Project",
+	})
+
+	// 1. Org Owner (global role is Developer, but org role is Owner)
+	ownerUser, _ := memStore.CreateUser(ctx, domain.User{
+		ID:    "usr_org_owner",
+		Email: "owner@company.com",
+		Role:  domain.RoleDeveloper, // Customer global role is always developer
+	})
+	_, _ = memStore.CreateOrgMember(ctx, domain.OrgMember{
+		OrganizationID: orgID,
+		UserID:         ownerUser.ID,
+		Role:           "owner",
+	})
+	ownerSessionToken := "token_org_owner"
+	_ = memStore.CreateSession(ctx, domain.Session{
+		Token:     ownerSessionToken,
+		UserID:    ownerUser.ID,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		User:      ownerUser,
+	})
+
+	// 2. Invited Developer (global role Developer, org role Developer)
+	devUser, _ := memStore.CreateUser(ctx, domain.User{
+		ID:    "usr_org_dev",
+		Email: "dev@company.com",
+		Role:  domain.RoleDeveloper,
+	})
+	_, _ = memStore.CreateOrgMember(ctx, domain.OrgMember{
+		OrganizationID: orgID,
+		UserID:         devUser.ID,
+		Role:           "developer",
+	})
+	devSessionToken := "token_org_dev"
+	_ = memStore.CreateSession(ctx, domain.Session{
+		Token:     devSessionToken,
+		UserID:    devUser.ID,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		User:      devUser,
+	})
+
+	// Case A (AC-1.2 & AC-1.3): Org Owner creates admin-role and all-env API key -> Should NOT downgrade
+	ownerPayload := []byte(`{"name":"Owner CI Key","role":"admin","environment":"all"}`)
+	ownerReq := httptest.NewRequest(http.MethodPost, "/api/v1/api-keys?project_id="+projID, bytes.NewReader(ownerPayload))
+	ownerReq.Header.Set("Authorization", "Bearer "+ownerSessionToken)
+	ownerReq.Header.Set("Content-Type", "application/json")
+	ownerRec := httptest.NewRecorder()
+	server.mux.ServeHTTP(ownerRec, ownerReq)
+
+	if ownerRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created for owner admin key, got %d: %s", ownerRec.Code, ownerRec.Body.String())
+	}
+	var ownerResp struct {
+		APIKey domain.APIKey `json:"api_key"`
+	}
+	_ = json.Unmarshal(ownerRec.Body.Bytes(), &ownerResp)
+	if ownerResp.APIKey.Role != domain.RoleAdmin {
+		t.Fatalf("expected admin role for owner key, got %s", ownerResp.APIKey.Role)
+	}
+	if ownerResp.APIKey.Environment != "all" {
+		t.Fatalf("expected 'all' environment for owner key, got %s", ownerResp.APIKey.Environment)
+	}
+
+	// Case B (AC-2.1): Invited Developer requests admin-role and all-env API key -> MUST BE DOWNGRADED
+	devPayload := []byte(`{"name":"Dev Unprivileged Key","role":"admin","environment":"all"}`)
+	devReq := httptest.NewRequest(http.MethodPost, "/api/v1/api-keys?project_id="+projID, bytes.NewReader(devPayload))
+	devReq.Header.Set("Authorization", "Bearer "+devSessionToken)
+	devReq.Header.Set("Content-Type", "application/json")
+	devRec := httptest.NewRecorder()
+	server.mux.ServeHTTP(devRec, devReq)
+
+	if devRec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created for developer key, got %d: %s", devRec.Code, devRec.Body.String())
+	}
+	var devResp struct {
+		APIKey domain.APIKey `json:"api_key"`
+	}
+	_ = json.Unmarshal(devRec.Body.Bytes(), &devResp)
+	if devResp.APIKey.Role != domain.RoleDeveloper {
+		t.Fatalf("expected downgraded developer role for invited dev key, got %s", devResp.APIKey.Role)
+	}
+	if devResp.APIKey.Environment != "production" {
+		t.Fatalf("expected downgraded production environment for invited dev key, got %s", devResp.APIKey.Environment)
+	}
+}
+

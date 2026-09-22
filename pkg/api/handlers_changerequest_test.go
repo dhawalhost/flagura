@@ -285,3 +285,110 @@ func TestFourEyesGovernance_NonAdminReviewerRejected(t *testing.T) {
 		t.Fatalf("expected 403 Forbidden when low-privilege developer attempts to review, got %d: %s", revRec.Code, revRec.Body.String())
 	}
 }
+
+func TestFourEyesGovernance_OrgOwnerReviewerApproved(t *testing.T) {
+	memStore := store.NewMemoryStore()
+	flagKey := "governance-owner-approval-flag"
+
+	_, _ = memStore.SaveFlag(context.Background(), domain.FeatureFlag{
+		ID:        "flag_gov_owner",
+		ProjectID: store.DefaultProjectID,
+		Key:       flagKey,
+		Type:      "boolean",
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {Enabled: false},
+		},
+	}, "system")
+
+	server, err := NewServer(memStore)
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
+
+	// 1. Author: dev1 (Developer)
+	dev1, _ := memStore.CreateUser(context.Background(), domain.User{
+		ID:        "usr_dev_cr_author",
+		Email:     "author@example.com",
+		Role:      domain.RoleDeveloper,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	})
+	tok1 := "tok_cr_author"
+	_ = memStore.CreateSession(context.Background(), domain.Session{
+		Token:     tok1,
+		UserID:    dev1.ID,
+		ExpiresAt: time.Now().Add(time.Hour),
+	})
+	cookie1 := &http.Cookie{Name: SessionCookieName, Value: tok1}
+
+	// 2. Reviewer: Org Owner (Global role Developer, Org role "owner")
+	owner, _ := memStore.CreateUser(context.Background(), domain.User{
+		ID:        "usr_org_owner_reviewer",
+		Email:     "owner@example.com",
+		Role:      domain.RoleDeveloper, // Customer global role is developer
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	})
+	tokOwner := "tok_cr_owner"
+	_ = memStore.CreateSession(context.Background(), domain.Session{
+		Token:     tokOwner,
+		UserID:    owner.ID,
+		ExpiresAt: time.Now().Add(time.Hour),
+	})
+	cookieOwner := &http.Cookie{Name: SessionCookieName, Value: tokOwner}
+
+	// Memberships
+	_, _ = memStore.CreateOrganization(context.Background(), domain.Organization{
+		ID:   domain.DefaultOrgID,
+		Name: domain.DefaultOrgName,
+		Slug: domain.DefaultOrgSlug,
+	})
+	_, _ = memStore.CreateProject(context.Background(), domain.Project{
+		ID:             domain.DefaultProjectID,
+		OrganizationID: domain.DefaultOrgID,
+	})
+	_, _ = memStore.CreateOrgMember(context.Background(), domain.OrgMember{
+		OrganizationID: domain.DefaultOrgID,
+		UserID:         dev1.ID,
+		Role:           "developer",
+	})
+	_, _ = memStore.CreateOrgMember(context.Background(), domain.OrgMember{
+		OrganizationID: domain.DefaultOrgID,
+		UserID:         owner.ID,
+		Role:           "owner",
+	})
+
+	// dev1 creates CR
+	crPayload := domain.ChangeRequest{
+		FlagKey:     flagKey,
+		Environment: domain.EnvProduction,
+		Title:       "Owner Approved CR",
+		ProposedConfig: domain.EnvironmentConfig{
+			Enabled: true,
+		},
+	}
+	crData, _ := json.Marshal(crPayload)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/change-requests", bytes.NewReader(crData))
+	req.AddCookie(cookie1)
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var created domain.ChangeRequest
+	_ = json.Unmarshal(rec.Body.Bytes(), &created)
+
+	// Org owner reviews and approves CR -> MUST SUCCEED (200 OK)
+	revPayload := map[string]interface{}{"approved": true, "comments": "looks good to ship"}
+	revData, _ := json.Marshal(revPayload)
+	revReq := httptest.NewRequest(http.MethodPost, "/api/v1/change-requests/"+created.ID+"/review", bytes.NewReader(revData))
+	revReq.AddCookie(cookieOwner)
+	revRec := httptest.NewRecorder()
+	server.ServeHTTP(revRec, revReq)
+
+	if revRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK when org owner approves CR, got %d: %s", revRec.Code, revRec.Body.String())
+	}
+}
+
