@@ -35,8 +35,9 @@ const (
 
 // Standard Cookie names.
 const (
-	CookieSessionName = "flagura_session"
-	CookieProjectName = "flagura_project_id"
+	CookieSessionName   = "flagura_session"
+	CookieProjectName   = "flagura_project_id"
+	CookieOIDCStateName = "flagura_oidc_state"
 )
 
 // Default System and Fallback Identifiers.

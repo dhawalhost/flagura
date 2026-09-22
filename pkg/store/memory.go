@@ -61,6 +61,7 @@ type MemoryStore struct {
 	apiKeysByHash       map[string]string        // hash -> key ID
 	passwordResetTokens map[string]domain.PasswordResetToken
 	canarySchedules     map[string]domain.CanarySchedule // projectID:flagKey -> schedule
+	oidcConfigs         map[string]domain.OIDCConfig     // organizationID -> config
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -78,6 +79,7 @@ func NewMemoryStore() *MemoryStore {
 		apiKeysByHash:       make(map[string]string),
 		passwordResetTokens: make(map[string]domain.PasswordResetToken),
 		canarySchedules:     make(map[string]domain.CanarySchedule),
+		oidcConfigs:         make(map[string]domain.OIDCConfig),
 	}
 
 	initialSnap := newFlagSnapshot([]domain.FeatureFlag{})
@@ -1573,3 +1575,65 @@ func (s *MemoryStore) DeleteCanarySchedule(ctx context.Context, projectID, flagK
 	delete(s.canarySchedules, key)
 	return nil
 }
+
+// SaveOIDCConfig creates or updates an enterprise OIDC configuration for an organization.
+func (s *MemoryStore) SaveOIDCConfig(ctx context.Context, cfg domain.OIDCConfig) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if cfg.OrganizationID == "" {
+		return errors.New("organization_id is required")
+	}
+	now := time.Now().UTC()
+	if cfg.CreatedAt.IsZero() {
+		cfg.CreatedAt = now
+	}
+	cfg.UpdatedAt = now
+	if cfg.DefaultRole == "" {
+		cfg.DefaultRole = "developer"
+	}
+	s.oidcConfigs[cfg.OrganizationID] = cfg
+	return nil
+}
+
+// GetOIDCConfig retrieves the OIDC configuration for a specific organization.
+func (s *MemoryStore) GetOIDCConfig(ctx context.Context, organizationID string) (*domain.OIDCConfig, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	cfg, exists := s.oidcConfigs[organizationID]
+	if !exists {
+		return nil, nil
+	}
+	copyCfg := cfg
+	return &copyCfg, nil
+}
+
+// GetOIDCConfigByDomain looks up an active OIDC configuration matching the given email domain.
+func (s *MemoryStore) GetOIDCConfigByDomain(ctx context.Context, emailDomain string) (*domain.OIDCConfig, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	cleanDomain := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(emailDomain), "@"))
+	if cleanDomain == "" {
+		return nil, nil
+	}
+
+	for _, cfg := range s.oidcConfigs {
+		if cfg.Enabled && cfg.IsDomainAllowed("probe@" + cleanDomain) {
+			copyCfg := cfg
+			return &copyCfg, nil
+		}
+	}
+	return nil, nil
+}
+
+// DeleteOIDCConfig deletes or disables an organization's OIDC configuration.
+func (s *MemoryStore) DeleteOIDCConfig(ctx context.Context, organizationID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.oidcConfigs, organizationID)
+	return nil
+}
+

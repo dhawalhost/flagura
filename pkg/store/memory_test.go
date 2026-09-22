@@ -1109,3 +1109,64 @@ func TestMemoryStore_CanarySchedules(t *testing.T) {
 		t.Fatalf("expected nil after delete, got: %+v", deleted)
 	}
 }
+
+func TestMemoryStore_OIDCConfigLifecycle(t *testing.T) {
+	memStore := NewMemoryStore()
+	ctx := context.Background()
+
+	orgID := "org_enterprise_acme"
+	cfg := domain.OIDCConfig{
+		OrganizationID: orgID,
+		Enabled:        true,
+		IssuerURL:      "https://login.microsoftonline.com/acme-tenant/v2.0",
+		ClientID:       "client-id-12345",
+		ClientSecret:   "secret-xyz-987",
+		AllowedDomains: "acme.com, acme.co",
+		DefaultRole:    "developer",
+	}
+
+	// 1. Save config
+	if err := memStore.SaveOIDCConfig(ctx, cfg); err != nil {
+		t.Fatalf("SaveOIDCConfig failed: %v", err)
+	}
+
+	// 2. Get config by Org ID
+	got, err := memStore.GetOIDCConfig(ctx, orgID)
+	if err != nil {
+		t.Fatalf("GetOIDCConfig failed: %v", err)
+	}
+	if got == nil || got.ClientID != "client-id-12345" || !got.Enabled {
+		t.Fatalf("GetOIDCConfig returned unexpected result: %+v", got)
+	}
+
+	// 3. Get config by Domain
+	byDomain, err := memStore.GetOIDCConfigByDomain(ctx, "acme.com")
+	if err != nil {
+		t.Fatalf("GetOIDCConfigByDomain failed: %v", err)
+	}
+	if byDomain == nil || byDomain.OrganizationID != orgID {
+		t.Fatalf("expected to find config by domain acme.com, got %+v", byDomain)
+	}
+
+	// 4. Non-matching domain returns nil
+	nonMatch, err := memStore.GetOIDCConfigByDomain(ctx, "evil.com")
+	if err != nil {
+		t.Fatalf("unexpected error for non-matching domain: %v", err)
+	}
+	if nonMatch != nil {
+		t.Fatalf("expected nil for non-matching domain, got: %+v", nonMatch)
+	}
+
+	// 5. Delete config
+	if err := memStore.DeleteOIDCConfig(ctx, orgID); err != nil {
+		t.Fatalf("DeleteOIDCConfig failed: %v", err)
+	}
+	deleted, err := memStore.GetOIDCConfig(ctx, orgID)
+	if err != nil {
+		t.Fatalf("GetOIDCConfig after delete failed: %v", err)
+	}
+	if deleted != nil {
+		t.Fatalf("expected nil after delete, got: %+v", deleted)
+	}
+}
+

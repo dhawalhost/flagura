@@ -272,3 +272,20 @@ CREATE TABLE IF NOT EXISTS canary_schedules (
 );
 CREATE INDEX IF NOT EXISTS idx_canary_schedules_status ON canary_schedules(status);
 CREATE INDEX IF NOT EXISTS idx_canary_schedules_project ON canary_schedules(project_id);
+
+-- ============================================================================
+-- 12. Enterprise Identity & Access (OIDC Configurations)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS oidc_configs (
+    organization_id TEXT PRIMARY KEY REFERENCES organizations(id) ON DELETE CASCADE,
+    enabled BOOLEAN NOT NULL DEFAULT false,
+    issuer_url TEXT NOT NULL,
+    client_id TEXT NOT NULL,
+    client_secret TEXT NOT NULL,
+    allowed_domains TEXT NOT NULL DEFAULT '',
+    default_role TEXT NOT NULL DEFAULT 'developer',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_oidc_configs_enabled ON oidc_configs(enabled);
+

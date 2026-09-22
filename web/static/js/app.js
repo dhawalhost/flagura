@@ -1575,6 +1575,9 @@ document.addEventListener('alpine:init', () => {
 		forgotForm: {
 			email: ''
 		},
+		ssoForm: {
+			domain: ''
+		},
 		resetForm: {
 			passphrase: '',
 			confirmPassphrase: ''
@@ -1595,6 +1598,7 @@ document.addEventListener('alpine:init', () => {
 			if (this.mode === 'signup') return 'Create Account';
 			if (this.mode === 'forgot') return 'Reset Password';
 			if (this.mode === 'reset') return 'Set Password';
+			if (this.mode === 'sso') return 'Enterprise SSO';
 			return 'Sign In';
 		},
 
@@ -1602,11 +1606,12 @@ document.addEventListener('alpine:init', () => {
 			if (this.mode === 'signup') return 'Get started with multi-tenant flag management';
 			if (this.mode === 'forgot') return 'We will send you a secure recovery link';
 			if (this.mode === 'reset') return 'Choose a strong password to continue';
+			if (this.mode === 'sso') return 'Sign in with your organization identity provider';
 			return 'Access your team feature flags, rollouts, and environments';
 		},
 
 		isMainAuthMode() {
-			return this.mode === 'signin' || this.mode === 'signup';
+			return this.mode === 'signin' || this.mode === 'signup' || this.mode === 'sso';
 		},
 
 		initAuth() {
@@ -1614,7 +1619,22 @@ document.addEventListener('alpine:init', () => {
 			const modeParam = urlParams.get('mode');
 			const tokenParam = urlParams.get('token');
 			const inviteParam = urlParams.get('invite');
-			if (inviteParam) {
+			const errorParam = urlParams.get('error');
+
+			if (errorParam) {
+				if (errorParam === 'domain_not_found') {
+					this.error = 'No Single Sign-On (OIDC) configuration found for this domain.';
+					this.mode = 'sso';
+				} else if (errorParam === 'domain_not_allowed') {
+					this.error = 'Your email address domain is not authorized for SSO access to this organization.';
+					this.mode = 'sso';
+				} else if (errorParam === 'csrf_state_invalid') {
+					this.error = 'Single Sign-On session verification failed (CSRF state mismatch or expired). Please try again.';
+					this.mode = 'sso';
+				} else {
+					this.error = 'Single Sign-On failed. Please try again or sign in with email and password.';
+				}
+			} else if (inviteParam) {
 				this.inviteToken = inviteParam;
 				this.mode = 'signup';
 				fetch('/api/v1/invitations/' + inviteParam)
@@ -1633,6 +1653,8 @@ document.addEventListener('alpine:init', () => {
 				this.resetToken = tokenParam;
 			} else if (modeParam === 'forgot') {
 				this.mode = 'forgot';
+			} else if (modeParam === 'sso') {
+				this.mode = 'sso';
 			}
 		},
 
@@ -1817,6 +1839,20 @@ document.addEventListener('alpine:init', () => {
 			} finally {
 				this.loading = false;
 			}
+		},
+
+		submitSSO() {
+			let raw = (this.ssoForm.domain || '').trim();
+			if (!raw) {
+				this.error = 'Please enter your corporate email or domain.';
+				return;
+			}
+			if (raw.includes('@')) {
+				raw = raw.split('@')[1];
+			}
+			this.loading = true;
+			this.error = '';
+			window.location.href = '/api/v1/auth/oidc/login?domain=' + encodeURIComponent(raw);
 		}
 	}));
 
@@ -2161,6 +2197,139 @@ document.addEventListener('alpine:init', () => {
 				navigator.clipboard.writeText(text).then(() => {
 					this.showToast(msg, 'info');
 				});
+			},
+
+			// Enterprise SSO (OIDC) State & Methods
+			selectedOrgId: '',
+			oidcConfig: null,
+			oidcLoading: false,
+			oidcSaving: false,
+			oidcForm: {
+				provider_name: '',
+				issuer_url: '',
+				client_id: '',
+				client_secret: '',
+				allowed_domains: '',
+				default_role: 'developer',
+				enabled: true
+			},
+			getOIDCCallbackUrl() {
+				return window.location.origin + '/api/v1/auth/oidc/callback';
+			},
+			async fetchOIDCConfig(orgId) {
+				if (!orgId) return;
+				this.selectedOrgId = orgId;
+				this.oidcLoading = true;
+				try {
+					const res = await fetch('/api/v1/organizations/' + encodeURIComponent(orgId) + '/oidc', {
+						credentials: 'same-origin'
+					});
+					if (res.status === 404) {
+						this.oidcConfig = null;
+						this.oidcForm = {
+							provider_name: '',
+							issuer_url: '',
+							client_id: '',
+							client_secret: '',
+							allowed_domains: '',
+							default_role: 'developer',
+							enabled: true
+						};
+						return;
+					}
+					if (!res.ok) {
+						const errData = await res.json().catch(() => ({}));
+						throw new Error(errData.message || 'Failed to load OIDC configuration');
+					}
+					const data = await res.json();
+					this.oidcConfig = data;
+					this.oidcForm = {
+						provider_name: data.provider_name || '',
+						issuer_url: data.issuer_url || '',
+						client_id: data.client_id || '',
+						client_secret: '',
+						allowed_domains: Array.isArray(data.allowed_domains) ? data.allowed_domains.join(', ') : '',
+						default_role: data.default_role || 'developer',
+						enabled: data.enabled !== false
+					};
+				} catch (err) {
+					this.showToast(err.message, 'error');
+				} finally {
+					this.oidcLoading = false;
+				}
+			},
+			async saveOIDCConfig() {
+				if (!this.selectedOrgId) return;
+				this.oidcSaving = true;
+				try {
+					const domains = this.oidcForm.allowed_domains
+						.split(',')
+						.map(d => d.trim().toLowerCase())
+						.filter(Boolean);
+
+					const payload = {
+						organization_id: this.selectedOrgId,
+						provider_name: this.oidcForm.provider_name.trim(),
+						issuer_url: this.oidcForm.issuer_url.trim(),
+						client_id: this.oidcForm.client_id.trim(),
+						client_secret: this.oidcForm.client_secret.trim(),
+						allowed_domains: domains,
+						default_role: this.oidcForm.default_role,
+						enabled: this.oidcForm.enabled
+					};
+
+					const res = await fetch('/api/v1/organizations/' + encodeURIComponent(this.selectedOrgId) + '/oidc', {
+						method: 'PUT',
+						headers: { 'Content-Type': 'application/json' },
+						credentials: 'same-origin',
+						body: JSON.stringify(payload)
+					});
+
+					const data = await res.json();
+					if (!res.ok) {
+						throw new Error(data.message || 'Failed to save OIDC configuration');
+					}
+
+					this.oidcConfig = data;
+					this.oidcForm.client_secret = '';
+					this.showToast('SSO (OIDC) configuration saved successfully!', 'info');
+				} catch (err) {
+					this.showToast(err.message, 'error');
+				} finally {
+					this.oidcSaving = false;
+				}
+			},
+			async deleteOIDCConfig() {
+				if (!this.selectedOrgId) return;
+				if (!confirm('Are you sure you want to disable and remove Single Sign-On for this organization? Members will no longer be able to log in via OIDC.')) {
+					return;
+				}
+				this.oidcSaving = true;
+				try {
+					const res = await fetch('/api/v1/organizations/' + encodeURIComponent(this.selectedOrgId) + '/oidc', {
+						method: 'DELETE',
+						credentials: 'same-origin'
+					});
+					if (!res.ok) {
+						const errData = await res.json().catch(() => ({}));
+						throw new Error(errData.message || 'Failed to delete OIDC configuration');
+					}
+					this.oidcConfig = null;
+					this.oidcForm = {
+						provider_name: '',
+						issuer_url: '',
+						client_id: '',
+						client_secret: '',
+						allowed_domains: '',
+						default_role: 'developer',
+						enabled: true
+					};
+					this.showToast('Single Sign-On configuration removed.', 'info');
+				} catch (err) {
+					this.showToast(err.message, 'error');
+				} finally {
+					this.oidcSaving = false;
+				}
 			}
 		};
 	}

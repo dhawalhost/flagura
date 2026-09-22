@@ -99,4 +99,10 @@ type Store interface {
 	ListActiveCanarySchedules(ctx context.Context) ([]domain.CanarySchedule, error)
 	ListCanarySchedulesByProject(ctx context.Context, projectID string) ([]domain.CanarySchedule, error)
 	DeleteCanarySchedule(ctx context.Context, projectID, flagKey string) error
+
+	// Enterprise Identity & Access (OIDC SSO)
+	SaveOIDCConfig(ctx context.Context, cfg domain.OIDCConfig) error
+	GetOIDCConfig(ctx context.Context, organizationID string) (*domain.OIDCConfig, error)
+	GetOIDCConfigByDomain(ctx context.Context, emailDomain string) (*domain.OIDCConfig, error)
+	DeleteOIDCConfig(ctx context.Context, organizationID string) error
 }

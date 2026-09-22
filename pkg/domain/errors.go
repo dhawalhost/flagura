@@ -88,6 +88,7 @@ const (
 	ErrCodeRateLimitExceeded   ErrorCode = 6003 // IP or token rate limit hit
 	ErrCodePayloadTooLarge     ErrorCode = 6004 // Max payload bytes exceeded
 	ErrCodeMalformedPayload    ErrorCode = 6005 // Invalid JSON payload
+	ErrCodeBadRequest          ErrorCode = 6006 // Bad request / parameter validation failure
 
 	// -------------------------------------------------------------
 	// 9000s: Internal Server Errors

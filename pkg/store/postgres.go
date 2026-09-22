@@ -297,6 +297,19 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 	CREATE INDEX IF NOT EXISTS idx_canary_schedules_status ON canary_schedules(status);
 	CREATE INDEX IF NOT EXISTS idx_canary_schedules_project ON canary_schedules(project_id);
 
+	CREATE TABLE IF NOT EXISTS oidc_configs (
+		organization_id TEXT PRIMARY KEY REFERENCES organizations(id) ON DELETE CASCADE,
+		enabled BOOLEAN NOT NULL DEFAULT false,
+		issuer_url TEXT NOT NULL,
+		client_id TEXT NOT NULL,
+		client_secret TEXT NOT NULL,
+		allowed_domains TEXT NOT NULL DEFAULT '',
+		default_role TEXT NOT NULL DEFAULT 'developer',
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_oidc_configs_enabled ON oidc_configs(enabled);
+
 	-- Seed initial default organization and project (matching schema.sql)
 	INSERT INTO organizations (id, name, slug, description)
 	VALUES ('org_default', 'Default Organization', 'default-org', 'Primary workspace organization')
@@ -2053,3 +2066,98 @@ func (s *PostgresStore) DeleteCanarySchedule(ctx context.Context, projectID, fla
 	`, projectID, flagKey)
 	return err
 }
+
+// SaveOIDCConfig creates or updates an organization's OIDC configuration.
+func (s *PostgresStore) SaveOIDCConfig(ctx context.Context, cfg domain.OIDCConfig) error {
+	if cfg.OrganizationID == "" {
+		return errors.New("organization_id is required")
+	}
+	now := time.Now().UTC()
+	if cfg.CreatedAt.IsZero() {
+		cfg.CreatedAt = now
+	}
+	cfg.UpdatedAt = now
+	if cfg.DefaultRole == "" {
+		cfg.DefaultRole = "developer"
+	}
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO oidc_configs (
+			organization_id, enabled, issuer_url, client_id, client_secret,
+			allowed_domains, default_role, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT (organization_id) DO UPDATE SET
+			enabled = EXCLUDED.enabled,
+			issuer_url = EXCLUDED.issuer_url,
+			client_id = EXCLUDED.client_id,
+			client_secret = EXCLUDED.client_secret,
+			allowed_domains = EXCLUDED.allowed_domains,
+			default_role = EXCLUDED.default_role,
+			updated_at = EXCLUDED.updated_at
+	`, cfg.OrganizationID, cfg.Enabled, cfg.IssuerURL, cfg.ClientID, cfg.ClientSecret,
+		cfg.AllowedDomains, cfg.DefaultRole, cfg.CreatedAt, cfg.UpdatedAt)
+	return err
+}
+
+// GetOIDCConfig retrieves an organization's OIDC configuration.
+func (s *PostgresStore) GetOIDCConfig(ctx context.Context, organizationID string) (*domain.OIDCConfig, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT organization_id, enabled, issuer_url, client_id, client_secret,
+		       allowed_domains, default_role, created_at, updated_at
+		FROM oidc_configs
+		WHERE organization_id = $1
+	`, organizationID)
+
+	var cfg domain.OIDCConfig
+	err := row.Scan(
+		&cfg.OrganizationID, &cfg.Enabled, &cfg.IssuerURL, &cfg.ClientID, &cfg.ClientSecret,
+		&cfg.AllowedDomains, &cfg.DefaultRole, &cfg.CreatedAt, &cfg.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+// GetOIDCConfigByDomain looks up an active OIDC configuration matching an email domain.
+func (s *PostgresStore) GetOIDCConfigByDomain(ctx context.Context, emailDomain string) (*domain.OIDCConfig, error) {
+	cleanDomain := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(emailDomain), "@"))
+	if cleanDomain == "" {
+		return nil, nil
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT organization_id, enabled, issuer_url, client_id, client_secret,
+		       allowed_domains, default_role, created_at, updated_at
+		FROM oidc_configs
+		WHERE enabled = true
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cfg domain.OIDCConfig
+		if err := rows.Scan(
+			&cfg.OrganizationID, &cfg.Enabled, &cfg.IssuerURL, &cfg.ClientID, &cfg.ClientSecret,
+			&cfg.AllowedDomains, &cfg.DefaultRole, &cfg.CreatedAt, &cfg.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if cfg.IsDomainAllowed("probe@" + cleanDomain) {
+			return &cfg, nil
+		}
+	}
+	return nil, rows.Err()
+}
+
+// DeleteOIDCConfig removes an organization's OIDC configuration.
+func (s *PostgresStore) DeleteOIDCConfig(ctx context.Context, organizationID string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM oidc_configs WHERE organization_id = $1`, organizationID)
+	return err
+}
+

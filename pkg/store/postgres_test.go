@@ -1023,6 +1023,88 @@ func TestPostgresStore_CanarySchedules(t *testing.T) {
 	}
 }
 
+func TestPostgresStore_OIDCConfigLifecycle(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	st := &PostgresStore{db: db}
+	ctx := context.Background()
+
+	now := time.Now().UTC()
+	cfg := domain.OIDCConfig{
+		OrganizationID: "org_pg_oidc",
+		Enabled:        true,
+		IssuerURL:      "https://login.microsoftonline.com/tenant-123/v2.0",
+		ClientID:       "azure-client-id",
+		ClientSecret:   "azure-client-secret",
+		AllowedDomains: "corp.enterprise.com, partner.com",
+		DefaultRole:    "developer",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+
+	// 1. Save (INSERT / UPSERT)
+	mock.ExpectExec(`INSERT INTO oidc_configs`).
+		WithArgs(
+			cfg.OrganizationID, cfg.Enabled, cfg.IssuerURL, cfg.ClientID, cfg.ClientSecret,
+			cfg.AllowedDomains, cfg.DefaultRole, sqlmock.AnyArg(), sqlmock.AnyArg(),
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	if err := st.SaveOIDCConfig(ctx, cfg); err != nil {
+		t.Fatalf("SaveOIDCConfig failed: %v", err)
+	}
+
+	// 2. Get by Org ID
+	mock.ExpectQuery(`SELECT organization_id, enabled, issuer_url, client_id, client_secret, allowed_domains, default_role, created_at, updated_at FROM oidc_configs WHERE organization_id = \$1`).
+		WithArgs("org_pg_oidc").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"organization_id", "enabled", "issuer_url", "client_id", "client_secret",
+			"allowed_domains", "default_role", "created_at", "updated_at",
+		}).AddRow(
+			cfg.OrganizationID, cfg.Enabled, cfg.IssuerURL, cfg.ClientID, cfg.ClientSecret,
+			cfg.AllowedDomains, cfg.DefaultRole, cfg.CreatedAt, cfg.UpdatedAt,
+		))
+
+	got, err := st.GetOIDCConfig(ctx, "org_pg_oidc")
+	if err != nil {
+		t.Fatalf("GetOIDCConfig failed: %v", err)
+	}
+	if got == nil || got.ClientID != "azure-client-id" || !got.Enabled {
+		t.Fatalf("GetOIDCConfig unexpected result: %+v", got)
+	}
+
+	// 3. Get by Domain
+	mock.ExpectQuery(`SELECT organization_id, enabled, issuer_url, client_id, client_secret, allowed_domains, default_role, created_at, updated_at FROM oidc_configs WHERE enabled = true`).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"organization_id", "enabled", "issuer_url", "client_id", "client_secret",
+			"allowed_domains", "default_role", "created_at", "updated_at",
+		}).AddRow(
+			cfg.OrganizationID, cfg.Enabled, cfg.IssuerURL, cfg.ClientID, cfg.ClientSecret,
+			cfg.AllowedDomains, cfg.DefaultRole, cfg.CreatedAt, cfg.UpdatedAt,
+		))
+
+	byDomain, err := st.GetOIDCConfigByDomain(ctx, "corp.enterprise.com")
+	if err != nil {
+		t.Fatalf("GetOIDCConfigByDomain failed: %v", err)
+	}
+	if byDomain == nil || byDomain.OrganizationID != "org_pg_oidc" {
+		t.Fatalf("expected match for domain corp.enterprise.com, got: %+v", byDomain)
+	}
+
+	// 4. Delete
+	mock.ExpectExec(`DELETE FROM oidc_configs WHERE organization_id = \$1`).
+		WithArgs("org_pg_oidc").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	if err := st.DeleteOIDCConfig(ctx, "org_pg_oidc"); err != nil {
+		t.Fatalf("DeleteOIDCConfig failed: %v", err)
+	}
+}
+
 func TestPostgresStore_RealDB_CanaryLifecycle(t *testing.T) {
 	dbURL := os.Getenv("TEST_POSTGRES_URL")
 	if dbURL == "" {

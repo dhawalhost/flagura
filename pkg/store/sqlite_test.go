@@ -359,3 +359,89 @@ func TestSQLiteStore_CanarySchedules(t *testing.T) {
 		t.Fatalf("expected nil after delete, got: %+v", deleted)
 	}
 }
+
+func TestSQLiteStore_OIDCConfigLifecycle(t *testing.T) {
+	ctx := context.Background()
+	s, err := NewSQLiteStore(":memory:")
+	if err != nil {
+		t.Fatalf("failed to create sqlite store: %v", err)
+	}
+	defer s.Close()
+
+	orgID := "org_sqlite_sso_test"
+	_, _ = s.CreateOrganization(ctx, domain.Organization{
+		ID:   orgID,
+		Name: "SQLite SSO Test Org",
+		Slug: "sqlite-sso-test",
+	})
+
+	cfg := domain.OIDCConfig{
+		OrganizationID: orgID,
+		Enabled:        true,
+		IssuerURL:      "https://accounts.google.com",
+		ClientID:       "google-client-id-xyz",
+		ClientSecret:   "google-client-secret-123",
+		AllowedDomains: "corp.flagura.dev, flagura.io",
+		DefaultRole:    "developer",
+	}
+
+	// 1. Save OIDC config
+	if err := s.SaveOIDCConfig(ctx, cfg); err != nil {
+		t.Fatalf("SaveOIDCConfig failed: %v", err)
+	}
+
+	// 2. Get OIDC config
+	got, err := s.GetOIDCConfig(ctx, orgID)
+	if err != nil {
+		t.Fatalf("GetOIDCConfig failed: %v", err)
+	}
+	if got == nil || got.ClientID != "google-client-id-xyz" || !got.Enabled {
+		t.Fatalf("unexpected OIDC config result: %+v", got)
+	}
+
+	// 3. Get OIDC config by domain
+	byDomain, err := s.GetOIDCConfigByDomain(ctx, "corp.flagura.dev")
+	if err != nil {
+		t.Fatalf("GetOIDCConfigByDomain failed: %v", err)
+	}
+	if byDomain == nil || byDomain.OrganizationID != orgID {
+		t.Fatalf("expected match for corp.flagura.dev, got: %+v", byDomain)
+	}
+
+	// 4. Update (upsert) OIDC config
+	got.Enabled = false
+	got.DefaultRole = "viewer"
+	if err := s.SaveOIDCConfig(ctx, *got); err != nil {
+		t.Fatalf("SaveOIDCConfig upsert failed: %v", err)
+	}
+
+	updated, err := s.GetOIDCConfig(ctx, orgID)
+	if err != nil {
+		t.Fatalf("GetOIDCConfig after update failed: %v", err)
+	}
+	if updated.Enabled || updated.DefaultRole != "viewer" {
+		t.Fatalf("expected updated config with enabled=false, got: %+v", updated)
+	}
+
+	// Disabled config should not match domain lookups
+	disabledMatch, err := s.GetOIDCConfigByDomain(ctx, "corp.flagura.dev")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if disabledMatch != nil {
+		t.Fatalf("disabled config should not match domain lookup, got: %+v", disabledMatch)
+	}
+
+	// 5. Delete OIDC config
+	if err := s.DeleteOIDCConfig(ctx, orgID); err != nil {
+		t.Fatalf("DeleteOIDCConfig failed: %v", err)
+	}
+	deleted, err := s.GetOIDCConfig(ctx, orgID)
+	if err != nil {
+		t.Fatalf("GetOIDCConfig after delete failed: %v", err)
+	}
+	if deleted != nil {
+		t.Fatalf("expected nil after delete, got: %+v", deleted)
+	}
+}
+

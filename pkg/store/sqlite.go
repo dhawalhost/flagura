@@ -251,6 +251,19 @@ func (s *SQLiteStore) autoMigrate(ctx context.Context) error {
 		last_evaluated_at TEXT NOT NULL,
 		PRIMARY KEY (project_id, flag_key)
 	);
+
+	CREATE TABLE IF NOT EXISTS oidc_configs (
+		organization_id TEXT PRIMARY KEY REFERENCES organizations(id) ON DELETE CASCADE,
+		enabled INTEGER NOT NULL DEFAULT 0,
+		issuer_url TEXT NOT NULL,
+		client_id TEXT NOT NULL,
+		client_secret TEXT NOT NULL,
+		allowed_domains TEXT NOT NULL DEFAULT '',
+		default_role TEXT NOT NULL DEFAULT 'developer',
+		created_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL
+	);
+	CREATE INDEX IF NOT EXISTS idx_sqlite_oidc_configs_enabled ON oidc_configs(enabled);
 	`
 	_, err := s.db.ExecContext(ctx, schema)
 	return err
@@ -2174,3 +2187,127 @@ func (s *SQLiteStore) DeleteCanarySchedule(ctx context.Context, projectID, flagK
 	`, projectID, flagKey)
 	return err
 }
+
+// SaveOIDCConfig creates or updates an organization's OIDC configuration.
+func (s *SQLiteStore) SaveOIDCConfig(ctx context.Context, cfg domain.OIDCConfig) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if cfg.OrganizationID == "" {
+		return errors.New("organization_id is required")
+	}
+	now := time.Now().UTC()
+	if cfg.CreatedAt.IsZero() {
+		cfg.CreatedAt = now
+	}
+	cfg.UpdatedAt = now
+	if cfg.DefaultRole == "" {
+		cfg.DefaultRole = "developer"
+	}
+
+	enabledInt := 0
+	if cfg.Enabled {
+		enabledInt = 1
+	}
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO oidc_configs (
+			organization_id, enabled, issuer_url, client_id, client_secret,
+			allowed_domains, default_role, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(organization_id) DO UPDATE SET
+			enabled = excluded.enabled,
+			issuer_url = excluded.issuer_url,
+			client_id = excluded.client_id,
+			client_secret = excluded.client_secret,
+			allowed_domains = excluded.allowed_domains,
+			default_role = excluded.default_role,
+			updated_at = excluded.updated_at
+	`, cfg.OrganizationID, enabledInt, cfg.IssuerURL, cfg.ClientID, cfg.ClientSecret,
+		cfg.AllowedDomains, cfg.DefaultRole,
+		cfg.CreatedAt.Format(time.RFC3339), cfg.UpdatedAt.Format(time.RFC3339))
+	return err
+}
+
+// GetOIDCConfig retrieves an organization's OIDC configuration.
+func (s *SQLiteStore) GetOIDCConfig(ctx context.Context, organizationID string) (*domain.OIDCConfig, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	row := s.db.QueryRowContext(ctx, `
+		SELECT organization_id, enabled, issuer_url, client_id, client_secret,
+		       allowed_domains, default_role, created_at, updated_at
+		FROM oidc_configs
+		WHERE organization_id = ?
+	`, organizationID)
+
+	var cfg domain.OIDCConfig
+	var enabledInt int
+	var createdStr, updatedStr string
+	err := row.Scan(
+		&cfg.OrganizationID, &enabledInt, &cfg.IssuerURL, &cfg.ClientID, &cfg.ClientSecret,
+		&cfg.AllowedDomains, &cfg.DefaultRole, &createdStr, &updatedStr,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	cfg.Enabled = enabledInt == 1
+	cfg.CreatedAt, _ = time.Parse(time.RFC3339, createdStr)
+	cfg.UpdatedAt, _ = time.Parse(time.RFC3339, updatedStr)
+	return &cfg, nil
+}
+
+// GetOIDCConfigByDomain looks up an active OIDC configuration matching an email domain.
+func (s *SQLiteStore) GetOIDCConfigByDomain(ctx context.Context, emailDomain string) (*domain.OIDCConfig, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	cleanDomain := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(emailDomain), "@"))
+	if cleanDomain == "" {
+		return nil, nil
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT organization_id, enabled, issuer_url, client_id, client_secret,
+		       allowed_domains, default_role, created_at, updated_at
+		FROM oidc_configs
+		WHERE enabled = 1
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cfg domain.OIDCConfig
+		var enabledInt int
+		var createdStr, updatedStr string
+		if err := rows.Scan(
+			&cfg.OrganizationID, &enabledInt, &cfg.IssuerURL, &cfg.ClientID, &cfg.ClientSecret,
+			&cfg.AllowedDomains, &cfg.DefaultRole, &createdStr, &updatedStr,
+		); err != nil {
+			return nil, err
+		}
+		cfg.Enabled = enabledInt == 1
+		cfg.CreatedAt, _ = time.Parse(time.RFC3339, createdStr)
+		cfg.UpdatedAt, _ = time.Parse(time.RFC3339, updatedStr)
+
+		if cfg.IsDomainAllowed("probe@" + cleanDomain) {
+			return &cfg, nil
+		}
+	}
+	return nil, rows.Err()
+}
+
+// DeleteOIDCConfig removes an organization's OIDC configuration.
+func (s *SQLiteStore) DeleteOIDCConfig(ctx context.Context, organizationID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.db.ExecContext(ctx, `DELETE FROM oidc_configs WHERE organization_id = ?`, organizationID)
+	return err
+}
+

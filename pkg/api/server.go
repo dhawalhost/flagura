@@ -106,6 +106,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/v1/auth/me", s.handleMe)
 	s.mux.HandleFunc("/api/v1/auth/profile", s.RequireAuth(s.handleUpdateProfile))
 	s.mux.HandleFunc("/api/v1/auth/change-password", s.authLimiter.LimitHandler(s.RequireAuth(s.handleChangePassword)))
+	s.mux.HandleFunc("/api/v1/auth/oidc/login", s.authLimiter.LimitHandler(s.handleOIDCLogin))
+	s.mux.HandleFunc("/api/v1/auth/oidc/callback", s.authLimiter.LimitHandler(s.handleOIDCCallback))
 
 	// Public Observability & Webhook Routes
 	s.mux.HandleFunc("/health", s.handleHealth)
@@ -184,6 +186,7 @@ func (s *Server) routes() {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		}
 	})))
+	s.mux.HandleFunc("/api/v1/organizations/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleOIDCConfigRoutes)))
 
 	s.mux.HandleFunc("/api/v1/projects", s.apiLimiter.LimitHandler(s.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
