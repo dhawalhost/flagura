@@ -159,9 +159,18 @@ func (s *PostgresStore) autoMigrate(ctx context.Context) error {
 		timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
 	);
 	ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
+	ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS prev_hash TEXT NOT NULL DEFAULT '';
+	ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS entry_hash TEXT NOT NULL DEFAULT '';
 
 	CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
 	CREATE INDEX IF NOT EXISTS idx_audit_logs_proj ON audit_logs(project_id, timestamp DESC);
+	CREATE INDEX IF NOT EXISTS idx_audit_logs_chain ON audit_logs(project_id, timestamp ASC);
+
+	CREATE TABLE IF NOT EXISTS audit_anchors (
+		project_id TEXT PRIMARY KEY,
+		anchor_hash TEXT NOT NULL,
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+	);
 
 	CREATE TABLE IF NOT EXISTS experiment_events (
 		id TEXT PRIMARY KEY,
@@ -452,12 +461,11 @@ func (s *PostgresStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, a
 		Details:     fmt.Sprintf("Saved feature flag '%s'.", flag.Key),
 	}
 
-	_, _ = s.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (id, project_id, flag_key, action, environment, actor, details, timestamp)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, log.ID, log.ProjectID, log.FlagKey, log.Action, log.Environment, log.Actor, log.Details, log.Timestamp)
-
-	return &log, nil
+	savedLog, err := s.insertAuditLog(ctx, log)
+	if err != nil {
+		return nil, err
+	}
+	return &savedLog, nil
 }
 
 func (s *PostgresStore) DeleteFlag(ctx context.Context, keyOrID string, actor string) (*domain.AuditLogEntry, error) {
@@ -497,12 +505,11 @@ func (s *PostgresStore) DeleteFlagByProject(ctx context.Context, projectID, keyO
 		Details:     fmt.Sprintf("Deleted feature flag '%s' from project '%s'.", f.Key, projectID),
 	}
 
-	_, _ = s.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (id, project_id, flag_key, action, environment, actor, details, timestamp)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, log.ID, log.ProjectID, log.FlagKey, log.Action, log.Environment, log.Actor, log.Details, log.Timestamp)
-
-	return &log, nil
+	savedLog, err := s.insertAuditLog(ctx, log)
+	if err != nil {
+		return nil, err
+	}
+	return &savedLog, nil
 }
 
 func (s *PostgresStore) ToggleFlag(ctx context.Context, keyOrID string, env domain.Environment, enabled *bool, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
@@ -519,10 +526,10 @@ func (s *PostgresStore) ToggleFlagByProject(ctx context.Context, projectID, keyO
 	}
 
 	cfg := f.Environments[env]
-	if enabled != nil {
-		cfg.Enabled = *enabled
-	} else {
+	if enabled == nil {
 		cfg.Enabled = !cfg.Enabled
+	} else {
+		cfg.Enabled = *enabled
 	}
 	f.Environments[env] = cfg
 	f.UpdatedAt = time.Now().UTC()
@@ -553,12 +560,11 @@ func (s *PostgresStore) ToggleFlagByProject(ctx context.Context, projectID, keyO
 		Details:     fmt.Sprintf("%s flag for %s environment in project %s.", statusText, env, projectID),
 	}
 
-	_, _ = s.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (id, project_id, flag_key, action, environment, actor, details, timestamp)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, log.ID, log.ProjectID, log.FlagKey, log.Action, log.Environment, log.Actor, log.Details, log.Timestamp)
-
-	return f, &log, nil
+	savedLog, err := s.insertAuditLog(ctx, log)
+	if err != nil {
+		return nil, nil, err
+	}
+	return f, &savedLog, nil
 }
 
 func (s *PostgresStore) UpdateRollout(ctx context.Context, keyOrID string, env domain.Environment, pct float64, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error) {
@@ -612,45 +618,58 @@ func (s *PostgresStore) UpdateRolloutByProject(ctx context.Context, projectID, k
 		Details:     fmt.Sprintf("Shifted percentage rollout from %.0f%% to %.0f%% in %s for project %s.", oldPct, pct, env, projectID),
 	}
 
-	_, _ = s.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (id, project_id, flag_key, action, environment, actor, details, timestamp)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, log.ID, log.ProjectID, log.FlagKey, log.Action, log.Environment, log.Actor, log.Details, log.Timestamp)
+	savedLog, err := s.insertAuditLog(ctx, log)
+	if err != nil {
+		return nil, nil, err
+	}
+	return f, &savedLog, nil
+}
 
-	return f, &log, nil
+func (s *PostgresStore) insertAuditLog(ctx context.Context, entry domain.AuditLogEntry) (domain.AuditLogEntry, error) {
+	if entry.ID == "" {
+		entry.ID = fmt.Sprintf("log_%d", time.Now().UnixNano())
+	}
+	if entry.ProjectID == "" {
+		entry.ProjectID = DefaultProjectID
+	}
+	if entry.Timestamp.IsZero() {
+		entry.Timestamp = time.Now().UTC()
+	}
+
+	var prevHash string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT entry_hash FROM audit_logs
+		WHERE project_id = $1 AND entry_hash != ''
+		ORDER BY timestamp DESC, id DESC
+		LIMIT 1
+	`, entry.ProjectID).Scan(&prevHash)
+
+	if err != nil {
+		var anchorHash string
+		anchorErr := s.db.QueryRowContext(ctx, `SELECT anchor_hash FROM audit_anchors WHERE project_id = $1`, entry.ProjectID).Scan(&anchorHash)
+		if anchorErr == nil && anchorHash != "" {
+			prevHash = anchorHash
+		} else {
+			prevHash = domain.AuditGenesisHash
+		}
+	}
+
+	entry.PrevHash = prevHash
+	entry.EntryHash = domain.ComputeAuditEntryHash(prevHash, entry)
+
+	_, err = s.db.ExecContext(ctx, `
+		INSERT INTO audit_logs (id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`, entry.ID, entry.ProjectID, entry.FlagKey, entry.Action, string(entry.Environment), entry.Actor, entry.Details, entry.PrevHash, entry.EntryHash, entry.Timestamp)
+	return entry, err
 }
 
 func (s *PostgresStore) ListAuditLogs(ctx context.Context, limit int) ([]domain.AuditLogEntry, error) {
-	if limit <= 0 {
-		limit = 50
-	}
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, flag_key, action, environment, actor, details, timestamp
-		FROM audit_logs
-		ORDER BY timestamp DESC
-		LIMIT $1
-	`, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var logs []domain.AuditLogEntry
-	for rows.Next() {
-		var l domain.AuditLogEntry
-		var envStr string
-		if err := rows.Scan(&l.ID, &l.FlagKey, &l.Action, &envStr, &l.Actor, &l.Details, &l.Timestamp); err != nil {
-			return nil, err
-		}
-		l.Environment = domain.Environment(envStr)
-		logs = append(logs, l)
-	}
-
-	return logs, nil
+	return s.ListAuditLogsByProject(ctx, DefaultProjectID, limit)
 }
 
 func (s *PostgresStore) Reset(ctx context.Context) error {
-	_, _ = s.db.ExecContext(ctx, "TRUNCATE feature_flags, audit_logs")
+	_, _ = s.db.ExecContext(ctx, "TRUNCATE feature_flags, audit_logs, audit_anchors")
 	return s.autoMigrate(ctx)
 }
 
@@ -1268,11 +1287,7 @@ func (s *PostgresStore) RevokeAPIKey(ctx context.Context, id string, actor strin
 		Timestamp:   time.Now().UTC(),
 		Details:     fmt.Sprintf("Revoked API Key %s", id),
 	}
-	now := time.Now().UTC()
-	_, _ = s.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (id, project_id, flag_key, environment, action, actor, timestamp, details)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, audit.ID, audit.ProjectID, audit.FlagKey, audit.Environment, audit.Action, audit.Actor, now, audit.Details)
+	_, _ = s.insertAuditLog(ctx, audit)
 
 	return nil
 }
@@ -1304,11 +1319,7 @@ func (s *PostgresStore) RevokeAPIKeyByProject(ctx context.Context, projectID, id
 		Timestamp:   time.Now().UTC(),
 		Details:     fmt.Sprintf("Revoked API Key %s in project %s", id, projectID),
 	}
-	now := time.Now().UTC()
-	_, _ = s.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (id, project_id, flag_key, environment, action, actor, timestamp, details)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, audit.ID, audit.ProjectID, audit.FlagKey, audit.Environment, audit.Action, audit.Actor, now, audit.Details)
+	_, _ = s.insertAuditLog(ctx, audit)
 
 	return nil
 }
@@ -1571,7 +1582,7 @@ func (s *PostgresStore) ListAuditLogsByProject(ctx context.Context, projectID st
 		limit = 100
 	}
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, project_id, flag_key, action, environment, actor, details, timestamp
+		SELECT id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp
 		FROM audit_logs
 		WHERE project_id = $1
 		ORDER BY timestamp DESC
@@ -1585,12 +1596,212 @@ func (s *PostgresStore) ListAuditLogsByProject(ctx context.Context, projectID st
 	var logs []domain.AuditLogEntry
 	for rows.Next() {
 		var l domain.AuditLogEntry
-		if err := rows.Scan(&l.ID, &l.ProjectID, &l.FlagKey, &l.Action, &l.Environment, &l.Actor, &l.Details, &l.Timestamp); err != nil {
+		if err := rows.Scan(&l.ID, &l.ProjectID, &l.FlagKey, &l.Action, &l.Environment, &l.Actor, &l.Details, &l.PrevHash, &l.EntryHash, &l.Timestamp); err != nil {
 			return nil, err
 		}
 		logs = append(logs, l)
 	}
 	return logs, nil
+}
+
+func (s *PostgresStore) VerifyAuditLogIntegrity(ctx context.Context, projectID string) (*domain.AuditIntegrityResult, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp
+		FROM audit_logs
+		WHERE project_id = $1
+		ORDER BY timestamp ASC, id ASC
+	`, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var chain []domain.AuditLogEntry
+	for rows.Next() {
+		var a domain.AuditLogEntry
+		var envStr string
+		if err := rows.Scan(&a.ID, &a.ProjectID, &a.FlagKey, &a.Action, &envStr, &a.Actor, &a.Details, &a.PrevHash, &a.EntryHash, &a.Timestamp); err != nil {
+			return nil, err
+		}
+		a.Environment = domain.Environment(envStr)
+		chain = append(chain, a)
+	}
+
+	now := time.Now().UTC()
+	if len(chain) == 0 {
+		return &domain.AuditIntegrityResult{
+			Valid:         true,
+			TotalVerified: 0,
+			VerifiedAt:    now,
+		}, nil
+	}
+
+	expectedPrev := domain.AuditGenesisHash
+	var anchorHash string
+	if err := s.db.QueryRowContext(ctx, `SELECT anchor_hash FROM audit_anchors WHERE project_id = $1`, projectID).Scan(&anchorHash); err == nil && anchorHash != "" {
+		expectedPrev = anchorHash
+	}
+
+	for i, entry := range chain {
+		if i == 0 {
+			if entry.PrevHash != expectedPrev && entry.PrevHash != domain.AuditGenesisHash {
+				return &domain.AuditIntegrityResult{
+					Valid:         false,
+					TotalVerified: i,
+					VerifiedAt:    now,
+					BrokenEntryID: entry.ID,
+					ErrorMessage:  fmt.Sprintf("initial entry prev_hash mismatch: expected %s, got %s", expectedPrev, entry.PrevHash),
+				}, nil
+			}
+		} else {
+			if entry.PrevHash != expectedPrev {
+				return &domain.AuditIntegrityResult{
+					Valid:         false,
+					TotalVerified: i,
+					VerifiedAt:    now,
+					BrokenEntryID: entry.ID,
+					ErrorMessage:  fmt.Sprintf("broken chain linkage at entry %s: prev_hash %s does not match predecessor %s", entry.ID, entry.PrevHash, expectedPrev),
+				}, nil
+			}
+		}
+
+		computed := domain.ComputeAuditEntryHash(entry.PrevHash, entry)
+		if entry.EntryHash != computed {
+			return &domain.AuditIntegrityResult{
+				Valid:         false,
+				TotalVerified: i,
+				VerifiedAt:    now,
+				BrokenEntryID: entry.ID,
+				ErrorMessage:  fmt.Sprintf("hash tampering detected at entry %s: computed %s, stored %s", entry.ID, computed, entry.EntryHash),
+			}, nil
+		}
+		expectedPrev = entry.EntryHash
+	}
+
+	return &domain.AuditIntegrityResult{
+		Valid:         true,
+		TotalVerified: len(chain),
+		HeadHash:      expectedPrev,
+		VerifiedAt:    now,
+	}, nil
+}
+
+func (s *PostgresStore) ExportAuditLogs(ctx context.Context, projectID string, from, to *time.Time, limit int) ([]domain.AuditLogEntry, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+	if limit <= 0 || limit > 10000 {
+		limit = 10000
+	}
+
+	var query string
+	var args []interface{}
+
+	switch {
+	case from != nil && to != nil:
+		query = `
+			SELECT id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp
+			FROM audit_logs
+			WHERE project_id = $1 AND timestamp >= $2 AND timestamp <= $3
+			ORDER BY timestamp DESC, id DESC
+			LIMIT $4
+		`
+		args = []interface{}{projectID, *from, *to, limit}
+	case from != nil:
+		query = `
+			SELECT id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp
+			FROM audit_logs
+			WHERE project_id = $1 AND timestamp >= $2
+			ORDER BY timestamp DESC, id DESC
+			LIMIT $3
+		`
+		args = []interface{}{projectID, *from, limit}
+	case to != nil:
+		query = `
+			SELECT id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp
+			FROM audit_logs
+			WHERE project_id = $1 AND timestamp <= $2
+			ORDER BY timestamp DESC, id DESC
+			LIMIT $3
+		`
+		args = []interface{}{projectID, *to, limit}
+	default:
+		query = `
+			SELECT id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp
+			FROM audit_logs
+			WHERE project_id = $1
+			ORDER BY timestamp DESC, id DESC
+			LIMIT $2
+		`
+		args = []interface{}{projectID, limit}
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var logs []domain.AuditLogEntry
+	for rows.Next() {
+		var a domain.AuditLogEntry
+		var envStr string
+		if err := rows.Scan(&a.ID, &a.ProjectID, &a.FlagKey, &a.Action, &envStr, &a.Actor, &a.Details, &a.PrevHash, &a.EntryHash, &a.Timestamp); err != nil {
+			return nil, err
+		}
+		a.Environment = domain.Environment(envStr)
+		logs = append(logs, a)
+	}
+	return logs, nil
+}
+
+func (s *PostgresStore) PurgeAuditLogs(ctx context.Context, projectID string, before time.Time) (int64, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	var lastPurgedHash string
+	_ = s.db.QueryRowContext(ctx, `
+		SELECT entry_hash FROM audit_logs
+		WHERE project_id = $1 AND timestamp < $2
+		ORDER BY timestamp DESC, id DESC
+		LIMIT 1
+	`, projectID, before).Scan(&lastPurgedHash)
+
+	res, err := s.db.ExecContext(ctx, `
+		DELETE FROM audit_logs
+		WHERE project_id = $1 AND timestamp < $2
+	`, projectID, before)
+	if err != nil {
+		return 0, err
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	if affected > 0 && lastPurgedHash != "" {
+		_, _ = s.db.ExecContext(ctx, `
+			INSERT INTO audit_anchors (project_id, anchor_hash, updated_at)
+			VALUES ($1, $2, NOW())
+			ON CONFLICT (project_id) DO UPDATE SET anchor_hash = EXCLUDED.anchor_hash, updated_at = EXCLUDED.updated_at
+		`, projectID, lastPurgedHash)
+	}
+
+	return affected, nil
+}
+
+func (s *PostgresStore) AppendAuditLog(ctx context.Context, entry domain.AuditLogEntry) (*domain.AuditLogEntry, error) {
+	log, err := s.insertAuditLog(ctx, entry)
+	if err != nil {
+		return nil, err
+	}
+	return &log, nil
 }
 
 func (s *PostgresStore) ListChangeRequestsByProject(ctx context.Context, projectID string, status domain.ChangeRequestStatus) ([]domain.ChangeRequest, error) {

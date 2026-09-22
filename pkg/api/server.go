@@ -228,6 +228,9 @@ func (s *Server) routes() {
 	}))
 
 	s.mux.HandleFunc("/api/v1/audit-logs", s.RequireAuth(s.handleGetAuditLogs))
+	s.mux.HandleFunc("/api/v1/audit/verify", s.RequireAuth(s.handleVerifyAuditChain))
+	s.mux.HandleFunc("/api/v1/audit/export", s.RequireAuth(s.handleExportAuditLogs))
+	s.mux.HandleFunc("/api/v1/audit/purge", s.RequireAuth(s.RequireRole(domain.RoleAdmin, s.handlePurgeAuditLogs)))
 	s.mux.HandleFunc("/api/v1/reset", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)

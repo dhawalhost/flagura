@@ -134,13 +134,18 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     environment TEXT NOT NULL,
     actor TEXT NOT NULL,
     details TEXT NOT NULL,
+    prev_hash TEXT NOT NULL DEFAULT '',
+    entry_hash TEXT NOT NULL DEFAULT '',
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 -- Ensure columns exist before creating indexes
 ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS project_id TEXT NOT NULL DEFAULT 'proj_default';
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS prev_hash TEXT NOT NULL DEFAULT '';
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS entry_hash TEXT NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_proj ON audit_logs(project_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_chain ON audit_logs(project_id, timestamp ASC);
 
 -- ============================================================================
 -- 7. A/B Experimentation Telemetry Events

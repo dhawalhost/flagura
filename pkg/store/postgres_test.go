@@ -218,7 +218,6 @@ func TestPostgresStore_FlagOperations(t *testing.T) {
 		WithArgs(sqlmock.AnyArg(), sampleFlag.ProjectID, sampleFlag.Key, sampleFlag.Name, sampleFlag.Description, sampleFlag.Type, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), sampleFlag.ProjectID, sampleFlag.Key, "FLAG_UPDATED", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	log, err := st.SaveFlag(ctx, sampleFlag, "admin@flagura.dev")
@@ -235,7 +234,6 @@ func TestPostgresStore_FlagOperations(t *testing.T) {
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sampleFlag.ID, "proj_default").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), "proj_default", "ai-smart-search", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	newVal := false
@@ -253,7 +251,6 @@ func TestPostgresStore_FlagOperations(t *testing.T) {
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sampleFlag.ID, "proj_default").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), "proj_default", "ai-smart-search", "ROLLOUT_CHANGED", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	_, _, err = st.UpdateRollout(ctx, "ai-smart-search", domain.EnvProduction, 85.0, "admin@flagura.dev")
@@ -270,7 +267,6 @@ func TestPostgresStore_FlagOperations(t *testing.T) {
 		WithArgs("ai-smart-search", "proj_default").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), "proj_default", sampleFlag.Key, "FLAG_DELETED", "all", "admin@flagura.dev", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	delLog, err := st.DeleteFlag(ctx, "ai-smart-search", "admin@flagura.dev")
@@ -279,10 +275,10 @@ func TestPostgresStore_FlagOperations(t *testing.T) {
 	}
 
 	// 7. ListAuditLogs
-	mock.ExpectQuery(`SELECT id, flag_key, action, environment, actor, details, timestamp FROM audit_logs ORDER BY timestamp DESC LIMIT \$1`).
-		WithArgs(10).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "flag_key", "action", "environment", "actor", "details", "timestamp"}).
-			AddRow("log_01", "ai-smart-search", "FLAG_CREATED", "production", "admin@flagura.dev", "Created flag", time.Now()))
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp FROM audit_logs WHERE project_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
+		WithArgs("proj_default", 10).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "flag_key", "action", "environment", "actor", "details", "prev_hash", "entry_hash", "timestamp"}).
+			AddRow("log_01", "proj_default", "ai-smart-search", "FLAG_CREATED", "production", "admin@flagura.dev", "Created flag", "GENESIS", "hash1", time.Now()))
 
 	logs, err := st.ListAuditLogs(ctx, 10)
 	if err != nil || len(logs) != 1 {
@@ -415,7 +411,6 @@ func TestPostgresStore_GovernanceAndMultiTenancy(t *testing.T) {
 		WithArgs(apiKey.ID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), DefaultProjectID, "api-keys", "all", "API_KEY_REVOKED", "admin@flagura.dev", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	if err := st.RevokeAPIKey(ctx, apiKey.ID, "admin@flagura.dev"); err != nil {
@@ -555,10 +550,10 @@ func TestPostgresStore_ProjectScopedLists(t *testing.T) {
 	ctx := context.Background()
 
 	// 1. ListAuditLogsByProject
-	mock.ExpectQuery(`SELECT id, project_id, flag_key, action, environment, actor, details, timestamp FROM audit_logs WHERE project_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp FROM audit_logs WHERE project_id = \$1 ORDER BY timestamp DESC LIMIT \$2`).
 		WithArgs("proj_100", 50).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "flag_key", "action", "environment", "actor", "details", "timestamp"}).
-			AddRow("log_01", "proj_100", "feat-1", "TOGGLE", "production", "actor@test.com", "toggled", time.Now()))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "flag_key", "action", "environment", "actor", "details", "prev_hash", "entry_hash", "timestamp"}).
+			AddRow("log_01", "proj_100", "feat-1", "TOGGLE", "production", "actor@test.com", "toggled", "GENESIS", "hash1", time.Now()))
 
 	logs, err := st.ListAuditLogsByProject(ctx, "proj_100", 50)
 	if err != nil || len(logs) != 1 {
@@ -639,7 +634,6 @@ func TestPostgresStore_FlagMutationsAndUserOperations(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), DefaultProjectID, testFlag.Key, "KILL_SWITCH_TOGGLED", sqlmock.AnyArg(), "admin@flagura.dev", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	toggled, _, err := st.ToggleFlag(ctx, "mutate-feat", domain.EnvProduction, nil, "admin@flagura.dev")
@@ -658,7 +652,6 @@ func TestPostgresStore_FlagMutationsAndUserOperations(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), DefaultProjectID, testFlag.Key, "ROLLOUT_CHANGED", sqlmock.AnyArg(), "admin@flagura.dev", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	rolled, _, err := st.UpdateRollout(ctx, "mutate-feat", domain.EnvProduction, 80, "admin@flagura.dev")
@@ -677,7 +670,6 @@ func TestPostgresStore_FlagMutationsAndUserOperations(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), DefaultProjectID, testFlag.Key, "FLAG_DELETED", "all", "admin@flagura.dev", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	delLog, err := st.DeleteFlag(ctx, "mutate-feat", "admin@flagura.dev")
@@ -774,7 +766,6 @@ func TestPostgresStore_GovernanceAndAuthExtended(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	mock.ExpectExec(`INSERT INTO audit_logs`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), cr.FlagKey, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	mock.ExpectExec(`UPDATE change_requests SET status = \$1, applied_at = \$2 WHERE id = \$3`).
@@ -1192,3 +1183,93 @@ func TestPostgresStore_RealDB_CanaryLifecycle(t *testing.T) {
 		t.Fatalf("expected nil after delete, got: %+v", deleted)
 	}
 }
+
+func TestPostgresStore_AuditGovernanceAndIntegrity(t *testing.T) {
+	st, mock := newMockPostgresStore(t)
+	defer st.db.Close()
+	ctx := context.Background()
+	projID := "proj_pg_audit"
+
+	// 1. VerifyAuditLogIntegrity - Clean chain
+	now := time.Now().UTC()
+	entry1 := domain.AuditLogEntry{
+		ID:          "log_1",
+		ProjectID:   projID,
+		FlagKey:     "flag-1",
+		Action:      "FLAG_CREATED",
+		Environment: domain.EnvProduction,
+		Actor:       "alice@flagura.dev",
+		Details:     "Created flag",
+		PrevHash:    domain.AuditGenesisHash,
+		Timestamp:   now.Add(-2 * time.Minute),
+	}
+	entry1.EntryHash = domain.ComputeAuditEntryHash(entry1.PrevHash, entry1)
+
+	entry2 := domain.AuditLogEntry{
+		ID:          "log_2",
+		ProjectID:   projID,
+		FlagKey:     "flag-1",
+		Action:      "KILL_SWITCH_TOGGLED",
+		Environment: domain.EnvProduction,
+		Actor:       "bob@flagura.dev",
+		Details:     "Toggled flag",
+		PrevHash:    entry1.EntryHash,
+		Timestamp:   now.Add(-1 * time.Minute),
+	}
+	entry2.EntryHash = domain.ComputeAuditEntryHash(entry2.PrevHash, entry2)
+
+	// Chain verification query
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp FROM audit_logs WHERE project_id = \$1 ORDER BY timestamp ASC, id ASC`).
+		WithArgs(projID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "flag_key", "action", "environment", "actor", "details", "prev_hash", "entry_hash", "timestamp"}).
+			AddRow(entry1.ID, entry1.ProjectID, entry1.FlagKey, entry1.Action, string(entry1.Environment), entry1.Actor, entry1.Details, entry1.PrevHash, entry1.EntryHash, entry1.Timestamp).
+			AddRow(entry2.ID, entry2.ProjectID, entry2.FlagKey, entry2.Action, string(entry2.Environment), entry2.Actor, entry2.Details, entry2.PrevHash, entry2.EntryHash, entry2.Timestamp))
+	// Anchor lookup
+	mock.ExpectQuery(`SELECT anchor_hash FROM audit_anchors WHERE project_id = \$1`).
+		WithArgs(projID).
+		WillReturnRows(sqlmock.NewRows([]string{"anchor_hash"}))
+
+	res, err := st.VerifyAuditLogIntegrity(ctx, projID)
+	if err != nil {
+		t.Fatalf("VerifyAuditLogIntegrity failed: %v", err)
+	}
+	if !res.Valid || res.TotalVerified != 2 || res.HeadHash != entry2.EntryHash {
+		t.Fatalf("unexpected verification result: %+v", res)
+	}
+
+	// 2. ExportAuditLogs
+	mock.ExpectQuery(`SELECT id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp FROM audit_logs WHERE project_id = \$1 ORDER BY timestamp DESC, id DESC LIMIT \$2`).
+		WithArgs(projID, 10).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "project_id", "flag_key", "action", "environment", "actor", "details", "prev_hash", "entry_hash", "timestamp"}).
+			AddRow(entry2.ID, entry2.ProjectID, entry2.FlagKey, entry2.Action, string(entry2.Environment), entry2.Actor, entry2.Details, entry2.PrevHash, entry2.EntryHash, entry2.Timestamp).
+			AddRow(entry1.ID, entry1.ProjectID, entry1.FlagKey, entry1.Action, string(entry1.Environment), entry1.Actor, entry1.Details, entry1.PrevHash, entry1.EntryHash, entry1.Timestamp))
+
+	exported, err := st.ExportAuditLogs(ctx, projID, nil, nil, 10)
+	if err != nil {
+		t.Fatalf("ExportAuditLogs failed: %v", err)
+	}
+	if len(exported) != 2 {
+		t.Fatalf("expected 2 exported records, got %d", len(exported))
+	}
+
+	// 3. PurgeAuditLogs
+	purgeBefore := now
+	mock.ExpectQuery(`SELECT entry_hash FROM audit_logs WHERE project_id = \$1 AND timestamp < \$2 ORDER BY timestamp DESC, id DESC LIMIT 1`).
+		WithArgs(projID, purgeBefore).
+		WillReturnRows(sqlmock.NewRows([]string{"entry_hash"}).AddRow(entry1.EntryHash))
+	mock.ExpectExec(`DELETE FROM audit_logs WHERE project_id = \$1 AND timestamp < \$2`).
+		WithArgs(projID, purgeBefore).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`INSERT INTO audit_anchors`).
+		WithArgs(projID, entry1.EntryHash).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	purgedCount, err := st.PurgeAuditLogs(ctx, projID, purgeBefore)
+	if err != nil {
+		t.Fatalf("PurgeAuditLogs failed: %v", err)
+	}
+	if purgedCount != 1 {
+		t.Fatalf("expected 1 purged log, got %d", purgedCount)
+	}
+}
+

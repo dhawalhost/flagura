@@ -445,3 +445,142 @@ func TestSQLiteStore_OIDCConfigLifecycle(t *testing.T) {
 	}
 }
 
+func TestSQLiteStore_AuditHashChainingAndIntegrity(t *testing.T) {
+	ctx := context.Background()
+	s, err := NewSQLiteStore(":memory:")
+	if err != nil {
+		t.Fatalf("failed to create sqlite store: %v", err)
+	}
+	defer s.Close()
+
+	projID := "proj_sqlite_audit"
+	orgID := "org_sqlite_audit"
+
+	// Create test org and project
+	_, err = s.CreateOrganization(ctx, domain.Organization{ID: orgID, Name: "Audit Org", Slug: "audit-org"})
+	if err != nil {
+		t.Fatalf("CreateOrganization failed: %v", err)
+	}
+	_, err = s.CreateProject(ctx, domain.Project{ID: projID, OrganizationID: orgID, Name: "Audit Proj", Slug: "audit-proj"})
+	if err != nil {
+		t.Fatalf("CreateProject failed: %v", err)
+	}
+
+	// 1. Initially empty audit log verifies cleanly
+	res, err := s.VerifyAuditLogIntegrity(ctx, projID)
+	if err != nil {
+		t.Fatalf("initial verification failed: %v", err)
+	}
+	if !res.Valid || res.TotalVerified != 0 {
+		t.Fatalf("expected valid 0 entries, got %+v", res)
+	}
+
+	// 2. Perform 3 mutations to build an audit chain
+	flag1 := domain.FeatureFlag{
+		ID:        "flg_audit_1",
+		ProjectID: projID,
+		Key:       "sqlite-flag-alpha",
+		Name:      "SQLite Flag Alpha",
+		Type:      "boolean",
+		Environments: map[domain.Environment]domain.EnvironmentConfig{
+			domain.EnvProduction: {Enabled: false},
+		},
+	}
+	log1, err := s.SaveFlag(ctx, flag1, "alice@flagura.dev")
+	if err != nil {
+		t.Fatalf("SaveFlag failed: %v", err)
+	}
+	if log1.PrevHash != domain.AuditGenesisHash {
+		t.Fatalf("expected log1 PrevHash to be GENESIS, got %s", log1.PrevHash)
+	}
+	if log1.EntryHash == "" {
+		t.Fatal("expected log1 EntryHash to be non-empty")
+	}
+
+	enabled := true
+	_, log2, err := s.ToggleFlagByProject(ctx, projID, "sqlite-flag-alpha", domain.EnvProduction, &enabled, "bob@flagura.dev")
+	if err != nil {
+		t.Fatalf("ToggleFlagByProject failed: %v", err)
+	}
+	if log2.PrevHash != log1.EntryHash {
+		t.Fatalf("expected log2 PrevHash to equal log1 EntryHash (%s), got %s", log1.EntryHash, log2.PrevHash)
+	}
+
+	_, log3, err := s.UpdateRolloutByProject(ctx, projID, "sqlite-flag-alpha", domain.EnvProduction, 50.0, "carol@flagura.dev")
+	if err != nil {
+		t.Fatalf("UpdateRolloutByProject failed: %v", err)
+	}
+	if log3.PrevHash != log2.EntryHash {
+		t.Fatalf("expected log3 PrevHash to equal log2 EntryHash (%s), got %s", log2.EntryHash, log3.PrevHash)
+	}
+
+	// 3. Verify clean chain
+	vRes, err := s.VerifyAuditLogIntegrity(ctx, projID)
+	if err != nil {
+		t.Fatalf("VerifyAuditLogIntegrity failed: %v", err)
+	}
+	if !vRes.Valid {
+		t.Fatalf("expected valid chain, got error: %s", vRes.ErrorMessage)
+	}
+	if vRes.TotalVerified != 3 {
+		t.Fatalf("expected 3 verified entries, got %d", vRes.TotalVerified)
+	}
+	if vRes.HeadHash != log3.EntryHash {
+		t.Fatalf("expected HeadHash %s, got %s", log3.EntryHash, vRes.HeadHash)
+	}
+
+	// 4. Test ExportAuditLogs
+	exported, err := s.ExportAuditLogs(ctx, projID, nil, nil, 10)
+	if err != nil {
+		t.Fatalf("ExportAuditLogs failed: %v", err)
+	}
+	if len(exported) != 3 {
+		t.Fatalf("expected 3 exported logs, got %d", len(exported))
+	}
+
+	// 5. Test Tamper Detection
+	// Directly mutate row in SQLite
+	_, err = s.db.Exec("UPDATE audit_logs SET details = 'Direct database tampering' WHERE id = ?", log2.ID)
+	if err != nil {
+		t.Fatalf("tamper update failed: %v", err)
+	}
+
+	tamperRes, err := s.VerifyAuditLogIntegrity(ctx, projID)
+	if err != nil {
+		t.Fatalf("tamper verification call failed: %v", err)
+	}
+	if tamperRes.Valid {
+		t.Fatal("expected chain verification to FAIL due to tampering, but it passed!")
+	}
+	if tamperRes.BrokenEntryID != log2.ID {
+		t.Fatalf("expected broken entry to be %s, got %s", log2.ID, tamperRes.BrokenEntryID)
+	}
+
+	// Restore original details for purge test
+	_, err = s.db.Exec("UPDATE audit_logs SET details = ? WHERE id = ?", log2.Details, log2.ID)
+	if err != nil {
+		t.Fatalf("restore update failed: %v", err)
+	}
+
+	// 6. Test PurgeAuditLogs
+	purged, err := s.PurgeAuditLogs(ctx, projID, log3.Timestamp)
+	if err != nil {
+		t.Fatalf("PurgeAuditLogs failed: %v", err)
+	}
+	if purged != 2 {
+		t.Fatalf("expected 2 purged entries, got %d", purged)
+	}
+
+	// Surviving entry should verify using the anchor stored in audit_anchors
+	survivingRes, err := s.VerifyAuditLogIntegrity(ctx, projID)
+	if err != nil {
+		t.Fatalf("VerifyAuditLogIntegrity after purge failed: %v", err)
+	}
+	if !survivingRes.Valid {
+		t.Fatalf("expected surviving chain to be valid using anchor, got error: %s", survivingRes.ErrorMessage)
+	}
+	if survivingRes.TotalVerified != 1 {
+		t.Fatalf("expected 1 surviving verified entry, got %d", survivingRes.TotalVerified)
+	}
+}
+

@@ -43,6 +43,10 @@ type Store interface {
 	ToggleFlagByProject(ctx context.Context, projectID, keyOrID string, env domain.Environment, enabled *bool, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error)
 	UpdateRolloutByProject(ctx context.Context, projectID, keyOrID string, env domain.Environment, pct float64, actor string) (*domain.FeatureFlag, *domain.AuditLogEntry, error)
 	ListAuditLogsByProject(ctx context.Context, projectID string, limit int) ([]domain.AuditLogEntry, error)
+	VerifyAuditLogIntegrity(ctx context.Context, projectID string) (*domain.AuditIntegrityResult, error)
+	ExportAuditLogs(ctx context.Context, projectID string, from, to *time.Time, limit int) ([]domain.AuditLogEntry, error)
+	PurgeAuditLogs(ctx context.Context, projectID string, before time.Time) (int64, error)
+	AppendAuditLog(ctx context.Context, entry domain.AuditLogEntry) (*domain.AuditLogEntry, error)
 
 	// Flags & Audit (Default Project fallback for backward compatibility)
 	ListFlags(ctx context.Context) ([]domain.FeatureFlag, error)

@@ -34,14 +34,55 @@ templ AuditModal(auditLogs []domain.AuditLogEntry) {
 				</div>
 			</div>
 
-			<div class="flex items-center gap-2 self-end sm:self-auto font-mono">
+			<div class="flex flex-wrap items-center gap-2 self-end sm:self-auto font-mono">
+				<!-- Integrity Verification Status Badge -->
+				<template x-if="integrityResult && integrityResult.valid">
+					<span class="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-mono font-bold flex items-center gap-1.5 shadow-2xs">
+						<i data-lucide="shield-check" class="h-3.5 w-3.5 text-emerald-600"></i>
+						<span x-text="'Verified (' + integrityResult.total_verified + ' linked)'"></span>
+					</span>
+				</template>
+				<template x-if="integrityResult && !integrityResult.valid">
+					<span class="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-mono font-bold flex items-center gap-1.5 shadow-2xs">
+						<i data-lucide="alert-triangle" class="h-3.5 w-3.5 text-rose-600"></i>
+						<span x-text="'Tamper: ' + (integrityResult.error_message || 'broken chain')"></span>
+					</span>
+				</template>
+
+				<button
+					@click="verifyIntegrity()"
+					class="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all"
+					:disabled="verifying"
+					title="Cryptographically verify SHA-256 hash chaining of audit logs"
+				>
+					<i data-lucide="shield-alert" class="h-3.5 w-3.5" :class="verifying ? 'animate-spin' : ''"></i>
+					<span x-text="verifying ? 'Verifying...' : 'Verify Chain'"></span>
+				</button>
+
+				<button
+					@click="exportLogs('csv')"
+					class="px-3 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all"
+					title="Export audit logs as RFC 4180 CSV"
+				>
+					<i data-lucide="file-spreadsheet" class="h-3.5 w-3.5 text-slate-500"></i>
+					<span>Export CSV</span>
+				</button>
+				<button
+					@click="exportLogs('json')"
+					class="px-3 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all"
+					title="Export audit logs as JSON"
+				>
+					<i data-lucide="file-code" class="h-3.5 w-3.5 text-slate-500"></i>
+					<span>JSON</span>
+				</button>
+
 				<button
 					@click="fetchLogs()"
-					class="px-4 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all"
+					class="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all"
 					:disabled="loading"
 				>
 					<i data-lucide="rotate-ccw" class="h-3.5 w-3.5" :class="loading ? 'animate-spin' : ''"></i>
-					<span>Refresh Trail</span>
+					<span>Refresh</span>
 				</button>
 			</div>
 		</div>
@@ -71,6 +112,32 @@ templ AuditModal(auditLogs []domain.AuditLogEntry) {
 							<span>Actor: <strong class="text-slate-900">{ log.Actor }</strong></span>
 							<span class="uppercase text-purple-700 font-bold bg-purple-50 px-2 py-0.5 rounded border border-purple-200">Env: { string(log.Environment) }</span>
 						</div>
+						if log.EntryHash != "" {
+							<div class="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 pt-1 font-mono">
+								<div class="flex items-center gap-1">
+									<span class="text-slate-400">Entry Hash:</span>
+									<span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200 font-bold" title={ log.EntryHash }>
+										if len(log.EntryHash) > 12 {
+											{ log.EntryHash[:12] }...
+										} else {
+											{ log.EntryHash }
+										}
+									</span>
+								</div>
+								if log.PrevHash != "" {
+									<div class="flex items-center gap-1">
+										<span class="text-slate-400">Prev:</span>
+										<span class="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200" title={ log.PrevHash }>
+											if len(log.PrevHash) > 12 {
+												{ log.PrevHash[:12] }...
+											} else {
+												{ log.PrevHash }
+											}
+										</span>
+									</div>
+								}
+							</div>
+						}
 					</div>
 				}
 			</div>

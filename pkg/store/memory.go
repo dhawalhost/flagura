@@ -62,6 +62,7 @@ type MemoryStore struct {
 	passwordResetTokens map[string]domain.PasswordResetToken
 	canarySchedules     map[string]domain.CanarySchedule // projectID:flagKey -> schedule
 	oidcConfigs         map[string]domain.OIDCConfig     // organizationID -> config
+	auditAnchors        map[string]string                // projectID -> lastPurgedHash
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -71,6 +72,7 @@ func NewMemoryStore() *MemoryStore {
 		orgMembers:          make(map[string]domain.OrgMember),
 		orgInvitations:      make(map[string]domain.OrgInvitation),
 		auditLogs:           []domain.AuditLogEntry{},
+		auditAnchors:        make(map[string]string),
 		events:              make([]domain.ExperimentEvent, 0),
 		users:               make(map[string]domain.User),
 		sessions:            make(map[string]domain.Session),
@@ -309,6 +311,7 @@ func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 
 		log = domain.AuditLogEntry{
 			ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
+			ProjectID:   flagCopy.ProjectID,
 			Timestamp:   now,
 			Actor:       actor,
 			Action:      "FLAG_CREATED",
@@ -322,7 +325,7 @@ func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 	s.flagsSnapshot.Store(newSnap)
 
 	s.mu.Lock()
-	s.auditLogs = append([]domain.AuditLogEntry{log}, s.auditLogs...)
+	log = s.appendAuditLogLocked(log)
 	s.mu.Unlock()
 
 	return &log, nil
@@ -388,7 +391,7 @@ func (s *MemoryStore) DeleteFlagByProject(ctx context.Context, projectID, keyOrI
 	s.flagsSnapshot.Store(newSnap)
 
 	s.mu.Lock()
-	s.auditLogs = append([]domain.AuditLogEntry{log}, s.auditLogs...)
+	log = s.appendAuditLogLocked(log)
 	s.mu.Unlock()
 
 	return &log, nil
@@ -477,7 +480,7 @@ func (s *MemoryStore) ToggleFlagByProject(ctx context.Context, projectID, keyOrI
 	s.flagsSnapshot.Store(newSnap)
 
 	s.mu.Lock()
-	s.auditLogs = append([]domain.AuditLogEntry{log}, s.auditLogs...)
+	log = s.appendAuditLogLocked(log)
 	s.mu.Unlock()
 
 	return &updatedFlag, &log, nil
@@ -567,7 +570,7 @@ func (s *MemoryStore) UpdateRolloutByProject(ctx context.Context, projectID, key
 	s.flagsSnapshot.Store(newSnap)
 
 	s.mu.Lock()
-	s.auditLogs = append([]domain.AuditLogEntry{log}, s.auditLogs...)
+	log = s.appendAuditLogLocked(log)
 	s.mu.Unlock()
 
 	return &updatedFlag, &log, nil
@@ -606,7 +609,7 @@ func (s *MemoryStore) Reset(ctx context.Context) error {
 		Environment: "all",
 		Details:     "Clean reset of store data.",
 	}
-	s.auditLogs = append([]domain.AuditLogEntry{resetLog}, s.auditLogs...)
+	s.appendAuditLogLocked(resetLog)
 	return nil
 }
 
@@ -798,6 +801,7 @@ func (s *MemoryStore) ApplyChangeRequest(ctx context.Context, id string, actor s
 
 	audit := domain.AuditLogEntry{
 		ID:          fmt.Sprintf("audit_%d", now.UnixNano()),
+		ProjectID:   updatedFlag.ProjectID,
 		FlagKey:     updatedFlag.Key,
 		Action:      "APPLY_CHANGE_REQUEST",
 		Environment: cr.Environment,
@@ -805,7 +809,7 @@ func (s *MemoryStore) ApplyChangeRequest(ctx context.Context, id string, actor s
 		Timestamp:   now,
 		Details:     fmt.Sprintf("Applied ChangeRequest %s by reviewer %s for %s", id, cr.ReviewerEmail, cr.Environment),
 	}
-	s.auditLogs = append([]domain.AuditLogEntry{audit}, s.auditLogs...)
+	audit = s.appendAuditLogLocked(audit)
 	s.mu.Unlock()
 
 	newSnap := newFlagSnapshot(newList)
@@ -913,7 +917,7 @@ func (s *MemoryStore) RevokeAPIKey(ctx context.Context, id string, actor string)
 		Timestamp:   time.Now().UTC(),
 		Details:     fmt.Sprintf("Revoked API Key '%s' (%s)", key.Name, key.ID),
 	}
-	s.auditLogs = append([]domain.AuditLogEntry{audit}, s.auditLogs...)
+	s.appendAuditLogLocked(audit)
 
 	return nil
 }
@@ -936,6 +940,7 @@ func (s *MemoryStore) RevokeAPIKeyByProject(ctx context.Context, projectID, id, 
 
 	audit := domain.AuditLogEntry{
 		ID:          fmt.Sprintf("audit_%d", time.Now().UnixNano()),
+		ProjectID:   projectID,
 		FlagKey:     "api-keys",
 		Action:      "API_KEY_REVOKED",
 		Environment: "all",
@@ -943,7 +948,7 @@ func (s *MemoryStore) RevokeAPIKeyByProject(ctx context.Context, projectID, id, 
 		Timestamp:   time.Now().UTC(),
 		Details:     fmt.Sprintf("Revoked API Key '%s' (%s) in project %s", key.Name, key.ID, projectID),
 	}
-	s.auditLogs = append([]domain.AuditLogEntry{audit}, s.auditLogs...)
+	s.appendAuditLogLocked(audit)
 
 	return nil
 }
@@ -1264,6 +1269,178 @@ func (s *MemoryStore) ListAuditLogsByProject(ctx context.Context, projectID stri
 		}
 	}
 	return res, nil
+}
+
+func (s *MemoryStore) appendAuditLogLocked(entry domain.AuditLogEntry) domain.AuditLogEntry {
+	if entry.ProjectID == "" {
+		entry.ProjectID = DefaultProjectID
+	}
+	if entry.Timestamp.IsZero() {
+		entry.Timestamp = time.Now().UTC()
+	}
+
+	prevHash := domain.AuditGenesisHash
+	if anchor, ok := s.auditAnchors[entry.ProjectID]; ok && anchor != "" {
+		prevHash = anchor
+	}
+	for _, l := range s.auditLogs {
+		if l.ProjectID == entry.ProjectID {
+			if l.EntryHash != "" {
+				prevHash = l.EntryHash
+			}
+			break
+		}
+	}
+
+	entry.PrevHash = prevHash
+	entry.EntryHash = domain.ComputeAuditEntryHash(prevHash, entry)
+	s.auditLogs = append([]domain.AuditLogEntry{entry}, s.auditLogs...)
+	return entry
+}
+
+func (s *MemoryStore) VerifyAuditLogIntegrity(ctx context.Context, projectID string) (*domain.AuditIntegrityResult, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	var entries []domain.AuditLogEntry
+	for _, entry := range s.auditLogs {
+		if entry.ProjectID == projectID {
+			entries = append(entries, entry)
+		}
+	}
+
+	now := time.Now().UTC()
+	if len(entries) == 0 {
+		return &domain.AuditIntegrityResult{
+			Valid:         true,
+			TotalVerified: 0,
+			VerifiedAt:    now,
+		}, nil
+	}
+
+	// Reverse entries to verify from oldest to newest
+	chain := make([]domain.AuditLogEntry, len(entries))
+	for i, entry := range entries {
+		chain[len(entries)-1-i] = entry
+	}
+
+	expectedPrev := domain.AuditGenesisHash
+	if anchor, ok := s.auditAnchors[projectID]; ok && anchor != "" {
+		expectedPrev = anchor
+	}
+
+	for i, entry := range chain {
+		if i == 0 {
+			if entry.PrevHash != expectedPrev && entry.PrevHash != domain.AuditGenesisHash {
+				return &domain.AuditIntegrityResult{
+					Valid:         false,
+					TotalVerified: i,
+					VerifiedAt:    now,
+					BrokenEntryID: entry.ID,
+					ErrorMessage:  fmt.Sprintf("initial entry prev_hash mismatch: expected %s, got %s", expectedPrev, entry.PrevHash),
+				}, nil
+			}
+		} else {
+			if entry.PrevHash != expectedPrev {
+				return &domain.AuditIntegrityResult{
+					Valid:         false,
+					TotalVerified: i,
+					VerifiedAt:    now,
+					BrokenEntryID: entry.ID,
+					ErrorMessage:  fmt.Sprintf("broken chain linkage at entry %s: prev_hash %s does not match predecessor %s", entry.ID, entry.PrevHash, expectedPrev),
+				}, nil
+			}
+		}
+
+		computed := domain.ComputeAuditEntryHash(entry.PrevHash, entry)
+		if entry.EntryHash != computed {
+			return &domain.AuditIntegrityResult{
+				Valid:         false,
+				TotalVerified: i,
+				VerifiedAt:    now,
+				BrokenEntryID: entry.ID,
+				ErrorMessage:  fmt.Sprintf("hash tampering detected at entry %s: computed %s, stored %s", entry.ID, computed, entry.EntryHash),
+			}, nil
+		}
+		expectedPrev = entry.EntryHash
+	}
+
+	return &domain.AuditIntegrityResult{
+		Valid:         true,
+		TotalVerified: len(chain),
+		HeadHash:      expectedPrev,
+		VerifiedAt:    now,
+	}, nil
+}
+
+func (s *MemoryStore) ExportAuditLogs(ctx context.Context, projectID string, from, to *time.Time, limit int) ([]domain.AuditLogEntry, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	var res []domain.AuditLogEntry
+	for _, entry := range s.auditLogs {
+		if entry.ProjectID != projectID {
+			continue
+		}
+		if from != nil && entry.Timestamp.Before(*from) {
+			continue
+		}
+		if to != nil && entry.Timestamp.After(*to) {
+			continue
+		}
+		res = append(res, entry)
+		if limit > 0 && len(res) >= limit {
+			break
+		}
+	}
+	return res, nil
+}
+
+func (s *MemoryStore) PurgeAuditLogs(ctx context.Context, projectID string, before time.Time) (int64, error) {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	var surviving []domain.AuditLogEntry
+	var purgedCount int64
+	var lastPurgedHash string
+
+	for _, entry := range s.auditLogs {
+		if entry.ProjectID == projectID && entry.Timestamp.Before(before) {
+			purgedCount++
+			if lastPurgedHash == "" {
+				lastPurgedHash = entry.EntryHash
+			}
+		} else {
+			surviving = append(surviving, entry)
+		}
+	}
+
+	if purgedCount > 0 && lastPurgedHash != "" {
+		s.auditAnchors[projectID] = lastPurgedHash
+	}
+	s.auditLogs = surviving
+	return purgedCount, nil
+}
+
+func (s *MemoryStore) AppendAuditLog(ctx context.Context, entry domain.AuditLogEntry) (*domain.AuditLogEntry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	log := s.appendAuditLogLocked(entry)
+	return &log, nil
 }
 
 func (s *MemoryStore) ListChangeRequestsByProject(ctx context.Context, projectID string, status domain.ChangeRequestStatus) ([]domain.ChangeRequest, error) {

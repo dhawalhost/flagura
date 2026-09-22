@@ -201,6 +201,8 @@ type AuditLogEntry struct {
 	FlagKey     string      `json:"flagKey"`
 	Environment Environment `json:"environment"`
 	Details     string      `json:"details"`
+	PrevHash    string      `json:"prevHash,omitempty"`
+	EntryHash   string      `json:"entryHash,omitempty"`
 }
 
 type BenchmarkMetrics struct {

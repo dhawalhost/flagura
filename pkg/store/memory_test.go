@@ -1170,3 +1170,126 @@ func TestMemoryStore_OIDCConfigLifecycle(t *testing.T) {
 	}
 }
 
+func TestMemoryStore_AuditHashChainingAndIntegrity(t *testing.T) {
+	memStore := NewMemoryStore()
+	ctx := context.Background()
+	projID := "proj_audit_test"
+
+	// 1. Initially empty audit log verifies cleanly with 0 entries
+	res, err := memStore.VerifyAuditLogIntegrity(ctx, projID)
+	if err != nil {
+		t.Fatalf("initial verification failed: %v", err)
+	}
+	if !res.Valid || res.TotalVerified != 0 {
+		t.Fatalf("expected valid 0 entries, got %+v", res)
+	}
+
+	// 2. Perform 3 mutations to build an audit chain
+	flag1 := createTestFlag("flag-alpha", projID)
+	log1, err := memStore.SaveFlag(ctx, flag1, "alice@flagura.dev")
+	if err != nil {
+		t.Fatalf("SaveFlag failed: %v", err)
+	}
+	if log1.PrevHash != domain.AuditGenesisHash {
+		t.Fatalf("expected log1 PrevHash to be GENESIS, got %s", log1.PrevHash)
+	}
+	if log1.EntryHash == "" {
+		t.Fatal("expected log1 EntryHash to be non-empty")
+	}
+
+	enabled := true
+	_, log2, err := memStore.ToggleFlagByProject(ctx, projID, "flag-alpha", domain.EnvProduction, &enabled, "bob@flagura.dev")
+	if err != nil {
+		t.Fatalf("ToggleFlagByProject failed: %v", err)
+	}
+	if log2.PrevHash != log1.EntryHash {
+		t.Fatalf("expected log2 PrevHash to equal log1 EntryHash (%s), got %s", log1.EntryHash, log2.PrevHash)
+	}
+
+	_, log3, err := memStore.UpdateRolloutByProject(ctx, projID, "flag-alpha", domain.EnvProduction, 75.0, "carol@flagura.dev")
+	if err != nil {
+		t.Fatalf("UpdateRolloutByProject failed: %v", err)
+	}
+	if log3.PrevHash != log2.EntryHash {
+		t.Fatalf("expected log3 PrevHash to equal log2 EntryHash (%s), got %s", log2.EntryHash, log3.PrevHash)
+	}
+
+	// 3. Verify clean chain
+	vRes, err := memStore.VerifyAuditLogIntegrity(ctx, projID)
+	if err != nil {
+		t.Fatalf("VerifyAuditLogIntegrity failed: %v", err)
+	}
+	if !vRes.Valid {
+		t.Fatalf("expected valid chain, got error: %s", vRes.ErrorMessage)
+	}
+	if vRes.TotalVerified != 3 {
+		t.Fatalf("expected 3 verified entries, got %d", vRes.TotalVerified)
+	}
+	if vRes.HeadHash != log3.EntryHash {
+		t.Fatalf("expected HeadHash %s, got %s", log3.EntryHash, vRes.HeadHash)
+	}
+
+	// 4. Test ExportAuditLogs
+	exported, err := memStore.ExportAuditLogs(ctx, projID, nil, nil, 10)
+	if err != nil {
+		t.Fatalf("ExportAuditLogs failed: %v", err)
+	}
+	if len(exported) != 3 {
+		t.Fatalf("expected 3 exported logs, got %d", len(exported))
+	}
+
+	// 5. Test Tamper Detection
+	// Simulate unauthorized alteration of log2 details in memory
+	memStore.mu.Lock()
+	for i, l := range memStore.auditLogs {
+		if l.ID == log2.ID {
+			memStore.auditLogs[i].Details = "Malicious unrecorded modification!"
+			break
+		}
+	}
+	memStore.mu.Unlock()
+
+	tamperRes, err := memStore.VerifyAuditLogIntegrity(ctx, projID)
+	if err != nil {
+		t.Fatalf("tamper verification call failed: %v", err)
+	}
+	if tamperRes.Valid {
+		t.Fatal("expected chain verification to FAIL due to tampering, but it passed!")
+	}
+	if tamperRes.BrokenEntryID != log2.ID {
+		t.Fatalf("expected broken entry to be %s, got %s", log2.ID, tamperRes.BrokenEntryID)
+	}
+
+	// Restore log2 details for purge test
+	memStore.mu.Lock()
+	for i, l := range memStore.auditLogs {
+		if l.ID == log2.ID {
+			memStore.auditLogs[i].Details = log2.Details
+			break
+		}
+	}
+	memStore.mu.Unlock()
+
+	// 6. Test PurgeAuditLogs
+	// Purge entries before log3
+	purged, err := memStore.PurgeAuditLogs(ctx, projID, log3.Timestamp)
+	if err != nil {
+		t.Fatalf("PurgeAuditLogs failed: %v", err)
+	}
+	if purged != 2 {
+		t.Fatalf("expected 2 purged entries, got %d", purged)
+	}
+
+	// Surviving entry (log3) should still verify using the anchor
+	survivingRes, err := memStore.VerifyAuditLogIntegrity(ctx, projID)
+	if err != nil {
+		t.Fatalf("VerifyAuditLogIntegrity after purge failed: %v", err)
+	}
+	if !survivingRes.Valid {
+		t.Fatalf("expected surviving chain to be valid using anchor, got error: %s", survivingRes.ErrorMessage)
+	}
+	if survivingRes.TotalVerified != 1 {
+		t.Fatalf("expected 1 surviving verified entry, got %d", survivingRes.TotalVerified)
+	}
+}
+

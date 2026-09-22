@@ -156,7 +156,15 @@ func (s *SQLiteStore) autoMigrate(ctx context.Context) error {
 		environment TEXT NOT NULL,
 		actor TEXT NOT NULL,
 		details TEXT NOT NULL,
+		prev_hash TEXT NOT NULL DEFAULT '',
+		entry_hash TEXT NOT NULL DEFAULT '',
 		timestamp TEXT NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS audit_anchors (
+		project_id TEXT PRIMARY KEY,
+		anchor_hash TEXT NOT NULL,
+		updated_at TEXT NOT NULL
 	);
 
 	CREATE TABLE IF NOT EXISTS experiment_events (
@@ -264,9 +272,17 @@ func (s *SQLiteStore) autoMigrate(ctx context.Context) error {
 		updated_at TEXT NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_sqlite_oidc_configs_enabled ON oidc_configs(enabled);
+
+	CREATE INDEX IF NOT EXISTS idx_sqlite_audit_chain ON audit_logs(project_id, timestamp ASC);
 	`
 	_, err := s.db.ExecContext(ctx, schema)
-	return err
+	if err != nil {
+		return err
+	}
+
+	_, _ = s.db.ExecContext(ctx, "ALTER TABLE audit_logs ADD COLUMN prev_hash TEXT NOT NULL DEFAULT ''")
+	_, _ = s.db.ExecContext(ctx, "ALTER TABLE audit_logs ADD COLUMN entry_hash TEXT NOT NULL DEFAULT ''")
+	return nil
 }
 
 func (s *SQLiteStore) seedDefaults(ctx context.Context) error {
@@ -721,7 +737,7 @@ func (s *SQLiteStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 		Details:     fmt.Sprintf("Saved flag %q with %d environments", flag.Key, len(flag.Environments)),
 		Timestamp:   now,
 	}
-	_ = s.insertAuditLog(ctx, audit)
+	audit, _ = s.insertAuditLog(ctx, audit)
 
 	return &audit, nil
 }
@@ -766,7 +782,7 @@ func (s *SQLiteStore) DeleteFlagByProject(ctx context.Context, projectID, keyOrI
 		Details:     fmt.Sprintf("Deleted flag %q from project %q permanently", flag.Key, projectID),
 		Timestamp:   time.Now().UTC(),
 	}
-	_ = s.insertAuditLog(ctx, audit)
+	audit, _ = s.insertAuditLog(ctx, audit)
 
 	return &audit, nil
 }
@@ -827,7 +843,7 @@ func (s *SQLiteStore) ToggleFlagByProject(ctx context.Context, projectID, keyOrI
 		Details:     fmt.Sprintf("Toggled flag %q [%s] -> %v in project %q", flag.Key, env, nextState, projectID),
 		Timestamp:   flag.UpdatedAt,
 	}
-	_ = s.insertAuditLog(ctx, audit)
+	audit, _ = s.insertAuditLog(ctx, audit)
 
 	return flag, &audit, nil
 }
@@ -883,14 +899,14 @@ func (s *SQLiteStore) UpdateRolloutByProject(ctx context.Context, projectID, key
 		Details:     fmt.Sprintf("Updated rollout for %q [%s] to %.1f%% in project %q", flag.Key, env, pct, projectID),
 		Timestamp:   flag.UpdatedAt,
 	}
-	_ = s.insertAuditLog(ctx, audit)
+	audit, _ = s.insertAuditLog(ctx, audit)
 
 	return flag, &audit, nil
 }
 
 // --- AUDIT LOGS ---
 
-func (s *SQLiteStore) insertAuditLog(ctx context.Context, entry domain.AuditLogEntry) error {
+func (s *SQLiteStore) insertAuditLog(ctx context.Context, entry domain.AuditLogEntry) (domain.AuditLogEntry, error) {
 	if entry.ID == "" {
 		entry.ID = "audit_" + generateHexToken(12)
 	}
@@ -900,11 +916,33 @@ func (s *SQLiteStore) insertAuditLog(ctx context.Context, entry domain.AuditLogE
 	if entry.Timestamp.IsZero() {
 		entry.Timestamp = time.Now().UTC()
 	}
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (id, project_id, flag_key, action, environment, actor, details, timestamp)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, entry.ID, entry.ProjectID, entry.FlagKey, entry.Action, string(entry.Environment), entry.Actor, entry.Details, entry.Timestamp.Format(time.RFC3339))
-	return err
+
+	var prevHash string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT entry_hash FROM audit_logs
+		WHERE project_id = ? AND entry_hash != ''
+		ORDER BY timestamp DESC, rowid DESC
+		LIMIT 1
+	`, entry.ProjectID).Scan(&prevHash)
+
+	if err != nil {
+		var anchorHash string
+		anchorErr := s.db.QueryRowContext(ctx, `SELECT anchor_hash FROM audit_anchors WHERE project_id = ?`, entry.ProjectID).Scan(&anchorHash)
+		if anchorErr == nil && anchorHash != "" {
+			prevHash = anchorHash
+		} else {
+			prevHash = domain.AuditGenesisHash
+		}
+	}
+
+	entry.PrevHash = prevHash
+	entry.EntryHash = domain.ComputeAuditEntryHash(prevHash, entry)
+
+	_, err = s.db.ExecContext(ctx, `
+		INSERT INTO audit_logs (id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, entry.ID, entry.ProjectID, entry.FlagKey, entry.Action, string(entry.Environment), entry.Actor, entry.Details, entry.PrevHash, entry.EntryHash, entry.Timestamp.Format(time.RFC3339Nano))
+	return entry, err
 }
 
 func (s *SQLiteStore) ListAuditLogsByProject(ctx context.Context, projectID string, limit int) ([]domain.AuditLogEntry, error) {
@@ -912,10 +950,10 @@ func (s *SQLiteStore) ListAuditLogsByProject(ctx context.Context, projectID stri
 		limit = 100
 	}
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, project_id, flag_key, action, environment, actor, details, timestamp
+		SELECT id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp
 		FROM audit_logs
 		WHERE project_id = ?
-		ORDER BY timestamp DESC
+		ORDER BY timestamp DESC, rowid DESC
 		LIMIT ?
 	`, projectID, limit)
 	if err != nil {
@@ -927,11 +965,14 @@ func (s *SQLiteStore) ListAuditLogsByProject(ctx context.Context, projectID stri
 	for rows.Next() {
 		var a domain.AuditLogEntry
 		var envStr, tsStr string
-		if err := rows.Scan(&a.ID, &a.ProjectID, &a.FlagKey, &a.Action, &envStr, &a.Actor, &a.Details, &tsStr); err != nil {
+		if err := rows.Scan(&a.ID, &a.ProjectID, &a.FlagKey, &a.Action, &envStr, &a.Actor, &a.Details, &a.PrevHash, &a.EntryHash, &tsStr); err != nil {
 			return nil, err
 		}
 		a.Environment = domain.Environment(envStr)
-		a.Timestamp, _ = time.Parse(time.RFC3339, tsStr)
+		a.Timestamp, _ = time.Parse(time.RFC3339Nano, tsStr)
+		if a.Timestamp.IsZero() {
+			a.Timestamp, _ = time.Parse(time.RFC3339, tsStr)
+		}
 		logs = append(logs, a)
 	}
 	return logs, nil
@@ -939,6 +980,198 @@ func (s *SQLiteStore) ListAuditLogsByProject(ctx context.Context, projectID stri
 
 func (s *SQLiteStore) ListAuditLogs(ctx context.Context, limit int) ([]domain.AuditLogEntry, error) {
 	return s.ListAuditLogsByProject(ctx, DefaultProjectID, limit)
+}
+
+func (s *SQLiteStore) VerifyAuditLogIntegrity(ctx context.Context, projectID string) (*domain.AuditIntegrityResult, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp
+		FROM audit_logs
+		WHERE project_id = ?
+		ORDER BY timestamp ASC, rowid ASC
+	`, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var chain []domain.AuditLogEntry
+	for rows.Next() {
+		var a domain.AuditLogEntry
+		var envStr, tsStr string
+		if err := rows.Scan(&a.ID, &a.ProjectID, &a.FlagKey, &a.Action, &envStr, &a.Actor, &a.Details, &a.PrevHash, &a.EntryHash, &tsStr); err != nil {
+			return nil, err
+		}
+		a.Environment = domain.Environment(envStr)
+		a.Timestamp, _ = time.Parse(time.RFC3339Nano, tsStr)
+		if a.Timestamp.IsZero() {
+			a.Timestamp, _ = time.Parse(time.RFC3339, tsStr)
+		}
+		chain = append(chain, a)
+	}
+
+	now := time.Now().UTC()
+	if len(chain) == 0 {
+		return &domain.AuditIntegrityResult{
+			Valid:         true,
+			TotalVerified: 0,
+			VerifiedAt:    now,
+		}, nil
+	}
+
+	expectedPrev := domain.AuditGenesisHash
+	var anchorHash string
+	if err := s.db.QueryRowContext(ctx, `SELECT anchor_hash FROM audit_anchors WHERE project_id = ?`, projectID).Scan(&anchorHash); err == nil && anchorHash != "" {
+		expectedPrev = anchorHash
+	}
+
+	for i, entry := range chain {
+		if i == 0 {
+			if entry.PrevHash != expectedPrev && entry.PrevHash != domain.AuditGenesisHash {
+				return &domain.AuditIntegrityResult{
+					Valid:         false,
+					TotalVerified: i,
+					VerifiedAt:    now,
+					BrokenEntryID: entry.ID,
+					ErrorMessage:  fmt.Sprintf("initial entry prev_hash mismatch: expected %s, got %s", expectedPrev, entry.PrevHash),
+				}, nil
+			}
+		} else {
+			if entry.PrevHash != expectedPrev {
+				return &domain.AuditIntegrityResult{
+					Valid:         false,
+					TotalVerified: i,
+					VerifiedAt:    now,
+					BrokenEntryID: entry.ID,
+					ErrorMessage:  fmt.Sprintf("broken chain linkage at entry %s: prev_hash %s does not match predecessor %s", entry.ID, entry.PrevHash, expectedPrev),
+				}, nil
+			}
+		}
+
+		computed := domain.ComputeAuditEntryHash(entry.PrevHash, entry)
+		if entry.EntryHash != computed {
+			return &domain.AuditIntegrityResult{
+				Valid:         false,
+				TotalVerified: i,
+				VerifiedAt:    now,
+				BrokenEntryID: entry.ID,
+				ErrorMessage:  fmt.Sprintf("hash tampering detected at entry %s: computed %s, stored %s", entry.ID, computed, entry.EntryHash),
+			}, nil
+		}
+		expectedPrev = entry.EntryHash
+	}
+
+	return &domain.AuditIntegrityResult{
+		Valid:         true,
+		TotalVerified: len(chain),
+		HeadHash:      expectedPrev,
+		VerifiedAt:    now,
+	}, nil
+}
+
+func (s *SQLiteStore) ExportAuditLogs(ctx context.Context, projectID string, from, to *time.Time, limit int) ([]domain.AuditLogEntry, error) {
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+	if limit <= 0 || limit > 10000 {
+		limit = 10000
+	}
+
+	query := `
+		SELECT id, project_id, flag_key, action, environment, actor, details, prev_hash, entry_hash, timestamp
+		FROM audit_logs
+		WHERE project_id = ?
+	`
+	args := []interface{}{projectID}
+
+	if from != nil {
+		query += " AND timestamp >= ?"
+		args = append(args, from.Format(time.RFC3339Nano))
+	}
+	if to != nil {
+		query += " AND timestamp <= ?"
+		args = append(args, to.Format(time.RFC3339Nano))
+	}
+	query += " ORDER BY timestamp DESC, rowid DESC LIMIT ?"
+	args = append(args, limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var logs []domain.AuditLogEntry
+	for rows.Next() {
+		var a domain.AuditLogEntry
+		var envStr, tsStr string
+		if err := rows.Scan(&a.ID, &a.ProjectID, &a.FlagKey, &a.Action, &envStr, &a.Actor, &a.Details, &a.PrevHash, &a.EntryHash, &tsStr); err != nil {
+			return nil, err
+		}
+		a.Environment = domain.Environment(envStr)
+		a.Timestamp, _ = time.Parse(time.RFC3339Nano, tsStr)
+		if a.Timestamp.IsZero() {
+			a.Timestamp, _ = time.Parse(time.RFC3339, tsStr)
+		}
+		logs = append(logs, a)
+	}
+	return logs, nil
+}
+
+func (s *SQLiteStore) PurgeAuditLogs(ctx context.Context, projectID string, before time.Time) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if projectID == "" {
+		projectID = DefaultProjectID
+	}
+
+	beforeStr := before.Format(time.RFC3339Nano)
+
+	var lastPurgedHash string
+	_ = s.db.QueryRowContext(ctx, `
+		SELECT entry_hash FROM audit_logs
+		WHERE project_id = ? AND timestamp < ?
+		ORDER BY timestamp DESC, rowid DESC
+		LIMIT 1
+	`, projectID, beforeStr).Scan(&lastPurgedHash)
+
+	res, err := s.db.ExecContext(ctx, `
+		DELETE FROM audit_logs
+		WHERE project_id = ? AND timestamp < ?
+	`, projectID, beforeStr)
+	if err != nil {
+		return 0, err
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+
+	if affected > 0 && lastPurgedHash != "" {
+		nowStr := time.Now().UTC().Format(time.RFC3339)
+		_, _ = s.db.ExecContext(ctx, `
+			INSERT INTO audit_anchors (project_id, anchor_hash, updated_at)
+			VALUES (?, ?, ?)
+			ON CONFLICT(project_id) DO UPDATE SET anchor_hash = excluded.anchor_hash, updated_at = excluded.updated_at
+		`, projectID, lastPurgedHash, nowStr)
+	}
+
+	return affected, nil
+}
+
+func (s *SQLiteStore) AppendAuditLog(ctx context.Context, entry domain.AuditLogEntry) (*domain.AuditLogEntry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	log, err := s.insertAuditLog(ctx, entry)
+	if err != nil {
+		return nil, err
+	}
+	return &log, nil
 }
 
 // --- USERS & SESSIONS ---
@@ -1762,7 +1995,7 @@ func (s *SQLiteStore) ApplyChangeRequest(ctx context.Context, id string, actor s
 		Details:     fmt.Sprintf("Applied Change Request #%s for %q [%s]", id, cr.FlagKey, cr.Environment),
 		Timestamp:   now,
 	}
-	_ = s.insertAuditLog(ctx, audit)
+	audit, _ = s.insertAuditLog(ctx, audit)
 
 	return flag, cr, &audit, nil
 }
@@ -1952,7 +2185,7 @@ func (s *SQLiteStore) RevokeAPIKey(ctx context.Context, id string, actor string)
 		Timestamp:   time.Now().UTC(),
 		Details:     fmt.Sprintf("Revoked API Key %s", id),
 	}
-	_ = s.insertAuditLog(ctx, audit)
+	_, _ = s.insertAuditLog(ctx, audit)
 
 	return nil
 }
@@ -1982,7 +2215,7 @@ func (s *SQLiteStore) RevokeAPIKeyByProject(ctx context.Context, projectID, id, 
 		Timestamp:   time.Now().UTC(),
 		Details:     fmt.Sprintf("Revoked API Key %s in project %s", id, projectID),
 	}
-	_ = s.insertAuditLog(ctx, audit)
+	audit, _ = s.insertAuditLog(ctx, audit)
 
 	return nil
 }

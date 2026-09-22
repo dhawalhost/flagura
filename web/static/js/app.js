@@ -1185,14 +1185,52 @@ document.addEventListener('alpine:init', () => {
 	// Audit View Component
 	Alpine.data('auditViewComponent', () => ({
 		loading: false,
+		verifying: false,
+		integrityResult: null,
+		showToast(msg, type = 'info') {
+			if (typeof showToast === 'function') {
+				showToast(msg, type);
+			} else if (window.showToast) {
+				window.showToast(msg, type);
+			}
+		},
 		async fetchLogs() {
 			this.loading = true;
 			try {
-				await fetch('/api/v1/audit-logs');
-				this.showToast('Audit trail refreshed');
+				const res = await fetch('/api/v1/audit-logs', { credentials: 'same-origin' });
+				if (res.ok) {
+					this.showToast('Audit trail refreshed');
+					setTimeout(() => window.location.reload(), 300);
+				}
 			} finally {
 				this.loading = false;
 			}
+		},
+		async verifyIntegrity() {
+			this.verifying = true;
+			try {
+				const res = await fetch('/api/v1/audit/verify', { credentials: 'same-origin' });
+				if (res.ok) {
+					this.integrityResult = await res.json();
+					if (this.integrityResult.valid) {
+						this.showToast(`Audit chain verified: ${this.integrityResult.total_verified} chained records intact`, 'success');
+					} else {
+						this.showToast(`Tampering detected at ${this.integrityResult.broken_entry_id || 'entry'}!`, 'error');
+					}
+				} else {
+					const err = await res.json().catch(() => ({}));
+					this.showToast(err.error?.message || 'Verification failed', 'error');
+				}
+			} catch (e) {
+				this.showToast('Network error verifying audit integrity', 'error');
+			} finally {
+				this.verifying = false;
+				if (window.lucide) window.lucide.createIcons();
+			}
+		},
+		exportLogs(format = 'csv') {
+			window.location.href = `/api/v1/audit/export?format=${encodeURIComponent(format)}`;
+			this.showToast(`Exporting audit trail as ${format.toUpperCase()}...`, 'info');
 		}
 	}));
 
