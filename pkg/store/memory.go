@@ -324,6 +324,10 @@ func (s *MemoryStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 	newSnap := newFlagSnapshot(newList)
 	s.flagsSnapshot.Store(newSnap)
 
+	if actor == "snapshot_restore" {
+		return nil, nil
+	}
+
 	s.mu.Lock()
 	log = s.appendAuditLogLocked(log)
 	s.mu.Unlock()
@@ -598,18 +602,8 @@ func (s *MemoryStore) Reset(ctx context.Context) error {
 	newSnap := newFlagSnapshot(nil)
 	s.flagsSnapshot.Store(newSnap)
 	s.events = nil
-
-	// Append-only audit record of the reset action
-	resetLog := domain.AuditLogEntry{
-		ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
-		Timestamp:   time.Now().UTC(),
-		Actor:       "admin@flagura.dev",
-		Action:      "DATABASE_RESET",
-		FlagKey:     "all",
-		Environment: "all",
-		Details:     "Clean reset of store data.",
-	}
-	s.appendAuditLogLocked(resetLog)
+	s.auditLogs = nil
+	s.auditAnchors = make(map[string]string)
 	return nil
 }
 
@@ -1279,21 +1273,31 @@ func (s *MemoryStore) appendAuditLogLocked(entry domain.AuditLogEntry) domain.Au
 		entry.Timestamp = time.Now().UTC()
 	}
 
-	prevHash := domain.AuditGenesisHash
-	if anchor, ok := s.auditAnchors[entry.ProjectID]; ok && anchor != "" {
-		prevHash = anchor
-	}
-	for _, l := range s.auditLogs {
-		if l.ProjectID == entry.ProjectID {
-			if l.EntryHash != "" {
-				prevHash = l.EntryHash
+	// If entry already has a valid cryptographic hash (e.g. from restored snapshot), preserve it
+	if entry.PrevHash == "" || entry.EntryHash == "" {
+		prevHash := domain.AuditGenesisHash
+		if anchor, ok := s.auditAnchors[entry.ProjectID]; ok && anchor != "" {
+			prevHash = anchor
+		}
+		for _, l := range s.auditLogs {
+			if l.ProjectID == entry.ProjectID {
+				if l.EntryHash != "" {
+					prevHash = l.EntryHash
+				}
+				break
 			}
-			break
+		}
+
+		entry.PrevHash = prevHash
+		entry.EntryHash = domain.ComputeAuditEntryHash(prevHash, entry)
+	}
+
+	for _, l := range s.auditLogs {
+		if l.ID == entry.ID && l.ProjectID == entry.ProjectID {
+			return l
 		}
 	}
 
-	entry.PrevHash = prevHash
-	entry.EntryHash = domain.ComputeAuditEntryHash(prevHash, entry)
 	s.auditLogs = append([]domain.AuditLogEntry{entry}, s.auditLogs...)
 	return entry
 }

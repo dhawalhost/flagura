@@ -60,26 +60,42 @@ In a horizontally scaled cluster, replicas must hold a consistent view of config
 
 ---
 
-## 3. Rate Limiting Across Replicas (REQ-A02)
+## 3. Role-Based Tenant Rate Limiting (REQ-O03)
 
-Flagura uses an in-process, high-performance token-bucket rate limiter (`golang.org/x/time/rate`) per replica to maintain sub-millisecond API response times without adding an external Redis network hop to the hot request path.
+Flagura enforces in-process, high-performance token-bucket rate limiting (`golang.org/x/time/rate`) per replica, maintaining sub-millisecond API response times without adding an external Redis network hop to the hot request path.
 
-### 3.1 Operator Sizing Formula
-Because token buckets are tracked per replica process, running $N$ replicas behind a load balancer scales the aggregate cluster capacity:
+### 3.1 Role-Based Infrastructure Tiers
+Traffic is classified by caller authentication status, ensuring unauthenticated public traffic cannot exhaust quotas needed by production microservice clusters:
+
+| Tier | Default Quota | Default Burst | Resolved From | Environment Override |
+| :--- | :--- | :--- | :--- | :--- |
+| **`Anonymous`** | **120 req/min** (2/s) | 30 | Unauthenticated IP | `FLAGURA_RATE_LIMIT_ANONYMOUS` |
+| **`Authenticated`** | **1,200 req/min** (20/s) | 100 | User Session / Developer Token | `FLAGURA_RATE_LIMIT_AUTHENTICATED` |
+| **`System`** | **12,000 req/min** (200/s) | 500 | Admin Key / High-Throughput Service | `FLAGURA_RATE_LIMIT_SYSTEM` |
+
+### 3.2 Standard Rate Limit Headers
+Every response includes standard RFC rate limiting headers:
+- `X-RateLimit-Limit`: Maximum requests permitted per minute in caller tier.
+- `X-RateLimit-Remaining`: Remaining request tokens in the active window.
+- `X-RateLimit-Reset`: UTC epoch timestamp when token bucket replenishes.
+- On HTTP `429 Too Many Requests`: `Retry-After: <seconds>` indicating the backoff duration.
+
+### 3.3 Multi-Replica Cluster Operator Sizing Formula
+Because token buckets are tracked per replica process, running $N$ replicas behind a load balancer scales aggregate cluster capacity:
 
 $$\text{Cluster Capacity} = \text{Per-Replica Limit} \times N$$
 
-To enforce a specific target aggregate limit across your cluster (e.g., maximum 1,000 auth requests/minute across 4 replicas):
+To enforce a target aggregate cluster quota across $N$ replicas:
 
 $$\text{Configured Per-Replica Limit} = \frac{\text{Target Global Limit}}{N}$$
 
-| Target Cluster Limit | Replicas ($N$) | Recommended Config Per Replica |
+| Target Cluster Limit (System Tier) | Replicas ($N$) | Config Per Replica (`FLAGURA_RATE_LIMIT_SYSTEM`) |
 | :--- | :--- | :--- |
-| 100 req/sec Auth | 2 replicas | 50 req/sec (burst: 100) |
-| 1,000 req/sec API | 4 replicas | 250 req/sec (burst: 500) |
-| 10,000 req/sec API | 10 replicas | 1,000 req/sec (burst: 2,000) |
+| 24,000 req/min (400 req/s) | 2 replicas | 12,000 req/min (burst: 500) |
+| 48,000 req/min (800 req/s) | 4 replicas | 12,000 req/min (burst: 500) |
+| 120,000 req/min (2,000 req/s) | 10 replicas | 12,000 req/min (burst: 500) |
 
-### 3.2 Load Balancer Recommendations
+### 3.4 Load Balancer Recommendations
 - **Even Distribution**: Use **Round-Robin** or **Least Connections** algorithms on your ingress/ALB.
 - **Sticky Client Limiting (Optional)**: If strict per-IP rate limiting is required across cluster nodes, enable IP-hash stickiness at your ingress controller or edge CDN (Cloudflare, Fastly, AWS CloudFront).
 
@@ -148,11 +164,50 @@ spec:
 
 ---
 
-## 5. Summary Checklist for Production Readiness
+## 5. OpenTelemetry Distributed Tracing (REQ-O02)
+
+In high-concurrency multi-service architectures, Flagura correlates evaluations and control plane operations across upstream microservices and downstream storage calls:
+
+### 5.1 Propagation & Header Injection
+- **W3C Standards**: Extracts and injects standard W3C `traceparent` and `tracestate` headers across incoming and outgoing HTTP/gRPC requests.
+- **Trace ID Injection**: Populates `X-Trace-ID` in HTTP response headers for rapid triage during production incidents.
+- **Span Hierarchy**:
+  - `HTTP <METHOD> <PATH>`: Server root span capturing HTTP metrics, status codes, and remote caller IP.
+  - `flagura.evaluate`: Child span on the evaluation hot path capturing tenant context (`project.id`, `eval.environment`, `eval.requested_flags_count`) with zero allocations.
+
+### 5.2 Environment Variables
+```bash
+FLAGURA_TRACING_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT="http://otel-collector:4318"
+FLAGURA_TRACING_SAMPLE_RATE=1.0  # 100% in staging, dial back to 0.05 (5%) in extreme-scale production
+```
+
+---
+
+## 6. Disaster Recovery & Automated Snapshot Drills (REQ-O01 & REQ-O04)
+
+Flagura separates ephemeral process caches from durable configuration snapshots:
+
+### 6.1 Atomic Snapshot Backups
+- Complete tenant configurations (flags, environments, targeting rules, change requests, API keys, and audit logs) are captured atomically via `flagura backup create --file <path> --compress`.
+- Export snapshots support both raw JSON and `.json.gz` compression for compact S3/GCS archival.
+
+### 6.2 Reverse-Chronological Cryptographic Audit Chain Restoration
+- During disaster recovery restoration (`flagura backup restore`), audit log entries are replayed from oldest to newest to preserve SHA-256 tamper-evident hash chains.
+- Restorations execute under a synthetic `actor == "snapshot_restore"` context to prevent artificial audit mutations from desynchronizing history.
+
+### 6.3 Automated Kubernetes CronJob Drill
+See the complete operational guide and ready-to-deploy manifest:
+👉 **[Disaster Recovery & Hot Backups Runbook](runbooks/disaster-recovery.md)**
+
+---
+
+## 7. Summary Checklist for Production Readiness
 
 - [x] Storage engine configured to PostgreSQL (`STORE_ENGINE=POSTGRES`).
 - [x] Connection pool configured with adequate max connections (`POSTGRES_MAX_OPEN_CONNS`).
 - [x] Minimum 2 replicas running across distinct availability zones.
 - [x] Ingress load balancer configured with `/livez` and `/readyz` health checks.
-- [x] Per-replica rate limits sized according to replica count ($N$).
-- [x] Backing database automated backups and point-in-time recovery (PITR) enabled.
+- [x] Per-replica rate limits sized according to replica count ($N$) using role tiers (`FLAGURA_RATE_LIMIT_*`).
+- [x] OpenTelemetry distributed tracing enabled (`FLAGURA_TRACING_ENABLED=true`).
+- [x] Automated daily snapshot backup CronJob verified with automated restore drills (RTO < 15 min, RPO < 1 hr).

@@ -40,27 +40,33 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 - **🏢 Strict Multi-Tenant Isolation:** Complete organization and project-level separation across storage, API credentials, and real-time SSE streaming channels.
 - **🔄 Versioned Configuration Synchronization:** Monotonic `config_version` stream protocol with real-time SSE push updates, cold-start disk snapshots, and automatic gap reconciliation.
 - **🚨 Authenticated Webhook Kill-Switch:** Secure automated circuit breakers (`X-Webhook-Secret` or Bearer token) for APM alerts (Datadog/Sentry) to shut down failing features instantly.
+- **💾 Cryptographic Zero-Loss Disaster Recovery:** Atomic snapshot exports/imports with reverse-chronological replay to preserve SHA-256 tamper-evident audit hash chains (RTO < 15m, RPO < 1h).
+- **📡 End-to-End Distributed Tracing:** Native OpenTelemetry W3C `traceparent` context propagation, child evaluation spans, and response `X-Trace-ID` injection across SDKs and APIs.
+- **🚦 Role-Based Multi-Tenant Rate Limiting:** High-performance in-process token buckets classifying traffic into Anonymous (120/m), Authenticated (1,200/m), and System (12,000/m) with standard headers.
 
 ---
 
 ## ⚖️ Capability Matrix
 
-| Feature / Capability              | ⚡ Flagura                          | OpenFeature Native | Self-Hosted Support |
-| :-------------------------------- | :---------------------------------- | :----------------: | :-----------------: |
-| **Local In-Process Evaluation**   | ✅ Sub-microsecond (~85-135ns)      |       ✅ Yes       |       ✅ Yes        |
-| **Durable ACID Persistence**      | ✅ PostgreSQL & SQLite Embedded     |        N/A         |       ✅ Yes        |
-| **Zero Flag Debt & Hygiene**      | ✅ Stale Flag Detection & Auditing  |        N/A         |       ✅ Yes        |
-| **Zero Customer PII Egress**      | ✅ In-Process (No PII Leaves Infra) |       ✅ Yes       |       ✅ Yes        |
-| **Standard OpenFeature SDKs**     | ✅ Go, TypeScript, Python, Rust     |       ✅ Yes       |       ✅ Yes        |
-| **Flat Predictable Cost**         | ✅ No Per-MAU or Seat Penalties     |        N/A         |       ✅ Yes        |
-| **Multi-Tenant Organizations**    | ✅ Isolated Projects & Keys         |        N/A         |       ✅ Yes        |
-| **Real-Time Streaming Sync**      | ✅ Project-Scoped SSE Channels      |       ✅ Yes       |       ✅ Yes        |
-| **Offline Snapshot Resilience**   | ✅ Local Cold-Start Disk Cache      |       ✅ Yes       |       ✅ Yes        |
-| **4-Eyes Change Governance**      | ✅ Peer Approval Pipeline           |        N/A         |       ✅ Yes        |
-| **Config Version Reconciliation** | ✅ Monotonic `config_version`       |        N/A         |       ✅ Yes        |
-| **Automated Webhook Kill-Switch** | ✅ Token-Authenticated              |        N/A         |       ✅ Yes        |
-| **A/B Experiment Statistics**     | ✅ Two-Tailed Z-Score & P-Values    |       ✅ Yes       |       ✅ Yes        |
-| **Native Prometheus Metrics**     | ✅ `/metrics` Standard Exporter     |        N/A         |       ✅ Yes        |
+| Feature / Capability                  | ⚡ Flagura                                  | OpenFeature Native | Self-Hosted Support |
+| :------------------------------------ | :------------------------------------------ | :----------------: | :-----------------: |
+| **Local In-Process Evaluation**       | ✅ Sub-microsecond (~85-135ns)              |       ✅ Yes       |       ✅ Yes        |
+| **Durable ACID Persistence**          | ✅ PostgreSQL & SQLite Embedded             |        N/A         |       ✅ Yes        |
+| **Zero Flag Debt & Hygiene**          | ✅ Stale Flag Detection & Auditing          |        N/A         |       ✅ Yes        |
+| **Zero Customer PII Egress**          | ✅ In-Process (No PII Leaves Infra)         |       ✅ Yes       |       ✅ Yes        |
+| **Standard OpenFeature SDKs**         | ✅ Go, TypeScript, Python, Rust             |       ✅ Yes       |       ✅ Yes        |
+| **Flat Predictable Cost**             | ✅ No Per-MAU or Seat Penalties             |        N/A         |       ✅ Yes        |
+| **Multi-Tenant Organizations**        | ✅ Isolated Projects & Keys                 |        N/A         |       ✅ Yes        |
+| **Real-Time Streaming Sync**          | ✅ Project-Scoped SSE Channels              |       ✅ Yes       |       ✅ Yes        |
+| **Offline Snapshot Resilience**       | ✅ Local Cold-Start Disk Cache              |       ✅ Yes       |       ✅ Yes        |
+| **4-Eyes Change Governance**          | ✅ Peer Approval Pipeline                   |        N/A         |       ✅ Yes        |
+| **Config Version Reconciliation**     | ✅ Monotonic `config_version`               |        N/A         |       ✅ Yes        |
+| **Automated Webhook Kill-Switch**     | ✅ Token-Authenticated                      |        N/A         |       ✅ Yes        |
+| **A/B Experiment Statistics**         | ✅ Two-Tailed Z-Score & P-Values            |       ✅ Yes       |       ✅ Yes        |
+| **Native Prometheus Metrics**         | ✅ `/metrics` Standard Exporter             |        N/A         |       ✅ Yes        |
+| **OpenTelemetry Distributed Tracing** | ✅ W3C `traceparent` & Child Spans          |       ✅ Yes       |       ✅ Yes        |
+| **Role-Based Rate Limiting**          | ✅ Anonymous, Authenticated, System         |        N/A         |       ✅ Yes        |
+| **Cryptographic Disaster Recovery**   | ✅ Atomic Snapshot `.json.gz` & Hash Chains |        N/A         |       ✅ Yes        |
 
 ---
 
@@ -70,11 +76,11 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        FLAGURA CONTROL PLANE                           │
 ├────────────────────────────────────────────────────────────────────────┤
-│  • Go Core              ── High-concurrency control API & Web Console │
-│  • Storage Layer        ── Embedded SQLite / PostgreSQL / In-Memory   │
-│  • Governance Engine    ── 4-Eyes review pipeline & Change Requests   │
-│  • Stream Hub           ── Project & environment-scoped SSE broadcast │
-│  • Audit & Telemetry    ── Append-only audit logs & experiment events │
+│  • Go Core              ── High-concurrency control API & Web Console  │
+│  • Storage Layer        ── Embedded SQLite / PostgreSQL / In-Memory    │
+│  • Governance Engine    ── 4-Eyes review pipeline & Change Requests    │
+│  • Stream Hub           ── Project & environment-scoped SSE broadcast  │
+│  • Audit & Telemetry    ── Append-only audit logs & experiment events  │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │ Config Stream (SSE + Versioning)
                                     ▼
@@ -250,6 +256,8 @@ curl -X POST http://localhost:3000/api/v1/evaluate \
 | `POST`   | `/api/v1/evaluate`                   | Evaluate flags (`?trace=true` returns visual execution trace)           |
 | `POST`   | `/api/v1/benchmark`                  | Execute live in-process latency stress test                             |
 | `GET`    | `/api/v1/audit-logs`                 | Fetch immutable audit trail history for active project                  |
+| `GET`    | `/api/v1/backup/export`              | Export complete atomic snapshot (`?compress=true` for `.json.gz`)       |
+| `POST`   | `/api/v1/backup/import`              | Atomic snapshot restoration with SHA-256 audit preservation (Admin)     |
 
 > **Multi-Tenancy Note:** All evaluation, flag, and audit endpoints accept the `X-Project-ID` request header or `?project_id=...` parameter to scope operations to a specific project (defaults to `proj_default`).
 
@@ -512,6 +520,12 @@ flagura api-key revoke <key-id>
 
 # Scan codebase technical debt and stale flags
 flagura clean-up
+
+# Create atomic snapshot backup (supports gzip compression)
+flagura backup create --file /backups/flagura-backup.json.gz --compress
+
+# Restore snapshot backup into cluster (zero-loss, preserves SHA-256 audit chains)
+flagura backup restore --file /backups/flagura-backup.json.gz
 ```
 
 ---

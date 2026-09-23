@@ -10,6 +10,8 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/engine"
 	"github.com/dhawalhost/flagura/pkg/telemetry"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
@@ -52,6 +54,16 @@ func (s *Server) handleEvaluate(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, r, err)
 		return
 	}
+
+	_, span := telemetry.StartSpan(r.Context(), "flagura.evaluate",
+		trace.WithAttributes(
+			attribute.String("project.id", projectID),
+			attribute.Int("eval.requested_flags_count", len(req.Flags)),
+			attribute.String("eval.environment", string(req.Context.Environment)),
+		),
+	)
+	defer span.End()
+
 	allFlags, err := s.store.ListFlagsByProject(r.Context(), projectID)
 	if err != nil {
 		s.writeError(w, r, domain.NewAppError(domain.ErrCodeDatabaseQuery, err.Error(), http.StatusInternalServerError, err))

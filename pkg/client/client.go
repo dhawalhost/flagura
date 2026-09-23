@@ -18,6 +18,7 @@ import (
 
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/engine"
+	"github.com/dhawalhost/flagura/pkg/telemetry"
 )
 
 // Environment aliases for convenience
@@ -514,6 +515,7 @@ func (c *Client) evaluateBatchRemote(ctx context.Context, flagKeys []string, eva
 	if c.config.ProjectID != "" {
 		req.Header.Set(domain.HeaderProjectID, c.config.ProjectID)
 	}
+	telemetry.InjectTraceContext(ctx, req.Header)
 
 	resp, err := c.config.HTTPClient.Do(req)
 	if err != nil {

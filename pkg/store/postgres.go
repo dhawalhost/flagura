@@ -450,6 +450,10 @@ func (s *PostgresStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, a
 		return nil, err
 	}
 
+	if actor == "snapshot_restore" {
+		return nil, nil
+	}
+
 	log := domain.AuditLogEntry{
 		ID:          fmt.Sprintf("log_%d", time.Now().UnixNano()),
 		ProjectID:   flag.ProjectID,

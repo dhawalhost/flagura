@@ -42,7 +42,7 @@ func NewServer(st store.Store) (*Server, error) {
 		mux:         http.NewServeMux(),
 		startTime:   time.Now().UTC(),
 		authLimiter: NewIPRateLimiter(5, 10, 1*time.Minute),
-		apiLimiter:  NewIPRateLimiter(200, 400, 1*time.Minute),
+		apiLimiter:  NewIPRateLimiter(200, 400, 1*time.Minute).EnableTiers(true),
 		streamHub:   hub,
 		telemetry:   NewTelemetryAggregator(),
 		canary:      canarySched,
@@ -50,10 +50,12 @@ func NewServer(st store.Store) (*Server, error) {
 	}
 	s.routes()
 	s.handler = s.PanicRecoveryMiddleware(
-		RequestIDMiddleware(
-			StructuredLoggerMiddleware(
-				SecurityHeadersMiddleware(
-					MaxBytesMiddleware(1<<20, s.mux),
+		TracingMiddleware(
+			RequestIDMiddleware(
+				StructuredLoggerMiddleware(
+					SecurityHeadersMiddleware(
+						MaxBytesMiddleware(1<<20, s.mux),
+					),
 				),
 			),
 		),
@@ -69,25 +71,25 @@ func (s *Server) routes() {
 	// Static asset server from embedded filesystem
 	staticFS, err := fs.Sub(web.Files, "static")
 	if err == nil {
-		s.mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
+		s.mux.Handle(RouteStaticPrefix, http.StripPrefix(RouteStaticPrefix, http.FileServer(http.FS(staticFS))))
 	}
 
 	// UI Web Routes
-	s.mux.HandleFunc("/", s.handleLanding)
-	s.mux.HandleFunc("/install.sh", s.handleInstallScript)
-	s.mux.HandleFunc("/docs", s.handleDocs)
-	s.mux.HandleFunc("/docs/", s.handleDocs)
-	s.mux.HandleFunc("/auth", s.handleAuth)
-	s.mux.HandleFunc("/dashboard", s.handleDashboard)
-	s.mux.HandleFunc("/dashboard/", s.handleDashboard)
+	s.handle(RouteRoot, s.handleLanding)
+	s.handle(RouteInstallScript, s.handleInstallScript)
+	s.handle(RouteDocs, s.handleDocs)
+	s.handle(RouteDocsPrefix, s.handleDocs)
+	s.handle(RouteUIAuth, s.handleAuth)
+	s.handle(RouteUIDashboard, s.handleDashboard)
+	s.handle(RouteUIDashboardPrefix, s.handleDashboard)
 
 	// Top-level shortcuts to dashboard views
 	for _, view := range []string{"overview", "flags", "analytics", "evaluator", "benchmark", "audit", "sdk", "profile", "settings"} {
 		v := view
-		s.mux.HandleFunc("/"+v, func(w http.ResponseWriter, r *http.Request) {
-			target := "/dashboard/" + v
+		s.handle("/"+v, func(w http.ResponseWriter, r *http.Request) {
+			target := RouteUIDashboardPrefix + v
 			if v == "overview" {
-				target = "/dashboard"
+				target = RouteUIDashboard
 			}
 			if q := r.URL.Query().Encode(); q != "" {
 				target += "?" + q
@@ -98,44 +100,38 @@ func (s *Server) routes() {
 	}
 
 	// Auth API Routes (Rate limited for brute-force protection)
-	s.mux.HandleFunc("/api/v1/auth/signup", s.authLimiter.LimitHandler(s.handleSignUp))
-	s.mux.HandleFunc("/api/v1/auth/login", s.authLimiter.LimitHandler(s.handleLogin))
-	s.mux.HandleFunc("/api/v1/auth/forgot-password", s.authLimiter.LimitHandler(s.handleForgotPassword))
-	s.mux.HandleFunc("/api/v1/auth/reset-password", s.authLimiter.LimitHandler(s.handleResetPassword))
-	s.mux.HandleFunc("/api/v1/auth/logout", s.handleLogout)
-	s.mux.HandleFunc("/api/v1/auth/me", s.handleMe)
-	s.mux.HandleFunc("/api/v1/auth/profile", s.RequireAuth(s.handleUpdateProfile))
-	s.mux.HandleFunc("/api/v1/auth/change-password", s.authLimiter.LimitHandler(s.RequireAuth(s.handleChangePassword)))
-	s.mux.HandleFunc("/api/v1/auth/oidc/login", s.authLimiter.LimitHandler(s.handleOIDCLogin))
-	s.mux.HandleFunc("/api/v1/auth/oidc/callback", s.authLimiter.LimitHandler(s.handleOIDCCallback))
+	s.handle(RouteAuthSignUp, s.handleSignUp, s.authLimiter.LimitHandler)
+	s.handle(RouteAuthLogin, s.handleLogin, s.authLimiter.LimitHandler)
+	s.handle(RouteAuthForgotPassword, s.handleForgotPassword, s.authLimiter.LimitHandler)
+	s.handle(RouteAuthResetPassword, s.handleResetPassword, s.authLimiter.LimitHandler)
+	s.handle(RouteAuthLogout, s.handleLogout)
+	s.handle(RouteAuthMe, s.handleMe)
+	s.handle(RouteAuthProfile, s.handleUpdateProfile, s.RequireAuth)
+	s.handle(RouteAuthChangePassword, s.handleChangePassword, s.authLimiter.LimitHandler, s.RequireAuth)
+	s.handle(RouteAuthOIDCLogin, s.handleOIDCLogin, s.authLimiter.LimitHandler)
+	s.handle(RouteAuthOIDCCallback, s.handleOIDCCallback, s.authLimiter.LimitHandler)
 
 	// Public Observability & Webhook Routes
-	s.mux.HandleFunc("/health", s.handleHealth)
-	s.mux.HandleFunc("/healthz", s.handleHealthz)
-	s.mux.HandleFunc("/api/health", s.handleHealthz)
-	s.mux.HandleFunc("/api/v1/health", s.handleHealth)
-	s.mux.HandleFunc("/livez", s.handleLivez)
-	s.mux.HandleFunc("/readyz", s.handleReadyz)
-	s.mux.HandleFunc("/metrics", s.handleMetrics)
-	s.mux.HandleFunc("/api/v1/flags/stream", s.handleFlagsStream)
-	s.mux.HandleFunc("/api/v1/telemetry/events", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleIngestTelemetry)))
-	s.mux.HandleFunc("/api/v1/telemetry/stats", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetTelemetryStats)))
-	s.mux.HandleFunc("/api/v1/telemetry/stats/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetTelemetryStats)))
-	s.mux.HandleFunc("/api/v1/webhooks/kill-switch/", s.apiLimiter.LimitHandler(s.handleWebhookKillSwitch))
+	s.handle(RouteHealth, s.handleHealth)
+	s.handle(RouteHealthz, s.handleHealthz)
+	s.handle(RouteAPIHealth, s.handleHealthz)
+	s.handle(RouteAPIV1Health, s.handleHealth)
+	s.handle(RouteLivez, s.handleLivez)
+	s.handle(RouteReadyz, s.handleReadyz)
+	s.handle(RouteMetrics, s.handleMetrics)
+	s.handle(RouteAPIFlagsStream, s.handleFlagsStream)
+	s.handle(RouteAPITelemetryEvents, s.handleIngestTelemetry, s.apiLimiter.LimitHandler, s.RequireAuth)
+	s.handle(RouteAPITelemetryStats, s.handleGetTelemetryStats, s.apiLimiter.LimitHandler, s.RequireAuth)
+	s.handle(RouteAPITelemetryStatsPrefix, s.handleGetTelemetryStats, s.apiLimiter.LimitHandler, s.RequireAuth)
+	s.handle(RouteAPIWebhooksKillSwitch, s.handleWebhookKillSwitch, s.apiLimiter.LimitHandler)
 
 	// Flag Management API Routes
-	s.mux.HandleFunc("/api/v1/flags", s.apiLimiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			s.RequireAuth(s.handleGetFlags)(w, r)
-		case http.MethodPost:
-			s.RequireAuth(s.handleCreateFlag)(w, r)
-		default:
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-		}
-	}))
+	s.handleMethods(RouteAPIFlags, map[string]http.HandlerFunc{
+		http.MethodGet:  s.handleGetFlags,
+		http.MethodPost: s.handleCreateFlag,
+	}, s.apiLimiter.LimitHandler, s.RequireAuth)
 
-	s.mux.HandleFunc("/api/v1/flags/", s.apiLimiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
+	s.handle(RouteAPIFlagsPrefix, func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.Contains(path, "/canary") {
 			s.handleCanaryRoutes(w, r)
@@ -174,70 +170,52 @@ func (s *Server) routes() {
 		default:
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		}
-	}))
+	}, s.apiLimiter.LimitHandler)
 
 	// Organizations & Projects API Routes
-	s.mux.HandleFunc("/api/v1/organizations", s.apiLimiter.LimitHandler(s.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
-			s.handleListOrganizations(w, r)
-		} else if r.Method == http.MethodPost {
-			s.handleCreateOrganization(w, r)
-		} else {
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-		}
-	})))
-	s.mux.HandleFunc("/api/v1/organizations/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleOIDCConfigRoutes)))
+	s.handleMethods(RouteAPIOrganizations, map[string]http.HandlerFunc{
+		http.MethodGet:  s.handleListOrganizations,
+		http.MethodPost: s.handleCreateOrganization,
+	}, s.apiLimiter.LimitHandler, s.RequireAuth)
+	s.handle(RouteAPIOrganizationsPrefix, s.handleOIDCConfigRoutes, s.apiLimiter.LimitHandler, s.RequireAuth)
 
-	s.mux.HandleFunc("/api/v1/projects", s.apiLimiter.LimitHandler(s.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
-			s.handleListProjects(w, r)
-		} else if r.Method == http.MethodPost {
-			s.handleCreateProject(w, r)
-		} else {
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-		}
-	})))
-	s.mux.HandleFunc("/api/v1/projects/active", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleSwitchActiveProject)))
-	s.mux.HandleFunc("/api/v1/projects/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetProject)))
+	s.handleMethods(RouteAPIProjects, map[string]http.HandlerFunc{
+		http.MethodGet:  s.handleListProjects,
+		http.MethodPost: s.handleCreateProject,
+	}, s.apiLimiter.LimitHandler, s.RequireAuth)
+	s.handle(RouteAPIProjectsActive, s.handleSwitchActiveProject, s.apiLimiter.LimitHandler, s.RequireAuth)
+	s.handle(RouteAPIProjectsPrefix, s.handleGetProject, s.apiLimiter.LimitHandler, s.RequireAuth)
 
-	s.mux.HandleFunc("/api/v1/invitations", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleInvitations)))
-	s.mux.HandleFunc("/api/v1/invitations/accept", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleAcceptInvitation)))
-	s.mux.HandleFunc("/api/v1/invitations/", s.apiLimiter.LimitHandler(s.handleGetInvitationByToken))
+	s.handle(RouteAPIInvitations, s.handleInvitations, s.apiLimiter.LimitHandler, s.RequireAuth)
+	s.handle(RouteAPIInvitationsAccept, s.handleAcceptInvitation, s.apiLimiter.LimitHandler, s.RequireAuth)
+	s.handle(RouteAPIInvitationsPrefix, s.handleGetInvitationByToken, s.apiLimiter.LimitHandler)
 
-	s.mux.HandleFunc("/api/v1/events", s.apiLimiter.LimitHandler(s.handleIngestEvents))
-	s.mux.HandleFunc("/api/v1/experiments/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleGetExperimentReport)))
-	s.mux.HandleFunc("/api/v1/change-requests", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleListOrCreateChangeRequests)))
-	s.mux.HandleFunc("/api/v1/change-requests/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleChangeRequestItem)))
-	s.mux.HandleFunc("/api/v1/api-keys", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleListOrCreateAPIKeys)))
-	s.mux.HandleFunc("/api/v1/api-keys/", s.apiLimiter.LimitHandler(s.RequireAuth(s.handleRevokeAPIKey)))
+	s.handle(RouteAPIEvents, s.handleIngestEvents, s.apiLimiter.LimitHandler)
+	s.handle(RouteAPIExperimentsPrefix, s.handleGetExperimentReport, s.apiLimiter.LimitHandler, s.RequireAuth)
+	s.handle(RouteAPIChangeRequests, s.handleListOrCreateChangeRequests, s.apiLimiter.LimitHandler, s.RequireAuth)
+	s.handle(RouteAPIChangeRequestsPrefix, s.handleChangeRequestItem, s.apiLimiter.LimitHandler, s.RequireAuth)
+	s.handle(RouteAPIKeys, s.handleListOrCreateAPIKeys, s.apiLimiter.LimitHandler, s.RequireAuth)
+	s.handle(RouteAPIKeysPrefix, s.handleRevokeAPIKey, s.apiLimiter.LimitHandler, s.RequireAuth)
 
-	s.mux.HandleFunc("/api/v1/evaluate", s.apiLimiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			s.handleEvaluate(w, r)
-			return
-		}
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-	}))
+	// Evaluation & Benchmarking
+	s.handleMethods(RouteAPIEvaluate, map[string]http.HandlerFunc{
+		http.MethodPost: s.handleEvaluate,
+	}, s.apiLimiter.LimitHandler)
 
-	s.mux.HandleFunc("/api/v1/benchmark", s.apiLimiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			s.handleBenchmark(w, r)
-			return
-		}
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-	}))
+	s.handleMethods(RouteAPIBenchmark, map[string]http.HandlerFunc{
+		http.MethodPost: s.handleBenchmark,
+	}, s.apiLimiter.LimitHandler)
 
-	s.mux.HandleFunc("/api/v1/audit-logs", s.RequireAuth(s.handleGetAuditLogs))
-	s.mux.HandleFunc("/api/v1/audit/verify", s.RequireAuth(s.handleVerifyAuditChain))
-	s.mux.HandleFunc("/api/v1/audit/export", s.RequireAuth(s.handleExportAuditLogs))
-	s.mux.HandleFunc("/api/v1/audit/purge", s.RequireAuth(s.RequireRole(domain.RoleAdmin, s.handlePurgeAuditLogs)))
-	s.mux.HandleFunc("/api/v1/reset", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		s.RequireAuth(s.RequireRole(domain.RoleAdmin, s.handleReset))(w, r)
-	})
+	// Audit Logs & Disaster Recovery Backup
+	s.handle(RouteAPIAuditLogs, s.handleGetAuditLogs, s.RequireAuth)
+	s.handle(RouteAPIAuditVerify, s.handleVerifyAuditChain, s.RequireAuth)
+	s.handle(RouteAPIAuditExport, s.handleExportAuditLogs, s.RequireAuth)
+	s.handle(RouteAPIAuditPurge, s.handlePurgeAuditLogs, s.RequireAuth, s.RequireAdmin)
+	s.handle(RouteAPIBackupExport, s.handleExportBackup, s.RequireAuth)
+	s.handle(RouteAPIBackupImport, s.handleImportBackup, s.RequireAuth)
+	s.handleMethods(RouteAPIReset, map[string]http.HandlerFunc{
+		http.MethodPost: s.handleReset,
+	}, s.RequireAuth, s.RequireAdmin)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -269,7 +247,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, X-Webhook-Secret, X-Actor, X-Project-ID, X-Organization-ID")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, X-Webhook-Secret, X-Actor, X-Project-ID, X-Organization-ID, traceparent, tracestate")
+	w.Header().Set("Access-Control-Expose-Headers", "X-Trace-ID, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After")
 
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)

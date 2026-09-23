@@ -1,11 +1,13 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 
+	"github.com/dhawalhost/flagura/pkg/domain"
 	"golang.org/x/time/rate"
 )
 
@@ -25,6 +27,9 @@ func TestIPRateLimiter(t *testing.T) {
 	handler(w1, req1)
 	if w1.Code != http.StatusOK {
 		t.Fatalf("expected req1 to pass (200 OK), got %d", w1.Code)
+	}
+	if w1.Header().Get("X-RateLimit-Limit") == "" {
+		t.Errorf("expected X-RateLimit-Limit header to be set")
 	}
 
 	req2 := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -46,6 +51,9 @@ func TestIPRateLimiter(t *testing.T) {
 	if w3.Header().Get("Retry-After") != "1" {
 		t.Errorf("expected Retry-After header '1', got '%s'", w3.Header().Get("Retry-After"))
 	}
+	if w3.Header().Get("X-RateLimit-Remaining") != "0" {
+		t.Errorf("expected X-RateLimit-Remaining '0', got '%s'", w3.Header().Get("X-RateLimit-Remaining"))
+	}
 
 	// Request from different IP should be allowed immediately
 	reqOtherIP := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -54,6 +62,100 @@ func TestIPRateLimiter(t *testing.T) {
 	handler(wOther, reqOtherIP)
 	if wOther.Code != http.StatusOK {
 		t.Fatalf("expected req from other IP to pass, got %d", wOther.Code)
+	}
+}
+
+func TestTenantRateLimiter_Tiers(t *testing.T) {
+	limiter := NewIPRateLimiter(0, 0, 0).EnableTiers(true)
+	defer limiter.Close()
+
+	handler := limiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	tests := []struct {
+		name          string
+		headerKey     string
+		tier          string
+		expectedLimit string
+	}{
+		{"Anonymous Tier", "X-RateLimit-Tier", "anonymous", "120"},
+		{"Authenticated Tier", "X-RateLimit-Tier", "authenticated", "1200"},
+		{"System Tier", "X-RateLimit-Tier", "system", "12000"},
+		{"Standard Alias", "X-Traffic-Tier", "standard", "120"},
+		{"Elevated Alias", "X-Traffic-Tier", "elevated", "1200"},
+		{"High-Throughput Alias", "X-Traffic-Tier", "high-throughput", "12000"},
+		{"Free Alias", "X-Tenant-Tier", "free", "120"},
+		{"Pro Alias", "X-Tenant-Tier", "pro", "1200"},
+		{"Enterprise Alias", "X-Tenant-Tier", "enterprise", "12000"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/evaluate", nil)
+			req.Header.Set(tt.headerKey, tt.tier)
+			req.RemoteAddr = "192.168.10.1:1234"
+			w := httptest.NewRecorder()
+
+			handler(w, req)
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected status 200, got %d", w.Code)
+			}
+			if limit := w.Header().Get("X-RateLimit-Limit"); limit != tt.expectedLimit {
+				t.Errorf("expected X-RateLimit-Limit %q, got %q", tt.expectedLimit, limit)
+			}
+			if rem := w.Header().Get("X-RateLimit-Remaining"); rem == "" {
+				t.Errorf("expected non-empty X-RateLimit-Remaining")
+			}
+			if reset := w.Header().Get("X-RateLimit-Reset"); reset == "" {
+				t.Errorf("expected non-empty X-RateLimit-Reset")
+			}
+		})
+	}
+}
+
+func TestTenantRateLimiter_TenantIsolation(t *testing.T) {
+	limiter := NewIPRateLimiter(rate.Limit(1), 1, 0)
+	defer limiter.Close()
+
+	handler := limiter.LimitHandler(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Tenant 1 API key
+	key1 := &domain.APIKey{
+		ID:        "key-1",
+		ProjectID: "proj-1",
+		Role:      domain.RoleDeveloper,
+	}
+	ctx1 := WithAPIKeyContext(context.Background(), key1)
+	req1 := httptest.NewRequest(http.MethodGet, "/api/v1/flags", nil).WithContext(ctx1)
+	w1 := httptest.NewRecorder()
+	handler(w1, req1)
+	if w1.Code != http.StatusOK {
+		t.Fatalf("expected tenant 1 request 1 to pass, got %d", w1.Code)
+	}
+
+	// Tenant 1 request 2 should be rate limited (burst 1 exhausted)
+	req1Repeat := httptest.NewRequest(http.MethodGet, "/api/v1/flags", nil).WithContext(ctx1)
+	w1Repeat := httptest.NewRecorder()
+	handler(w1Repeat, req1Repeat)
+	if w1Repeat.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected tenant 1 request 2 to be blocked, got %d", w1Repeat.Code)
+	}
+
+	// Tenant 2 API key should be completely unaffected
+	key2 := &domain.APIKey{
+		ID:        "key-2",
+		ProjectID: "proj-2",
+		Role:      domain.RoleDeveloper,
+	}
+	ctx2 := WithAPIKeyContext(context.Background(), key2)
+	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/flags", nil).WithContext(ctx2)
+	w2 := httptest.NewRecorder()
+	handler(w2, req2)
+	if w2.Code != http.StatusOK {
+		t.Fatalf("expected tenant 2 to pass despite tenant 1 being blocked, got %d", w2.Code)
 	}
 }
 

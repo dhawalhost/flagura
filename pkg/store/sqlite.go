@@ -727,6 +727,10 @@ func (s *SQLiteStore) SaveFlag(ctx context.Context, flag domain.FeatureFlag, act
 		return nil, err
 	}
 
+	if actor == "snapshot_restore" {
+		return nil, nil
+	}
+
 	audit := domain.AuditLogEntry{
 		ID:          "audit_" + generateHexToken(12),
 		ProjectID:   flag.ProjectID,

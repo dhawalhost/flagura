@@ -56,6 +56,12 @@ func main() {
 }
 ```
 
+### SDK Resilience & Distributed Tracing Built-in
+- **Transparent Polling Fallback (REQ-S01)**: If persistent SSE streaming disconnects or a middlebox drops connections, the client automatically falls back to background polling without dropping evaluations.
+- **Jittered Exponential Backoff (REQ-S02)**: Reconnects use cryptographically secure random jitter (`crypto/rand`) to prevent thundering herds on control plane failover.
+- **W3C Distributed Tracing (REQ-O02)**: Remote evaluations automatically inject W3C `traceparent` headers into outgoing requests, correlating client spans directly with server-side `flagura.evaluate` child spans.
+- **Bounded Telemetry Buffer (REQ-S04)**: In-process evaluation metrics are bound to 1,000 flags and 50 variants with atomic drop counters, preventing memory exhaustion under sustained extreme traffic.
+
 ### Register Real-Time Change Listeners
 ```go
 c.RegisterUpdateListener(func(flags map[string]domain.FeatureFlag, changedKeys []string) {
@@ -402,6 +408,38 @@ curl -X DELETE "https://flagura.dev/api/v1/api-keys/key_1788085710350701000_b3f8
   -H "Authorization: Bearer <token>"
 ```
 
+### 8. Disaster Recovery Snapshot & Backup (`GET /api/v1/backup/export`, `POST /api/v1/backup/import`)
+
+Flagura supports full, atomic JSON and gzip-compressed snapshot backups of your entire control plane configuration—flags, targeting rules, environments, API keys, and tamper-evident audit logs.
+
+#### Export Snapshot (Optional Gzip Compression):
+```bash
+# JSON export
+curl "https://flagura.dev/api/v1/backup/export" \
+  -H "Authorization: Bearer <admin-token>" > backup.json
+
+# Gzip-compressed export
+curl "https://flagura.dev/api/v1/backup/export?compress=true" \
+  -H "Authorization: Bearer <admin-token>" > backup.json.gz
+```
+
+#### Restore Snapshot (Atomic Transaction):
+```bash
+curl -X POST "https://flagura.dev/api/v1/backup/import" \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  --data-binary @backup.json
+```
+
+#### CLI Backup & Restore Commands:
+```bash
+# Create compressed backup snapshot
+flagura backup create --file /backups/flagura-$(date +%s).json.gz --compress
+
+# Restore snapshot into fresh or recovered cluster
+flagura backup restore --file /backups/flagura-latest.json.gz
+```
+
 ---
 
 ## 8. Layered Error Codes & Error Response Envelope
@@ -431,10 +469,56 @@ All API errors return standard HTTP status codes accompanied by a structured JSO
 | **`6000–6999`** | Transport & Network Layer | `6002` (Circuit Breaker Open), `6003` (Rate Limit) | SSE streams, rate limiting, request validation |
 | **`9000–9999`** | Internal Server Layer | `9001` (Internal Error) | Unhandled panics, system runtime exceptions |
 
-## 9. Observability & Health Probes
+---
 
-Flagura provides dedicated endpoints for Kubernetes, container orchestrators, and Prometheus:
+## 9. Observability, Distributed Tracing & Health Probes
 
+### 9.1 OpenTelemetry Distributed Tracing (REQ-O02)
+Flagura natively implements **OpenTelemetry W3C distributed tracing** (`traceparent` and `tracestate` context propagation):
+
+- **Trace Correlation**: All HTTP requests are assigned a trace span. When incoming `traceparent` headers are supplied by calling services or the Go SDK, Flagura automatically attaches to the distributed trace context.
+- **Trace ID Injection**: Flagura responds with `X-Trace-ID: <32-hex-trace-id>` on every response for rapid cross-service debugging.
+- **Span Hierarchy**:
+  - `HTTP <METHOD> <PATH>`: Server root span with attributes (`http.method`, `http.route`, `http.status_code`, `client.address`).
+  - `flagura.evaluate`: Dedicated child span during flag evaluations capturing multi-tenant context (`project.id`, `eval.environment`, `eval.requested_flags_count`).
+- **Configuration**:
+  - `FLAGURA_TRACING_ENABLED=true`: Enable OpenTelemetry tracer.
+  - `OTEL_EXPORTER_OTLP_ENDPOINT="http://jaeger:4318"`: OTLP HTTP exporter endpoint.
+  - `FLAGURA_TRACING_SAMPLE_RATE=1.0`: Span sampling ratio (0.0 to 1.0).
+
+### 9.2 Role-Based Tenant Rate Limiting (REQ-O03)
+Traffic is classified into role-based infrastructure profiles to protect cluster capacity:
+
+| Caller Role / Tier | Quota Limit | Burst Capacity | Use Case |
+| :--- | :--- | :--- | :--- |
+| **`Anonymous`** | **120 req/min** (2 req/s) | 30 req | Unauthenticated public endpoints, public web traffic |
+| **`Authenticated`** | **1,200 req/min** (20 req/s) | 100 req | Standard user sessions, developer service tokens |
+| **`System`** | **12,000 req/min** (200 req/s) | 500 req | High-throughput production clusters, admin keys |
+
+Every API response returns standard rate-limiting headers:
+```http
+HTTP/1.1 200 OK
+X-RateLimit-Limit: 1200
+X-RateLimit-Remaining: 1198
+X-RateLimit-Reset: 1788156380
+X-Trace-ID: 4bf92f3577b34da6a3ce929d0e0e4736
+```
+
+On quota exhaustion, Flagura returns `429 Too Many Requests` with a standard `Retry-After` header:
+```json
+{
+  "error": {
+    "code": 6003,
+    "type": "RATE_LIMIT_EXCEEDED",
+    "layer": "TransportLayer",
+    "message": "Rate limit exceeded for Authenticated tier: 1200 req/min",
+    "status": 429,
+    "request_id": "req_1788156313537006000_7946c832"
+  }
+}
+```
+
+### 9.3 Standard Orchestration Probes
 - **`GET /livez`**: Liveness probe returning `200 OK` `{ "status": "alive" }`.
 - **`GET /readyz`**: Deep readiness probe testing database connection pool (`store.Ping`). Returns `503 Service Unavailable` if database is down.
 - **`GET /metrics`**: Prometheus-formatted metrics (evaluation counts, latency histograms, error rates).

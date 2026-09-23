@@ -60,9 +60,11 @@ graph TB
 | **Domain Models** | [`pkg/domain`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/domain) | Pure immutable domain structs (`FeatureFlag`, `TargetingRule`, `User`, `Session`, `AuditLog`). Zero third-party dependencies. |
 | **Evaluation Engine** | [`pkg/engine`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/engine) | Pure mathematical rule evaluation and 64-bit FNV-1a sticky hashing. $O(1)$ time complexity with zero allocations on hot paths. |
 | **Storage Abstraction** | [`pkg/store`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/store) | Pluggable persistence layer (`Store` interface) implementing `PostgresStore` (Supabase/RDS), embedded `SQLiteStore` (WAL mode), and thread-safe `MemoryStore`. |
-| **API & Middleware** | [`pkg/api`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/api) | HTTP routing, SSE streaming hub, RBAC enforcement, session auth, security headers, recovery middleware, and REST handlers. |
+| **Backup & Disaster Recovery** | [`pkg/store/backup.go`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/store/backup.go) | Atomic snapshot export/import supporting JSON and Gzip compression with reverse-chronological audit chain preservation. |
+| **Telemetry & Tracing** | [`pkg/telemetry`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/telemetry) | OpenTelemetry tracer, W3C `traceparent`/`tracestate` context propagation, and Prometheus evaluation metrics. |
+| **API & Middleware** | [`pkg/api`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/api) | HTTP routing (`router.go`, `routes.go`), SSE streaming hub, role-based tenant rate limiting, RBAC, session auth, security headers, and REST handlers. |
 | **Compiled Web Views** | [`web/views`](file:///Users/dhawal.dyavanpalli/go/src/flagura/web/views) | Type-safe compiled HTML views via `templ` with zero runtime template parsing overhead. |
-| **Official Go SDK** | [`pkg/client`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/client) & [`sdks/go`](file:///Users/dhawal.dyavanpalli/go/src/flagura/sdks/go) | High-throughput client providing in-process background cache sync and sub-microsecond local evaluations. |
+| **Official Go SDK** | [`pkg/client`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/client) & [`sdks/go`](file:///Users/dhawal.dyavanpalli/go/src/flagura/sdks/go) | High-throughput client providing in-process background cache sync, polling fallback, W3C trace propagation, and sub-microsecond local evaluations. |
 
 ---
 

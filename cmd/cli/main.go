@@ -157,6 +157,17 @@ func main() {
 			os.Exit(1)
 		}
 		runAudit(*dirFlag, *failOnStale)
+	case "backup", "snapshot":
+		fileFlag := fs.String("file", "", "Target backup archive path")
+		compressFlag := fs.Bool("compress", false, "Gzip compress the backup snapshot")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			os.Exit(1)
+		}
+		subCmd := "create"
+		if fs.NArg() > 0 {
+			subCmd = fs.Arg(0)
+		}
+		runBackup(subCmd, fs.Args(), *fileFlag, *compressFlag)
 	case "health":
 		if err := fs.Parse(os.Args[2:]); err != nil {
 			os.Exit(1)
@@ -191,6 +202,7 @@ Commands:
   api-key [list|create|revoke]
                             Generate, list, and revoke programmatic API service tokens
   audit, scan, clean-up     Scan codebase files for technical debt & stale flag checks
+  backup [create|restore]   Create or restore database snapshots for disaster recovery
   health                    Check connection to the Flagura control plane
   version                   Print CLI version
   help                      Show this help message
