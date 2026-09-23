@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dhawalhost/flagura/pkg/canary"
+	"github.com/dhawalhost/flagura/pkg/config"
 	"github.com/dhawalhost/flagura/pkg/domain"
 	"github.com/dhawalhost/flagura/pkg/email"
 	"github.com/dhawalhost/flagura/pkg/store"
@@ -17,6 +18,7 @@ import (
 )
 
 type Server struct {
+	cfg         *config.Config
 	store       store.Store
 	mux         *http.ServeMux
 	handler     http.Handler
@@ -37,7 +39,13 @@ func NewServer(st store.Store) (*Server, error) {
 	canarySched := canary.NewCanaryScheduler(st, hub)
 	canarySched.StartBackgroundLoop(15 * time.Second)
 
+	cfg, _ := config.Load()
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+
 	s := &Server{
+		cfg:         cfg,
 		store:       st,
 		mux:         http.NewServeMux(),
 		startTime:   time.Now().UTC(),
@@ -61,6 +69,13 @@ func NewServer(st store.Store) (*Server, error) {
 		),
 	)
 	return s, nil
+}
+
+// SetConfig updates the server runtime configuration (useful for testing and overrides).
+func (s *Server) SetConfig(cfg *config.Config) {
+	if cfg != nil {
+		s.cfg = cfg
+	}
 }
 
 func (s *Server) SetMailer(m email.Mailer) {
@@ -110,6 +125,11 @@ func (s *Server) routes() {
 	s.handle(RouteAuthChangePassword, s.handleChangePassword, s.authLimiter.LimitHandler, s.RequireAuth)
 	s.handle(RouteAuthOIDCLogin, s.handleOIDCLogin, s.authLimiter.LimitHandler)
 	s.handle(RouteAuthOIDCCallback, s.handleOIDCCallback, s.authLimiter.LimitHandler)
+	s.handle(RouteAuthOAuthProviders, s.handleOAuthProviders)
+	s.handle(RouteAuthOAuthGoogleLogin, s.handleOAuthGoogleLogin, s.authLimiter.LimitHandler)
+	s.handle(RouteAuthOAuthGoogleCallback, s.handleOAuthGoogleCallback, s.authLimiter.LimitHandler)
+	s.handle(RouteAuthOAuthGitHubLogin, s.handleOAuthGitHubLogin, s.authLimiter.LimitHandler)
+	s.handle(RouteAuthOAuthGitHubCallback, s.handleOAuthGitHubCallback, s.authLimiter.LimitHandler)
 
 	// Public Observability & Webhook Routes
 	s.handle(RouteHealth, s.handleHealth)

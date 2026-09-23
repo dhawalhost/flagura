@@ -32,6 +32,11 @@ const (
 	RouteAuthChangePassword= "/api/v1/auth/change-password" // #nosec G101 -- HTTP route path, not a secret
 	RouteAuthOIDCLogin     = "/api/v1/auth/oidc/login"
 	RouteAuthOIDCCallback  = "/api/v1/auth/oidc/callback"
+	RouteAuthOAuthProviders      = "/api/v1/auth/oauth/providers"
+	RouteAuthOAuthGoogleLogin    = "/api/v1/auth/oauth/google/login"
+	RouteAuthOAuthGoogleCallback = "/api/v1/auth/oauth/google/callback"
+	RouteAuthOAuthGitHubLogin    = "/api/v1/auth/oauth/github/login"
+	RouteAuthOAuthGitHubCallback = "/api/v1/auth/oauth/github/callback"
 
 	// Feature Flag & Evaluation API Routes
 	RouteAPIFlags          = "/api/v1/flags"

@@ -66,6 +66,7 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 | **Native Prometheus Metrics**         | ✅ `/metrics` Standard Exporter             |        N/A         |       ✅ Yes        |
 | **OpenTelemetry Distributed Tracing** | ✅ W3C `traceparent` & Child Spans          |       ✅ Yes       |       ✅ Yes        |
 | **Role-Based Rate Limiting**          | ✅ Anonymous, Authenticated, System         |        N/A         |       ✅ Yes        |
+| **Social OAuth 2.0 Auth**            | ✅ Google & GitHub (JIT Auto-Provisioning)  |        N/A         |       ✅ Yes        |
 | **Cryptographic Disaster Recovery**   | ✅ Atomic Snapshot `.json.gz` & Hash Chains |        N/A         |       ✅ Yes        |
 
 ---

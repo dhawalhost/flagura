@@ -39,6 +39,22 @@ type Config struct {
 
 	// Security & CORS
 	CORSAllowedOrigins []string `json:"cors_allowed_origins"`
+
+	// Social Authentication (Google & GitHub OAuth)
+	GoogleClientID     string `json:"google_client_id"`
+	GoogleClientSecret string `json:"-"` // #nosec G101 -- configuration field, not hardcoded credential
+	GitHubClientID     string `json:"github_client_id"`
+	GitHubClientSecret string `json:"-"` // #nosec G101 -- configuration field, not hardcoded credential
+}
+
+// IsGoogleOAuthEnabled returns true if Google OAuth credentials are fully configured.
+func (c *Config) IsGoogleOAuthEnabled() bool {
+	return c.GoogleClientID != "" && c.GoogleClientSecret != ""
+}
+
+// IsGitHubOAuthEnabled returns true if GitHub OAuth credentials are fully configured.
+func (c *Config) IsGitHubOAuthEnabled() bool {
+	return c.GitHubClientID != "" && c.GitHubClientSecret != ""
 }
 
 // Load populates Config from environment variables with production defaults.
@@ -58,6 +74,10 @@ func Load() (*Config, error) {
 		RateLimitRPS:       100.0,
 		RateLimitBurst:     200,
 		CORSAllowedOrigins: []string{"*"},
+		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		GitHubClientID:     os.Getenv("GITHUB_CLIENT_ID"),
+		GitHubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
 	}
 
 	// Parse LogLevel

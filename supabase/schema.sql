@@ -1,4 +1,4 @@
--- Flagura Platform - Supabase PostgreSQL Schema (v1.6.7)
+-- Flagura Platform - Supabase PostgreSQL Schema (v1.7.0)
 -- Production multi-tenant feature flagging, 4-eyes governance, experiments, and team access.
 
 -- ============================================================================

@@ -532,4 +532,39 @@ For maintainers and contributors wishing to release new versions of the Flagura 
 
 👉 **[SDK Release & Publishing Runbook](../runbooks/sdk-publishing.md)**
 
+---
+
+## 11. Social Authentication (OAuth 2.0 API)
+
+Flagura provides native OAuth 2.0 integration with **Google** and **GitHub** for frictionless one-click sign in and sign up.
+
+### Provider Discovery
+```http
+GET /api/v1/auth/oauth/providers
+```
+Response:
+```json
+{
+  "providers": {
+    "google": true,
+    "github": true
+  }
+}
+```
+
+### Authentication Flow Endpoints
+| Endpoint | Method | Description |
+|:---|:---|:---|
+| `/api/v1/auth/oauth/google/login` | `GET` | Initiates Google OAuth consent flow with CSRF state cookie |
+| `/api/v1/auth/oauth/google/callback` | `GET` | Handles Google OAuth callback, verifies state, provisions user & sets session |
+| `/api/v1/auth/oauth/github/login` | `GET` | Initiates GitHub OAuth consent flow with CSRF state cookie |
+| `/api/v1/auth/oauth/github/callback` | `GET` | Handles GitHub OAuth callback, verifies state, provisions user & sets session |
+
+### Security Invariants:
+1. **CSRF Protection**: 32-byte cryptographically secure random state tokens stored in `flagura_oauth_state` (HttpOnly, SameSite=Lax) cookies and verified using constant-time comparisons (`crypto/subtle.ConstantTimeCompare`).
+2. **Account Linking**: Users logging in via OAuth matching an existing verified email automatically link to their account without password loss.
+3. **Verified Email Enforcement**: GitHub accounts with unverified primary email addresses are strictly rejected with an explicit user error.
+4. **Tenant Isolation**: New signups automatically receive a dedicated personal workspace (`<Name>'s Workspace`) and default project.
+
+
 
