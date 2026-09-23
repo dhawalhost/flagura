@@ -2,7 +2,7 @@
 
 **Feature Slug**: `008-social-auth-google-github`  
 **Spec**: `specs/008-social-auth-google-github/spec.md`  
-**Status**: Planned  
+**Status**: Completed  
 **Created**: 2026-09-23  
 
 ---

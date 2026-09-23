@@ -26,9 +26,11 @@ function getStickyBucketJs(key, salt = "") {
 
 // Global Toast Notification Dispatcher
 let globalToastHandler = null;
-function showToast(msg, type = "info") {
+function showToast(msgOrConfig, type = "info") {
   if (globalToastHandler) {
-    globalToastHandler(msg, type);
+    globalToastHandler(msgOrConfig, type);
+  } else if (window.FlaguraApp && typeof window.FlaguraApp.showToast === "function") {
+    window.FlaguraApp.showToast(msgOrConfig, type);
   }
 }
 window.showToast = showToast;
@@ -746,12 +748,158 @@ document.addEventListener("alpine:init", () => {
         "Switched to " + env.charAt(0).toUpperCase() + env.slice(1),
       );
     },
-    showToast(msg, type = "info") {
-      const id = Date.now();
-      this.toasts.push({ id, message: msg, type });
-      setTimeout(() => {
-        this.toasts = this.toasts.filter((t) => t.id !== id);
-      }, 3500);
+    showToast(msgOrConfig, type = "info") {
+      let cfg = {};
+      if (typeof msgOrConfig === "object" && msgOrConfig !== null) {
+        cfg = { ...msgOrConfig };
+      } else {
+        cfg = { message: String(msgOrConfig || ""), type: type || "info" };
+      }
+
+      const message = cfg.message || "";
+      const title = cfg.title || "";
+      let toastType = cfg.type || "info";
+
+      // Intelligent type inferencing if type was generic info
+      if (toastType === "info") {
+        const lower = message.toLowerCase();
+        if (lower.startsWith("copied")) {
+          toastType = "copied";
+        } else if (
+          lower.includes("success") ||
+          lower.includes("saved") ||
+          lower.includes("deleted") ||
+          lower.includes("enabled") ||
+          lower.includes("created")
+        ) {
+          toastType = "success";
+        } else if (
+          lower.includes("fail") ||
+          lower.includes("error") ||
+          lower.includes("denied") ||
+          lower.includes("expired")
+        ) {
+          toastType = "error";
+        } else if (lower.includes("warn") || lower.includes("kill-switch")) {
+          toastType = "warning";
+        }
+      }
+
+      const duration =
+        Number(cfg.duration) ||
+        (toastType === "error" || toastType === "warning"
+          ? 6000
+          : toastType === "copied"
+            ? 2200
+            : 4000);
+      const action = cfg.action || null;
+
+      // Duplicate suppression (reset timer on existing toast with identical message and type)
+      const existing = this.toasts.find(
+        (t) => t.message === message && t.type === toastType,
+      );
+      if (existing) {
+        existing.remaining = duration;
+        existing.duration = duration;
+        existing.progress = 100;
+        existing.paused = false;
+        return;
+      }
+
+      // Max stack limit: 5 concurrent toasts (auto-evict oldest)
+      if (this.toasts.length >= 5) {
+        const oldest = this.toasts.shift();
+        if (oldest && oldest._timer) clearInterval(oldest._timer);
+      }
+
+      const id = Date.now() + "_" + Math.random().toString(36).substring(2, 7);
+      const toast = {
+        id,
+        title,
+        message,
+        type: toastType,
+        duration,
+        remaining: duration,
+        paused: false,
+        progress: 100,
+        action,
+        _timer: null,
+      };
+
+      const step = 80;
+      toast._timer = setInterval(() => {
+        if (toast.paused) return;
+        toast.remaining -= step;
+        toast.progress = Math.max(0, (toast.remaining / toast.duration) * 100);
+        if (toast.remaining <= 0) {
+          this.dismissToast(toast.id);
+        }
+      }, step);
+
+      this.toasts.push(toast);
+    },
+    pauseToast(id) {
+      const t = this.toasts.find((item) => item.id === id);
+      if (t) t.paused = true;
+    },
+    resumeToast(id) {
+      const t = this.toasts.find((item) => item.id === id);
+      if (t) t.paused = false;
+    },
+    dismissToast(id) {
+      const t = this.toasts.find((item) => item.id === id);
+      if (t && t._timer) {
+        clearInterval(t._timer);
+      }
+      this.toasts = this.toasts.filter((item) => item.id !== id);
+    },
+    executeToastAction(id) {
+      const t = this.toasts.find((item) => item.id === id);
+      if (t && t.action && typeof t.action.onClick === "function") {
+        try {
+          t.action.onClick();
+        } catch (e) {
+          console.error("Toast action error:", e);
+        }
+      }
+      this.dismissToast(id);
+    },
+    toastCardClasses(toast) {
+      switch (toast.type) {
+        case "success":
+          return "bg-white/95 text-slate-900 border-emerald-200/90 shadow-emerald-500/10";
+        case "error":
+          return "bg-white/95 text-slate-900 border-rose-200/90 shadow-rose-500/10";
+        case "warning":
+          return "bg-white/95 text-slate-900 border-amber-200/90 shadow-amber-500/10";
+        case "copied":
+          return "bg-slate-900/95 text-slate-100 border-slate-700 shadow-slate-950/25";
+        case "info":
+        default:
+          return "bg-white/95 text-slate-900 border-indigo-200/90 shadow-indigo-500/10";
+      }
+    },
+    toastProgressBarClasses(toast) {
+      switch (toast.type) {
+        case "success":
+          return "bg-emerald-500/80";
+        case "error":
+          return "bg-rose-500/80";
+        case "warning":
+          return "bg-amber-500/80";
+        case "copied":
+          return "bg-sky-400/80";
+        case "info":
+        default:
+          return "bg-indigo-500/80";
+      }
+    },
+    toastProgressStyle(toast) {
+      return (
+        "width: " +
+        (toast.progress !== undefined ? toast.progress : 100) +
+        "%;"
+      );
     },
     getViewTitle() {
       const titles = {

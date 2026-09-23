@@ -1,7 +1,7 @@
 # Feature Specification: Social Authentication (Google & GitHub OAuth)
 
 **Feature Slug**: `008-social-auth-google-github`  
-**Status**: Specified  
+**Status**: Completed  
 **Created**: 2026-09-23  
 **Owner**: Flagura Team / SDD Engine  
 
