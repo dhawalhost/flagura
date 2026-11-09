@@ -18,3 +18,9 @@ __pycache__/
 *$py.class
 *.egg-info/
 .pytest_cache/
+.sdd
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.agent
+graphify-out

@@ -1,0 +1,28 @@
+name: Build from source
+description: Generate templ views with the version pinned in go.mod, reject stale generated files, and compile every binary.
+
+runs:
+  using: composite
+  steps:
+    - name: Generate templ views with the pinned version
+      shell: bash
+      run: |
+        version="$(go list -m -f '{{.Version}}' github.com/a-h/templ)"
+        go install "github.com/a-h/templ/cmd/templ@${version}"
+        templ generate
+
+    - name: Check generated views are committed
+      shell: bash
+      run: |
+        changes="$(git status --porcelain -- 'web/views/*_templ.go')"
+        if [ -n "$changes" ]; then
+          echo "$changes"
+          echo "::error title=Stale templ output::Generated views differ from the committed files. Run 'make templ' and commit the result."
+          exit 1
+        fi
+
+    - name: Compile all packages and binaries
+      shell: bash
+      run: |
+        go build ./...
+        go build -o "$RUNNER_TEMP/bin/" ./cmd/server ./cmd/cli

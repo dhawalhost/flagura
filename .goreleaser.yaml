@@ -4,8 +4,7 @@ project_name: flagura
 
 before:
   hooks:
-    - go install github.com/a-h/templ/cmd/templ@latest
-    - templ generate
+    - make templ
     - go mod tidy
 
 builds:

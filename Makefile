@@ -5,11 +5,12 @@
 
 # Default binary output directory
 BIN_DIR := bin
+TEMPL_VERSION := $(shell go list -m -f '{{.Version}}' github.com/a-h/templ)
 SERVER_BIN := $(BIN_DIR)/flagura-server
 CLI_BIN := $(BIN_DIR)/flagura
 
 # Version & Build Flags
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "v1.7.0")
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "v1.8.0")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 LDFLAGS := -s -w \
@@ -67,12 +68,12 @@ build-cli:
 ## Generate Go code from all *.templ component templates
 templ:
 	@echo "🎨 Generating templ views..."
-	templ generate
+	go run github.com/a-h/templ/cmd/templ@$(TEMPL_VERSION) generate
 
 ## Run templ in watch mode for live browser re-compilation
 templ-watch:
 	@echo "👁️ Watching templ views for live reload..."
-	templ generate --watch
+	go run github.com/a-h/templ/cmd/templ@$(TEMPL_VERSION) generate --watch
 
 ## Run all unit and integration tests across the workspace
 test: templ

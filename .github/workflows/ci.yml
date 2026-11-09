@@ -30,11 +30,8 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: Install Templ Compiler
-        run: go install github.com/a-h/templ/cmd/templ@$(go list -m -f '{{.Version}}' github.com/a-h/templ)
-
-      - name: Verify & Generate Templates
-        run: templ generate
+      - name: Generate and Build from Source
+        uses: ./.github/actions/build-from-source
 
       - name: Go Vet & Lint Check
         run: go vet ./...
@@ -109,10 +106,8 @@ jobs:
           npm --prefix sdks/js run build
           npm --prefix examples/typescript install
 
-      - name: Install Templ Compiler & Generate Views
-        run: |
-          go install github.com/a-h/templ/cmd/templ@$(go list -m -f '{{.Version}}' github.com/a-h/templ)
-          templ generate
+      - name: Generate and Build from Source
+        uses: ./.github/actions/build-from-source
 
       - name: Run Full End-to-End Test Suite
         run: |
