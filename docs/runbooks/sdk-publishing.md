@@ -1,10 +1,10 @@
-# 📦 SDK Release & Publishing Runbook
+# SDK Release & Publishing Runbook
 
 This guide covers the end-to-end procedures for building, testing, versioning, and publishing Flagura's official client SDKs across public package registries (**Go Modules**, **NPM**, **PyPI**, **Crates.io**, and the **OpenFeature Ecosystem**).
 
 ---
 
-## 🧭 Multi-Language SDK Map
+## Multi-Language SDK Map
 
 | Language / Platform | Repository Directory | Public Registry | Package Name | Installation Command |
 | :--- | :--- | :--- | :--- | :--- |
@@ -15,27 +15,27 @@ This guide covers the end-to-end procedures for building, testing, versioning, a
 
 ---
 
-## 🚀 One-Click Manual Release Workflow (GitHub Actions)
+## One-Click Manual Release Workflow (GitHub Actions)
 
 Flagura provides a secure, manual dispatch workflow ([`.github/workflows/publish-sdk.yml`](../../.github/workflows/publish-sdk.yml)) to publish any SDK on-demand.
 
-### 🛡️ Access Restriction
+### Access Restriction
 * This workflow is **strictly gated** to the repository owner (`dhawalhost`).
 * Attempts by unauthorized users will automatically fail at the `authorize` stage before any build or publish steps are executed.
 
-### 🔑 Required Repository Secrets (`Settings -> Secrets and variables -> Actions`)
+### Required Repository Secrets (`Settings -> Secrets and variables -> Actions`)
 1. **`NPM_TOKEN`**: NPM automation access token with 2FA bypass for `@flagura/sdk`.
 2. **`PYPI_API_TOKEN`**: PyPI token (`pypi-...`) with upload rights for `flagura-sdk`.
 3. **`CRATES_IO_TOKEN`**: Crates.io API token for `flagura`.
 
-### 🕹️ How to Trigger:
-1. Navigate to **GitHub ➔ Actions ➔ Publish SDKs (Manual Dispatch)**.
+### How to Trigger:
+1. Navigate to **GitHub Actions Publish SDKs (Manual Dispatch)**.
 2. Click **Run workflow**:
    - **Target SDKs (Multi-Select)**: Check/uncheck individual SDKs as needed:
-     - `📦 JavaScript/TypeScript SDK (@flagura/sdk)` *(default: enabled)*
-     - `🐍 Python SDK (flagura)` *(default: enabled)*
-     - `🦀 Rust SDK (flagura)` *(default: enabled)*
-     - `🐹 Go SDK (sdks/go submodule tag)` *(default: disabled — tag only when Go API changes)*
+     - `JavaScript/TypeScript SDK (@flagura/sdk)` *(default: enabled)*
+     - `Python SDK (flagura)` *(default: enabled)*
+     - `Rust SDK (flagura)` *(default: enabled)*
+     - `Go SDK (sdks/go submodule tag)` *(default: disabled, tag only when Go API changes)*
    - **Semantic Version**: Specify the version to publish (e.g. `1.1.1`).
    - **Dry run**: Check to test building, bundling, and packaging without publishing to registries.
 3. Click **Run workflow**.
@@ -208,7 +208,7 @@ To submit Flagura as an official certified provider in the vendor-neutral [OpenF
 
 ---
 
-## 📋 Release Checklist Template
+## Release Checklist Template
 
 ```markdown
 - [ ] 1. All unit and race detector tests passing locally (`go test -race ./...`, `cargo test`, `npm test`, `pytest`).

@@ -99,7 +99,7 @@ func (s *Server) routes() {
 	s.handle(RouteUIDashboardPrefix, s.handleDashboard)
 
 	// Top-level shortcuts to dashboard views
-	for _, view := range []string{"overview", "flags", "analytics", "evaluator", "benchmark", "audit", "sdk", "profile", "settings"} {
+	for _, view := range []string{"overview", "flags", "analytics", "evaluator", "benchmark", "audit", "sdk", "apikeys", "profile", "settings"} {
 		v := view
 		s.handle("/"+v, func(w http.ResponseWriter, r *http.Request) {
 			target := RouteUIDashboardPrefix + v

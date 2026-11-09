@@ -1,6 +1,6 @@
 # Flagura Go SDK (`sdks/go`)
 
-The official, lightweight Go SDK and OpenFeature Provider for **Flagura** — featuring zero server-side dependencies, sub-microsecond local evaluations, real-time Server-Sent Events (SSE) streaming sync, in-memory circuit breaking, and offline snapshot resilience.
+The official, lightweight Go SDK and OpenFeature Provider for **Flagura**, featuring zero server-side dependencies, sub-microsecond local evaluations, real-time Server-Sent Events (SSE) streaming sync, in-memory circuit breaking, and offline snapshot resilience.
 
 ---
 
@@ -140,7 +140,7 @@ func main() {
 
 ---
 
-## 🎯 Local Rule Evaluation & Operators
+## Local Rule Evaluation & Operators
 
 When running with `WithLocalEvaluation(true)`, Flagura evaluates all targeting rules in-memory with zero network latency. The following operators are supported in rule conditions:
 
@@ -157,7 +157,7 @@ When running with `WithLocalEvaluation(true)`, Flagura evaluates all targeting r
 
 ---
 
-## 🛡️ Circuit Breaker & Resilience
+## Circuit Breaker & Resilience
 
 The client includes an in-memory 3-state circuit breaker (`Closed`, `Open`, `HalfOpen`):
 - **Tripping to Open**: Consecutive network failures exceeding the threshold immediately trip the breaker to `Open`. During `Open`, requests fail fast to local defaults or snapshots without network delays.

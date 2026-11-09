@@ -42,137 +42,111 @@ func Layout(title string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " — Flagura</title><link rel=\"icon\" href=\"/static/img/flagura-logo-circle.svg\"><!-- Google Fonts: Geist & Geist Mono --><link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin><link href=\"https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap\" rel=\"stylesheet\"><!-- Tailwind CSS CDN --><script nonce=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " — Flagura</title><link rel=\"icon\" href=\"/static/img/flagura-mark.svg\"><!-- Applied before first paint so the stored theme never flashes. --><script nonce=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.GetNonce(ctx))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 16, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 12, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\" src=\"https://cdn.tailwindcss.com\"></script><script nonce=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\">\n\t\t\t\t(function () {\n\t\t\t\t\tvar theme = null;\n\t\t\t\t\ttry { theme = localStorage.getItem('flagura-theme'); } catch (e) {}\n\t\t\t\t\tif (theme !== 'light' && theme !== 'dark') {\n\t\t\t\t\t\ttheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';\n\t\t\t\t\t}\n\t\t\t\t\tdocument.documentElement.setAttribute('data-theme', theme);\n\t\t\t\t})();\n\t\t\t</script><link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin><link href=\"https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap\" rel=\"stylesheet\"><!-- Tailwind CSS CDN --><script nonce=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.GetNonce(ctx))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 17, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 26, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\">\n\t\t\t\ttailwind.config = {\n\t\t\t\t\ttheme: {\n\t\t\t\t\t\textend: {\n\t\t\t\t\t\t\tfontFamily: {\n\t\t\t\t\t\t\t\tsans: ['\"Geist\"', 'Inter', '-apple-system', 'sans-serif'],\n\t\t\t\t\t\t\t\tdisplay: ['\"Geist\"', 'sans-serif'],\n\t\t\t\t\t\t\t\tmono: ['\"Geist Mono\"', 'monospace'],\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t</script><!-- App CSS --><link rel=\"stylesheet\" href=\"/static/app.css\"><!-- Eliminate Alpine.js Flash of Unstyled / Uninitialized Content (FOUC) --><style>\n\t\t\t\t[x-cloak] { display: none !important; }\n\t\t\t</style><!-- Flagura Application Bundle --><script nonce=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" src=\"https://cdn.tailwindcss.com\"></script><script nonce=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.GetNonce(ctx))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 37, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 27, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\" defer src=\"/static/js/app.js\"></script><!-- Alpine.js (Official CSP-Hardened Build) & HTMX --><script nonce=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\">\n\t\t\t\t(function () {\n\t\t\t\t\tvar token = function (name) { return 'rgb(var(--' + name + ') / <alpha-value>)'; };\n\t\t\t\t\tvar hue = function (name) {\n\t\t\t\t\t\tvar tint = token(name + '-tint'), line = token(name + '-line'), bright = token(name + '-bright'), mark = token(name + '-mark'), text = token(name + '-text');\n\t\t\t\t\t\treturn { 50: tint, 100: tint, 200: line, 300: bright, 400: bright, 500: mark, 600: mark, 700: text, 800: text, 900: text, 950: text };\n\t\t\t\t\t};\n\t\t\t\t\tvar neutral = {};\n\t\t\t\t\t[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].forEach(function (step) { neutral[step] = token('n-' + step); });\n\t\t\t\t\ttailwind.config = {\n\t\t\t\t\t\ttheme: {\n\t\t\t\t\t\t\textend: {\n\t\t\t\t\t\t\t\tcolors: {\n\t\t\t\t\t\t\t\t\tcanvas: token('canvas'),\n\t\t\t\t\t\t\t\t\tshell: token('shell'),\n\t\t\t\t\t\t\t\t\tsurface: token('surface'),\n\t\t\t\t\t\t\t\t\tscrim: token('scrim'),\n\t\t\t\t\t\t\t\t\tneutral: neutral,\n\t\t\t\t\t\t\t\t\taccent: hue('accent'),\n\t\t\t\t\t\t\t\t\tok: hue('ok'),\n\t\t\t\t\t\t\t\t\twarn: hue('warn'),\n\t\t\t\t\t\t\t\t\tdanger: hue('danger')\n\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\tfontFamily: {\n\t\t\t\t\t\t\t\t\tsans: ['var(--font-sans)'],\n\t\t\t\t\t\t\t\t\tmono: ['var(--font-mono)']\n\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\tfontSize: {\n\t\t\t\t\t\t\t\t\t'2xs': ['12px', '16px'],\n\t\t\t\t\t\t\t\t\txs: ['13px', '18px'],\n\t\t\t\t\t\t\t\t\tsm: ['14px', '20px'],\n\t\t\t\t\t\t\t\t\tbase: ['14px', '20px'],\n\t\t\t\t\t\t\t\t\tlg: ['16px', '22px'],\n\t\t\t\t\t\t\t\t\txl: ['18px', '24px'],\n\t\t\t\t\t\t\t\t\t'2xl': ['20px', '26px'],\n\t\t\t\t\t\t\t\t\t'3xl': ['24px', '30px'],\n\t\t\t\t\t\t\t\t\t'4xl': ['30px', '36px'],\n\t\t\t\t\t\t\t\t\t'5xl': ['38px', '44px']\n\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\tborderRadius: {\n\t\t\t\t\t\t\t\t\tmd: '8px'\n\t\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\t\tboxShadow: {\n\t\t\t\t\t\t\t\t\tpop: 'var(--shadow-pop)'\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n\t\t\t\t\t};\n\t\t\t\t})();\n\t\t\t</script><!-- App CSS --><link rel=\"stylesheet\" href=\"/static/app.css\"><!-- Eliminate Alpine.js Flash of Unstyled / Uninitialized Content (FOUC) --><style>\n\t\t\t\t[x-cloak] { display: none !important; }\n\t\t\t</style><!-- Flagura Application Bundle --><script nonce=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.GetNonce(ctx))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 39, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 84, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" defer src=\"https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.17.2/dist/cdn.min.js\"></script><script nonce=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" defer src=\"/static/js/app.js\"></script><!-- Alpine.js (Official CSP-Hardened Build) & HTMX --><script nonce=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.GetNonce(ctx))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 40, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 86, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" src=\"https://unpkg.com/htmx.org@1.9.12\"></script><!-- Lucide Icons --><script nonce=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" defer src=\"https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.17.2/dist/cdn.min.js\"></script><script nonce=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.GetNonce(ctx))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 42, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 87, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" src=\"https://unpkg.com/lucide@latest\"></script><!-- Chart.js & Three.js & GSAP --><script nonce=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" src=\"https://unpkg.com/htmx.org@1.9.12\"></script><!-- Lucide Icons --><script nonce=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.GetNonce(ctx))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 44, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 89, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" src=\"https://cdn.jsdelivr.net/npm/chart.js\"></script><script nonce=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" src=\"https://unpkg.com/lucide@latest\"></script><!-- Chart.js --><script nonce=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.GetNonce(ctx))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 45, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 91, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" src=\"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js\"></script><script nonce=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var11 string
-		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.GetNonce(ctx))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 46, Col: 38}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" src=\"https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js\"></script><script nonce=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var12 string
-		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.GetNonce(ctx))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/layout.templ`, Line: 47, Col: 38}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" src=\"https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js\"></script></head><body class=\"h-full antialiased text-slate-900 bg-[#FAFAFA] selection:bg-indigo-100 selection:text-indigo-900 overflow-x-hidden font-sans\" x-data=\"globalApp()\"><!-- Toast Notification Manager --><div class=\"fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-50 flex flex-col gap-2.5 max-w-[calc(100vw-2.5rem)] sm:max-w-md w-full pointer-events-none\" aria-live=\"polite\" role=\"status\"><template x-for=\"toast in toasts\" :key=\"toast.id\"><div class=\"pointer-events-auto relative overflow-hidden rounded-2xl p-4 shadow-xl border backdrop-blur-xl transition-all duration-300 group flex items-start gap-3.5\" :class=\"toastCardClasses(toast)\" @mouseenter=\"pauseToast(toast.id)\" @mouseleave=\"resumeToast(toast.id)\" x-transition:enter=\"transition ease-out duration-300 transform\" x-transition:enter-start=\"opacity-0 translate-y-3 scale-95\" x-transition:enter-end=\"opacity-100 translate-y-0 scale-100\" x-transition:leave=\"transition ease-in duration-200 transform\" x-transition:leave-start=\"opacity-100 translate-y-0 scale-100\" x-transition:leave-end=\"opacity-0 translate-y-2 scale-95\"><!-- Left Icon Badge --><div class=\"shrink-0 mt-0.5\"><!-- Success Icon --><template x-if=\"toast.type === 'success'\"><div class=\"h-6 w-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600\"><svg class=\"w-3.5 h-3.5 stroke-[2.5]\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><polyline points=\"20 6 9 17 4 12\"></polyline></svg></div></template><!-- Error Icon --><template x-if=\"toast.type === 'error'\"><div class=\"h-6 w-6 rounded-full bg-rose-100 flex items-center justify-center text-rose-600\"><svg class=\"w-3.5 h-3.5 stroke-[2.5]\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle> <line x1=\"12\" y1=\"8\" x2=\"12\" y2=\"12\"></line> <line x1=\"12\" y1=\"16\" x2=\"12.01\" y2=\"16\"></line></svg></div></template><!-- Warning Icon --><template x-if=\"toast.type === 'warning'\"><div class=\"h-6 w-6 rounded-full bg-amber-100 flex items-center justify-center text-amber-600\"><svg class=\"w-3.5 h-3.5 stroke-[2.5]\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z\"></path> <line x1=\"12\" y1=\"9\" x2=\"12\" y2=\"13\"></line> <line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"></line></svg></div></template><!-- Info Icon --><template x-if=\"toast.type === 'info'\"><div class=\"h-6 w-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600\"><svg class=\"w-3.5 h-3.5 stroke-[2.5]\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle> <line x1=\"12\" y1=\"16\" x2=\"12\" y2=\"12\"></line> <line x1=\"12\" y1=\"8\" x2=\"12.01\" y2=\"8\"></line></svg></div></template><!-- Copied Icon --><template x-if=\"toast.type === 'copied'\"><div class=\"h-6 w-6 rounded-full bg-slate-800 flex items-center justify-center text-sky-400\"><svg class=\"w-3.5 h-3.5 stroke-[2.5]\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><path d=\"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2\"></path> <rect x=\"8\" y=\"2\" width=\"8\" height=\"4\" rx=\"1\" ry=\"1\"></rect></svg></div></template></div><!-- Message Content --><div class=\"flex-1 min-w-0 pr-2\"><template x-if=\"toast.title\"><div class=\"text-xs font-bold leading-tight mb-0.5 tracking-tight font-display\" :class=\"toast.type === 'copied' ? 'text-white' : 'text-slate-900'\" x-text=\"toast.title\"></div></template><div class=\"text-xs leading-relaxed font-sans\" :class=\"{\n\t\t\t\t\t\t\t\t\t'text-slate-600 font-medium': toast.type !== 'copied' && toast.title,\n\t\t\t\t\t\t\t\t\t'text-slate-800 font-semibold font-mono': toast.type !== 'copied' && !toast.title,\n\t\t\t\t\t\t\t\t\t'text-slate-300 font-mono text-[11px]': toast.type === 'copied'\n\t\t\t\t\t\t\t\t}\" x-text=\"toast.message\"></div><!-- Action Button --><template x-if=\"toast.action\"><div class=\"mt-2.5\"><button type=\"button\" @click=\"executeToastAction(toast.id)\" class=\"px-2.5 py-1 rounded-lg text-[11px] font-bold font-mono transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5\" :class=\"toast.type === 'copied' ? 'bg-white text-slate-900 hover:bg-slate-100' : 'bg-slate-900 text-white hover:bg-indigo-600'\"><span x-text=\"toast.action.label || 'Action'\"></span> <svg class=\"w-3 h-3 stroke-2\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><polyline points=\"9 18 15 12 9 6\"></polyline></svg></button></div></template></div><!-- Close Button --><button type=\"button\" @click=\"dismissToast(toast.id)\" class=\"shrink-0 p-1 rounded-lg transition-colors cursor-pointer\" :class=\"toast.type === 'copied' ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'\" aria-label=\"Dismiss notification\"><svg class=\"w-3.5 h-3.5 stroke-2\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"></line> <line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"></line></svg></button><!-- Animated Progress Bar --><div class=\"absolute bottom-0 left-0 h-1 transition-all duration-100 ease-linear rounded-b-2xl\" :class=\"toastProgressBarClasses(toast)\" :style=\"toastProgressStyle(toast)\"></div></div></template></div><!-- Main Content Slot --><div class=\"relative z-10 min-h-full\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" src=\"https://cdn.jsdelivr.net/npm/chart.js\"></script></head><body class=\"h-full antialiased text-neutral-900 bg-canvas overflow-x-hidden font-sans\" x-data=\"globalApp()\"><!-- Toast Notification Manager --><div class=\"fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-[calc(100vw-2rem)] sm:max-w-sm w-full pointer-events-none\" aria-live=\"polite\" role=\"status\"><template x-for=\"toast in toasts\" :key=\"toast.id\"><div class=\"pointer-events-auto relative overflow-hidden rounded-xl p-3 shadow-pop border bg-surface border-neutral-200 text-neutral-900 flex items-start gap-2\" @mouseenter=\"pauseToast(toast.id)\" @mouseleave=\"resumeToast(toast.id)\" x-transition:enter=\"transition ease-out duration-150\" x-transition:enter-start=\"opacity-0\" x-transition:enter-end=\"opacity-100\" x-transition:leave=\"transition ease-in duration-100\" x-transition:leave-start=\"opacity-100\" x-transition:leave-end=\"opacity-0\"><div class=\"shrink-0 mt-px\" :class=\"toastIconClasses(toast)\"><template x-if=\"toast.type === 'success'\"><svg class=\"w-4 h-4 stroke-2\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><polyline points=\"20 6 9 17 4 12\"></polyline></svg></template><template x-if=\"toast.type === 'error'\"><svg class=\"w-4 h-4 stroke-2\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><line x1=\"12\" y1=\"8\" x2=\"12\" y2=\"12\"></line><line x1=\"12\" y1=\"16\" x2=\"12.01\" y2=\"16\"></line></svg></template><template x-if=\"toast.type === 'warning'\"><svg class=\"w-4 h-4 stroke-2\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z\"></path><line x1=\"12\" y1=\"9\" x2=\"12\" y2=\"13\"></line><line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"></line></svg></template><template x-if=\"toast.type === 'info'\"><svg class=\"w-4 h-4 stroke-2\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><line x1=\"12\" y1=\"16\" x2=\"12\" y2=\"12\"></line><line x1=\"12\" y1=\"8\" x2=\"12.01\" y2=\"8\"></line></svg></template><template x-if=\"toast.type === 'copied'\"><svg class=\"w-4 h-4 stroke-2\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><path d=\"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2\"></path><rect x=\"8\" y=\"2\" width=\"8\" height=\"4\" rx=\"1\" ry=\"1\"></rect></svg></template></div><div class=\"flex-1 min-w-0\"><template x-if=\"toast.title\"><div class=\"text-sm font-medium\" x-text=\"toast.title\"></div></template><div class=\"text-sm text-neutral-600 break-words\" x-text=\"toast.message\"></div><template x-if=\"toast.action\"><button type=\"button\" @click=\"executeToastAction(toast.id)\" class=\"mt-2 text-xs font-medium text-accent-600 hover:underline cursor-pointer\" x-text=\"toast.action.label || 'Action'\"></button></template></div><button type=\"button\" @click=\"dismissToast(toast.id)\" class=\"shrink-0 p-0.5 rounded text-neutral-400 hover:text-neutral-900 transition-colors cursor-pointer\" aria-label=\"Dismiss notification\"><svg class=\"w-4 h-4 stroke-2\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"></line><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"></line></svg></button><div class=\"absolute bottom-0 left-0 h-0.5 ease-linear\" :class=\"toastProgressBarClasses(toast)\" :style=\"toastProgressStyle(toast)\"></div></div></template></div><!-- Main Content Slot --><div class=\"relative z-10 min-h-full\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -180,7 +154,7 @@ func Layout(title string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

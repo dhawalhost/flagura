@@ -20,7 +20,7 @@ Grouped by component layer:
 
 ### 1. HTTP Security, Authentication & Middleware Layer
 
-#### [NEW] [middleware.go](file:///Users/dhawal.dyavanpalli/go/src/flagura/internal/api/middleware.go)
+#### [NEW] [middleware.go](../pkg/api/middleware.go)
 - **Security Headers Middleware**:
   - `X-Content-Type-Options: nosniff`
   - `X-Frame-Options: SAMEORIGIN`
@@ -35,7 +35,7 @@ Grouped by component layer:
   - `RequireRole(role domain.UserRole, next http.HandlerFunc)`: Enforces role permissions (e.g. `RoleAdmin` required for database reset `/api/v1/reset` and flag deletion).
   - Context helpers `UserFromContext(ctx)` to securely retrieve authenticated user and prevent spoofed `X-Actor` headers.
 
-#### [MODIFY] [server.go](file:///Users/dhawal.dyavanpalli/go/src/flagura/internal/api/server.go)
+#### [MODIFY] [server.go](../pkg/api/server.go)
 - Wrap server routes with security headers, request body size limiter, and CORS middleware.
 - Protect mutation routes:
   - `POST /api/v1/flags` -> Protected by `RequireAuth`
@@ -45,30 +45,30 @@ Grouped by component layer:
   - `DELETE /api/v1/flags/*` -> Protected by `RequireAuth` + Role check (`Admin`/`Developer`)
   - `POST /api/v1/reset` -> Protected by `RequireAuth` + `RequireRole(domain.RoleAdmin)`
 
-#### [MODIFY] [handlers_auth.go](file:///Users/dhawal.dyavanpalli/go/src/flagura/internal/api/handlers_auth.go)
+#### [MODIFY] [handlers_auth.go](../pkg/api/handlers_auth.go)
 - Dynamically set `Secure: true` on cookies when request is over HTTPS or `ENVIRONMENT=production`.
 
-#### [MODIFY] [handlers_api.go](file:///Users/dhawal.dyavanpalli/go/src/flagura/internal/api/handlers_api.go)
+#### [MODIFY] handlers_api.go
 - Replace unverified `r.Header.Get("X-Actor")` with authenticated user email from context (`UserFromContext(r.Context()).Email`), ensuring audit log integrity.
 
 ---
 
 ### 2. CI/CD & Repository Security Guardrails
 
-#### [MODIFY] [.github/workflows/ci.yml](file:///Users/dhawal.dyavanpalli/go/src/flagura/.github/workflows/ci.yml)
+#### [MODIFY] [.github/workflows/ci.yml](../.github/workflows/ci.yml)
 - Add explicit least-privilege workflow permissions: `permissions: contents: read`.
 - Add **SAST**: Run `gosec` (Go Security Checker) on all Go packages.
 - Add **SCA**: Run `govulncheck` to detect known CVEs in Go dependencies.
 - Add **Secret Scanning**: Run Gitleaks action or scanner to detect accidental credential commits.
 
-#### [NEW] [.github/dependabot.yml](file:///Users/dhawal.dyavanpalli/.gemini/antigravity-ide/brain/79264107-667c-440c-b123-aeac9a36e16b/.github/dependabot.yml) -> [.github/dependabot.yml](file:///Users/dhawal.dyavanpalli/go/src/flagura/.github/dependabot.yml)
+#### [NEW] .github/dependabot.yml -> [.github/dependabot.yml](../.github/dependabot.yml)
 - Configure automated weekly dependency security updates for Go modules (`gomod`) and GitHub Actions (`github-actions`).
 
 ---
 
 ### 3. Automated Security Testing Suite
 
-#### [NEW] [security_test.go](file:///Users/dhawal.dyavanpalli/go/src/flagura/internal/api/security_test.go)
+#### [NEW] [security_test.go](../pkg/api/security_test.go)
 - Test security response headers on all endpoints.
 - Test rejection of unauthenticated mutation calls to `/api/v1/flags` and `/api/v1/reset` (401 Unauthorized).
 - Test role enforcement on `/api/v1/reset` (403 Forbidden for non-admin, 200 OK for admin).

@@ -1,4 +1,4 @@
-# 🚀 Deployment & Release Management Runbook
+# Deployment & Release Management Runbook
 
 This runbook covers procedures for building, deploying, verifying, and rolling back Flagura across standalone Linux servers, Docker containers, and Vercel serverless environments.
 

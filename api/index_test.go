@@ -41,9 +41,9 @@ func TestVercelHandlerRouting(t *testing.T) {
 		},
 		{
 			name:           "Static Logo Asset",
-			target:         "/static/img/flagura-logo.png",
+			target:         "/static/img/flagura-mark.svg",
 			expectedStatus: http.StatusOK,
-			expectedHeader: "image/png",
+			expectedHeader: "image/svg+xml",
 		},
 	}
 

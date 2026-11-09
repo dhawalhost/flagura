@@ -1,10 +1,10 @@
-# 🏗️ System Architecture & Engineering Design
+# System Architecture & Engineering Design
 
-This document provides a comprehensive technical breakdown of Flagura's internals, component architecture, data flows, and design decisions for software engineers, systems architects, and SREs.
+This document provides a full technical breakdown of Flagura's internals, component architecture, data flows, and design decisions for software engineers, systems architects, and SREs.
 
 ---
 
-## 🏛️ High-Level System Architecture
+## High-Level System Architecture
 
 ```mermaid
 graph TB
@@ -51,24 +51,24 @@ graph TB
 
 ---
 
-## 🧩 Component Decomposition
+## Component Decomposition
 
 | Component | Package Path | Architectural Responsibility |
 | :--- | :--- | :--- |
-| **Server Daemon** | [`cmd/server`](file:///Users/dhawal.dyavanpalli/go/src/flagura/cmd/server) | Production HTTP server entrypoint, configuration parsing, store auto-detection, and graceful shutdown lifecycle. |
-| **Developer CLI** | [`cmd/cli`](file:///Users/dhawal.dyavanpalli/go/src/flagura/cmd/cli) | Single-binary terminal client for flag operations, 4-Eyes governance, API tokens, and static technical debt auditing. |
-| **Domain Models** | [`pkg/domain`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/domain) | Pure immutable domain structs (`FeatureFlag`, `TargetingRule`, `User`, `Session`, `AuditLog`). Zero third-party dependencies. |
-| **Evaluation Engine** | [`pkg/engine`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/engine) | Pure mathematical rule evaluation and 64-bit FNV-1a sticky hashing. $O(1)$ time complexity with zero allocations on hot paths. |
-| **Storage Abstraction** | [`pkg/store`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/store) | Pluggable persistence layer (`Store` interface) implementing `PostgresStore` (Supabase/RDS), embedded `SQLiteStore` (WAL mode), and thread-safe `MemoryStore`. |
-| **Backup & Disaster Recovery** | [`pkg/store/backup.go`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/store/backup.go) | Atomic snapshot export/import supporting JSON and Gzip compression with reverse-chronological audit chain preservation. |
-| **Telemetry & Tracing** | [`pkg/telemetry`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/telemetry) | OpenTelemetry tracer, W3C `traceparent`/`tracestate` context propagation, and Prometheus evaluation metrics. |
-| **API & Middleware** | [`pkg/api`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/api) | HTTP routing (`router.go`, `routes.go`), SSE streaming hub, role-based tenant rate limiting, RBAC, session auth, security headers, and REST handlers. |
-| **Compiled Web Views** | [`web/views`](file:///Users/dhawal.dyavanpalli/go/src/flagura/web/views) | Type-safe compiled HTML views via `templ` with zero runtime template parsing overhead. |
-| **Official Go SDK** | [`pkg/client`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/client) & [`sdks/go`](file:///Users/dhawal.dyavanpalli/go/src/flagura/sdks/go) | High-throughput client providing in-process background cache sync, polling fallback, W3C trace propagation, and sub-microsecond local evaluations. |
+| **Server Daemon** | [`cmd/server`](../../cmd/server) | Production HTTP server entrypoint, configuration parsing, store auto-detection, and graceful shutdown lifecycle. |
+| **Developer CLI** | [`cmd/cli`](../../cmd/cli) | Single-binary terminal client for flag operations, 4-Eyes governance, API tokens, and static technical debt auditing. |
+| **Domain Models** | [`pkg/domain`](../../pkg/domain) | Pure immutable domain structs (`FeatureFlag`, `TargetingRule`, `User`, `Session`, `AuditLog`). Zero third-party dependencies. |
+| **Evaluation Engine** | [`pkg/engine`](../../pkg/engine) | Pure mathematical rule evaluation and 64-bit FNV-1a sticky hashing. $O(1)$ time complexity with zero allocations on hot paths. |
+| **Storage Abstraction** | [`pkg/store`](../../pkg/store) | Pluggable persistence layer (`Store` interface) implementing `PostgresStore` (Supabase/RDS), embedded `SQLiteStore` (WAL mode), and thread-safe `MemoryStore`. |
+| **Backup & Disaster Recovery** | [`pkg/store/backup.go`](../../pkg/store/backup.go) | Atomic snapshot export/import supporting JSON and Gzip compression with reverse-chronological audit chain preservation. |
+| **Telemetry & Tracing** | [`pkg/telemetry`](../../pkg/telemetry) | OpenTelemetry tracer, W3C `traceparent`/`tracestate` context propagation, and Prometheus evaluation metrics. |
+| **API & Middleware** | [`pkg/api`](../../pkg/api) | HTTP routing (`router.go`, `routes.go`), SSE streaming hub, role-based tenant rate limiting, RBAC, session auth, security headers, and REST handlers. |
+| **Compiled Web Views** | [`web/views`](../../web/views) | Type-safe compiled HTML views via `templ` with zero runtime template parsing overhead. |
+| **Official Go SDK** | [`pkg/client`](../../pkg/client) & [`sdks/go`](../../sdks/go) | High-throughput client providing in-process background cache sync, polling fallback, W3C trace propagation, and sub-microsecond local evaluations. |
 
 ---
 
-## 🔄 Core Data Flows
+## Core Data Flows
 
 ### 1. High-Performance Evaluation Request Flow
 
@@ -115,7 +115,7 @@ sequenceDiagram
 
 ---
 
-## ⚖️ Architectural Trade-Offs & Decisions
+## Architectural Trade-Offs & Decisions
 
 ### 1. Compiled Templ Views vs. Client-Side SPA
 - **Decision**: Compiled Go `templ` components with TailwindCSS and lightweight Alpine.js.
@@ -123,20 +123,20 @@ sequenceDiagram
 
 ### 2. Embedded Database Schema Migrations vs. Heavy ORMs
 - **Decision**: Pure `database/sql` + parameterized prepared statements with idempotent auto-seeding.
-- **Rationale**: Eliminates ORM reflection overhead, maximizes execution speed, and enables seamless compatibility across Supabase Transaction Poolers (port 6543), Neon, AWS RDS, and Local Postgres.
+- **Rationale**: Eliminates ORM reflection overhead, maximizes execution speed, and enables compatibility across Supabase Transaction Poolers (port 6543), Neon, AWS RDS, and Local Postgres.
 
 ### 3. FNV-1a 64-bit Hashing vs. MD5 / SHA-256
 - **Decision**: 64-bit Fowler–Noll–Vo (FNV-1a) non-cryptographic hashing for percentage rollouts.
-- **Rationale**: Executes in **< 10 nanoseconds**, produces exceptional uniform bit distribution across 0–99 rollout buckets, and eliminates cryptographic hashing overhead on hot paths.
+- **Rationale**: Executes in **< 10 nanoseconds**, produces exceptional uniform bit distribution across 0-99 rollout buckets, and eliminates cryptographic hashing overhead on hot paths.
 
 ---
 
-## 📐 Core System Design Principles (Flagura v1.5.0)
+## Core System Design Principles (Flagura v1.5.0)
 
 Flagura's architecture follows strict microservice engineering principles:
 
 ### 1. Control Plane vs. Data Plane Separation
-* **Data Plane (Hot Path)**: Flag evaluations happen **in-process** inside application SDKs in **~85ns**. Flags are evaluated in CPU cache against an in-memory synchronized mirror without executing network round-trips or database queries during user requests.
+* **Data Plane (Hot Path)**: Flag evaluations happen **in-process** inside application SDKs in **about 140 ns**. Flags are evaluated in CPU cache against an in-memory synchronized mirror without executing network round-trips or database queries during user requests.
 * **Control Plane (Management & Governance)**: The HTTP daemon (`cmd/server`) manages configurations, handles dual-approver (4-Eyes) change requests, captures immutable audit trails, and broadcasts configuration updates to connected SDKs via persistent HTTP/2 Server-Sent Events (SSE).
 
 ### 2. Standard Go Multi-Binary Project Layout (`golang-standards/project-layout`)
@@ -151,7 +151,7 @@ All executable entrypoints live strictly under `cmd/`:
 * **Why**: Guarantees that **RBAC permissions, audit logging, and change approval governance cannot be bypassed via terminal scripts**.
 
 ### 4. Dependency Inversion Principle (DIP)
-* High-level routing and business logic modules depend exclusively on the abstract [`store.Store`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/store/store.go) interface.
+* High-level routing and business logic modules depend exclusively on the abstract [`store.Store`](../../pkg/store/store.go) interface.
 * Concrete storage drivers (`PostgresStore`, embedded `SQLiteStore`, `MemoryStore`) are injected at runtime based on environment configuration (`DATABASE_URL`), enabling zero-downtime portability.
 
 ### 5. Zero-Trust Security & Zero PII Egress

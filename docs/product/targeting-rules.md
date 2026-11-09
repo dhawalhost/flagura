@@ -1,10 +1,10 @@
-# 🎯 Attribute-Based Targeting Rules & Segmentation
+# Attribute-Based Targeting Rules & Segmentation
 
 Targeting rules allow you to deliver specific flag variants or bypass percentage rollouts for select users, internal teams, beta testers, or enterprise customers.
 
 ---
 
-## 🔍 How Targeting Rules Work
+## How Targeting Rules Work
 
 Targeting rules are evaluated in **priority order (top to bottom)** before general percentage rollouts:
 - If a rule matches the incoming context, the evaluation immediately short-circuits and serves the specified variant.
@@ -12,7 +12,7 @@ Targeting rules are evaluated in **priority order (top to bottom)** before gener
 
 ---
 
-## 📋 Supported Attributes
+## Supported Attributes
 
 | Attribute Key | Type | Description | Common Use Cases |
 | :--- | :--- | :--- | :--- |
@@ -25,7 +25,7 @@ Targeting rules are evaluated in **priority order (top to bottom)** before gener
 
 ---
 
-## ⚙️ Supported Operators
+## Supported Operators
 
 Flagura provides a rich set of string, set, regex, and numerical operators across the server engine and client SDKs:
 
@@ -50,7 +50,7 @@ Flagura provides a rich set of string, set, regex, and numerical operators acros
 
 ---
 
-## 💡 Real-World Examples
+## Real-World Examples
 
 ### 1. Internal Team Whitelist
 Give all employees access to experimental AI features ahead of public launch:
@@ -103,7 +103,7 @@ Roll out modern checkout flow specifically to users in the United States and Can
 
 ---
 
-## ⚡ Context Passing in Code
+## Context Passing in Code
 
 When calling the Flagura API or SDK, simply include the context attributes in your evaluation payload:
 

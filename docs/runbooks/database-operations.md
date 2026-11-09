@@ -1,4 +1,4 @@
-# 🗄️ Database Operations & Disaster Recovery Runbook
+# Database Operations & Disaster Recovery Runbook
 
 This runbook documents database management, migration procedures, performance tuning, and backup/recovery strategies for Flagura on Supabase PostgreSQL.
 
@@ -26,7 +26,7 @@ Flagura relies on relational tables with JSONB document columns in PostgreSQL:
 
 Flagura supports 3 storage options: **Embedded SQLite (Pure Go)**, **PostgreSQL (Supabase/AWS RDS/Neon)**, and an **In-Memory Edge Store**.
 
-### Method 1: Embedded SQLite (Zero External Dependencies — Recommended for Single-Node)
+### Method 1: Embedded SQLite (Zero External Dependencies: Recommended for Single-Node)
 ```bash
 # Run Flagura with durable embedded SQLite storage
 export DATABASE_URL="sqlite://data/flagura.db"
@@ -68,7 +68,7 @@ When deploying Flagura at scale or on serverless platforms (Vercel, Cloud Run):
 | **Transaction Pooler** | **`6543`** | **Production Vercel / Serverless** | Recommended. Handles 10,000+ client connections with minimal Postgres backend load. |
 | **Session Pooler** | `5432` | Dedicated VM / Long-running Containers | Direct connection with prepared statement support. |
 
-### Go Connection Pooler Tuning in [postgres.go](../../internal/store/postgres.go):
+### Go Connection Pooler Tuning in [postgres.go](../../pkg/store/postgres.go):
 ```go
 db.SetMaxOpenConns(25)              // Maximum active connections
 db.SetMaxIdleConns(10)              // Idle pool size
@@ -80,7 +80,7 @@ db.SetConnMaxLifetime(5 * time.Minute) // Recycle stale connections
 ## 4. Backup & Disaster Recovery (PITR)
 
 ### Automated Daily Backups (Supabase Pro)
-- Supabase automatically takes daily physical backups with Point-In-Time-Recovery (PITR) up to 7–30 days.
+- Supabase automatically takes daily physical backups with Point-In-Time-Recovery (PITR) up to 7-30 days.
 - In case of accidental data truncation or catastrophic drop:
   1. Open **Supabase Dashboard** -> **Database** -> **Backups**.
   2. Choose the restore point timestamp prior to the incident.

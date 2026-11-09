@@ -1,14 +1,14 @@
-# ⚡ Flagura Python SDK
+# Flagura Python SDK
 
 Official Python client for the **Flagura Feature Flag Platform**, supporting:
 - High-performance evaluations
-- **Real-Time SSE Flag Streaming (`<5ms` sync)**
+- **Real-Time SSE Flag Streaming (`` sync)**
 - **CNCF OpenFeature Provider**
 - FastAPI, Django, Flask, Celery, and AI Agent compatibility
 
 ---
 
-## 📦 Installation
+## Installation
 
 ```bash
 pip install flagura
@@ -16,7 +16,7 @@ pip install flagura
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 ### 1. Direct Client with Real-Time SSE Streaming
 
@@ -29,7 +29,7 @@ client = FlaguraClient(
     api_key="your-api-key",
     project_id="proj_default", # optional: project scoping
     default_environment="production",
-    enable_streaming=True, # <5ms live flag updates
+    enable_streaming=True, # live flag updates
 )
 
 # Register real-time change listener
@@ -74,5 +74,5 @@ is_enabled = of_client.get_boolean_value("ai-smart-search", False, ctx)
 
 ---
 
-## 📄 License
+## License
 MIT

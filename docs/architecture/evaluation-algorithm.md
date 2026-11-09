@@ -1,10 +1,10 @@
-# 🧮 Evaluation Algorithm & Mathematical Specifications
+# Evaluation Algorithm & Mathematical Specifications
 
 Flagura's evaluation engine is designed for deterministic, zero-allocation, sub-microsecond flag resolution. This document details the mathematical underpinnings, hashing algorithms, and algorithmic complexity.
 
 ---
 
-## 🔢 Deterministic 64-bit FNV-1a Hashing
+## Deterministic 64-bit FNV-1a Hashing
 
 Percentage rollouts and multivariate distributions require **sticky, consistent bucketing**:
 - The same user evaluated against the same flag must **always** yield the exact same bucket.
@@ -22,7 +22,7 @@ The resulting bucket is a floating-point number in the range $[0.00, 99.99]$.
 
 ---
 
-## ⚡ Algorithm Implementation in Go
+## Algorithm Implementation in Go
 
 ```go
 // FNV-1a 64-bit Constants
@@ -50,7 +50,7 @@ func hashBucket(userID, flagKey string) float64 {
 
 ---
 
-## 📊 Uniform Distribution & Collision Properties
+## Uniform Distribution & Collision Properties
 
 | Property | Value | Architectural Benefit |
 | :--- | :--- | :--- |
@@ -62,7 +62,7 @@ func hashBucket(userID, flagKey string) float64 {
 
 ---
 
-## 🎯 Multivariate Bucket Allocation
+## Multivariate Bucket Allocation
 
 For multi-variant experiments with weights $[W_1, W_2, \dots, W_k]$ where $\sum W_i = 100$:
 
@@ -73,9 +73,9 @@ For multi-variant experiments with weights $[W_1, W_2, \dots, W_k]$ where $\sum 
 $$\text{Selected Variant} = V_i \quad \text{where} \quad C_{i-1} \le B < C_i$$
 
 ### Example Distribution (50% Blue, 30% Green, 20% Slate)
-- **Bucket 0.00 – 49.99**: Variant A (`blue`)
-- **Bucket 50.00 – 79.99**: Variant B (`green`)
-- **Bucket 80.00 – 99.99**: Variant C (`slate`)
+- **Bucket 0.00, 49.99**: Variant A (`blue`)
+- **Bucket 50.00, 79.99**: Variant B (`green`)
+- **Bucket 80.00, 99.99**: Variant C (`slate`)
 
 ---
 

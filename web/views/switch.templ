@@ -1,0 +1,20 @@
+package views
+
+// Switch is the one on/off control. pct draws the live rollout inside the track.
+templ Switch(label string, on string, pct string, busy string, click string) {
+	<button
+		type="button"
+		role="switch"
+		class="switch"
+		aria-label={ label }
+		:aria-checked={ on + " ? 'true' : 'false'" }
+		:class={ on + " ? 'is-on' : ''" }
+		:style={ "'--pct: ' + " + pct }
+		:disabled={ busy }
+		:aria-busy={ busy + " ? 'true' : 'false'" }
+		@click.stop={ click }
+	>
+		<span class="switch-track"><span class="switch-fill"></span></span>
+		<span class="switch-thumb"></span>
+	</button>
+}

@@ -2,6 +2,8 @@ module github.com/dhawalhost/flagura/examples/go
 
 go 1.25.0
 
+toolchain go1.27.3
+
 require (
 	github.com/dhawalhost/flagura/sdks/go v0.0.0
 	github.com/open-feature/go-sdk v1.18.0

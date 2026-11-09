@@ -4,12 +4,12 @@ FROM golang:1.26-alpine AS builder
 WORKDIR /app
 RUN apk add --no-cache git
 
-# Install Templ compiler
-RUN go install github.com/a-h/templ/cmd/templ@latest
-
 # Cache dependencies
 COPY go.mod go.sum ./
 RUN go mod download
+
+# Install the Templ compiler version pinned in go.mod
+RUN go install github.com/a-h/templ/cmd/templ@$(go list -m -f '{{.Version}}' github.com/a-h/templ)
 
 # Copy source and generate templates
 COPY . .

@@ -1,14 +1,14 @@
-# ⚡ Flagura JavaScript & TypeScript SDK
+# Flagura JavaScript & TypeScript SDK
 
 Official JavaScript and TypeScript client for the **Flagura Feature Flag Platform**, supporting:
 - Sub-millisecond evaluation
-- **Real-Time HTTP/2 SSE Flag Streaming (`<5ms` sync)**
+- **Real-Time HTTP/2 SSE Flag Streaming (`` sync)**
 - **CNCF OpenFeature Provider**
 - React, Next.js, Node.js, and browser support
 
 ---
 
-## 📦 Installation
+## Installation
 
 ```bash
 npm install flagura-sdk
@@ -20,7 +20,7 @@ yarn add flagura-sdk
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 ### 1. Direct Client with Real-Time SSE Streaming
 
@@ -32,7 +32,7 @@ const client = new FlaguraClient({
   apiKey: process.env.FLAGURA_API_KEY,
   projectId: 'proj_default', // optional: project scoping
   defaultEnvironment: 'production',
-  enableStreaming: true, // <5ms live flag updates
+  enableStreaming: true, // live flag updates
 });
 
 // Register real-time change listener
@@ -83,5 +83,5 @@ const isEnabled = await ofClient.getBooleanValue('ai-smart-search', false, {
 
 ---
 
-## 📄 License
+## License
 MIT

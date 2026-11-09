@@ -138,8 +138,10 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		pageTitle = "Latency Benchmark"
 	case "audit", "logs", "trail":
 		pageTitle = "Audit Trail"
-	case "sdk", "apikeys", "quickstart":
+	case "sdk", "quickstart":
 		pageTitle = "SDK Integration"
+	case "apikeys":
+		pageTitle = "API Keys"
 	case "profile", "settings", "account":
 		pageTitle = "Profile Settings"
 	case "editor", "new":

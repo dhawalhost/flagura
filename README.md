@@ -1,77 +1,82 @@
-# ⚡ Flagura — Open-Source Feature Control Plane & Evaluation Engine
+# Flagura
+
+<p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="web/static/img/flagura-logo-plain-dark.svg">
+    <img src="web/static/img/flagura-logo-plain-light.svg" alt="Flagura" height="64">
+  </picture>
+</p>
+
+Self-hosted feature flags.
 
 <div align="center">
 
-![Flagura Banner](https://img.shields.io/badge/Flagura-Feature%20Control%20Plane-2563eb?style=for-the-badge&logo=go&logoColor=white)
 [![GitHub Release](https://img.shields.io/github/v/release/dhawalhost/flagura?logo=github&color=2563eb&label=release)](https://github.com/dhawalhost/flagura/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/dhawalhost/flagura)](https://goreportcard.com/report/github.com/dhawalhost/flagura)
 ![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat&logo=go&logoColor=white)
-![Evaluation](https://img.shields.io/badge/In--Process%20Evaluation-~85ns-emerald?style=flat&logo=speedtest&logoColor=white)
-![Build & Tests](<https://img.shields.io/badge/Tests-Passing%20(100%25)-emerald?style=flat&logo=githubactions&logoColor=white>)
 ![OpenFeature](https://img.shields.io/badge/OpenFeature-Native-7c3aed?style=flat&logo=openfeature&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
-**Persisted in SQLite or PostgreSQL. Evaluated in CPU Cache.**  
-_Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes governance, and zero PII leakage — without the per-MAU billing trap._
+Flags live in SQLite or PostgreSQL. SDKs evaluate them in memory, so a check costs about 140 ns on Apple silicon and user data stays in your process. Includes stale flag cleanup, two-person approval for production, and a verifiable audit trail.
 
-[Quickstart](#-quickstart) • [Architecture](#-architecture) • [Scaling & HA](docs/scaling-and-ha.md) • [OpenFeature](#-openfeature-polyglot-ecosystem) • [Code Hygiene](docs/product/code-hygiene-and-flag-debt.md) • [Examples](examples/README.md) • [API Reference](#-rest-api-reference) • [Go SDK](sdks/go) • [Runbooks](docs/runbooks/README.md)
+[Quickstart](#quickstart) • [Architecture](#architecture) • [Scaling & HA](docs/scaling-and-ha.md) • [OpenFeature](#openfeature-polyglot-ecosystem) • [Code Hygiene](docs/product/code-hygiene-and-flag-debt.md) • [Examples](examples/README.md) • [API Reference](#rest-api-reference) • [Go SDK](sdks/go) • [Runbooks](docs/runbooks/README.md)
 
 </div>
 
 ---
 
-## 📖 Overview
+## Overview
 
-**Flagura** is an open-source, developer-first feature management platform engineered around a fundamental separation of concerns:
+**Flagura** is an open-source, developer-first feature management platform built around a fundamental separation of concerns:
 
 - **Control Plane (Durable ACID Persistence)**: Governs environments, organizations, projects, API keys, RBAC, 4-Eyes change requests, and immutable audit trails backed by PostgreSQL or SQLite.
-- **Data Plane (In-Memory SDKs)**: Evaluates targeting rules and percentage rollouts locally in-process using **deterministic 64-bit FNV-1a sticky hashing**, executing in **sub-microsecond time (~85ns across all storage options)** with zero network hops, zero database I/O, and zero customer PII egress.
+- **Data Plane (In-Memory SDKs)**: Evaluates targeting rules and percentage rollouts locally in-process using **deterministic 64-bit FNV-1a sticky hashing**, executing in **sub-microsecond time (about 140 ns across all storage options)** with zero network hops, zero database I/O, and zero customer PII egress.
 
 ---
 
-## ⚡ Core Architectural Pillars & Wedges
+## Core Architectural Pillars & Wedges
 
-- **⚡ Local-First In-Process Evaluation:** Connected SDKs evaluate flags in-memory with deterministic sticky bucketing and zero database I/O on evaluation hot paths (~85ns across SQLite, PostgreSQL, and In-Memory modes).
-- **🧹 Zero Flag Debt & Active Hygiene:** Automated detection of 100% rolled-out flags, longevity tracking, and safe deprecation workflows to eliminate dead code rot.
-- **🛡️ 4-Eyes Change Governance:** Configurable environment protection requiring peer review and dual authorization before production flag mutations are applied.
-- **🔒 Zero Customer PII Egress:** Targeting rules are compiled and distributed to SDKs; customer emails, IDs, and IP addresses never leave process memory—no user PII leaves your infrastructure.
-- **💰 Predictable Infrastructure (No MAU Penalties):** Single 15MB Go binary with embedded SQLite or PostgreSQL. Evaluate millions of flags at flat cost without punitive monthly active user (MAU) billing tiers.
-- **🌐 OpenFeature Native:** Built-in standard OpenFeature providers for Go, TypeScript, Python, and Rust—switch or adopt Flagura with zero proprietary code lock-in.
-- **🏢 Strict Multi-Tenant Isolation:** Complete organization and project-level separation across storage, API credentials, and real-time SSE streaming channels.
-- **🔄 Versioned Configuration Synchronization:** Monotonic `config_version` stream protocol with real-time SSE push updates, cold-start disk snapshots, and automatic gap reconciliation.
-- **🚨 Authenticated Webhook Kill-Switch:** Secure automated circuit breakers (`X-Webhook-Secret` or Bearer token) for APM alerts (Datadog/Sentry) to shut down failing features instantly.
-- **💾 Cryptographic Zero-Loss Disaster Recovery:** Atomic snapshot exports/imports with reverse-chronological replay to preserve SHA-256 tamper-evident audit hash chains (RTO < 15m, RPO < 1h).
-- **📡 End-to-End Distributed Tracing:** Native OpenTelemetry W3C `traceparent` context propagation, child evaluation spans, and response `X-Trace-ID` injection across SDKs and APIs.
-- **🚦 Role-Based Multi-Tenant Rate Limiting:** High-performance in-process token buckets classifying traffic into Anonymous (120/m), Authenticated (1,200/m), and System (12,000/m) with standard headers.
+- **Local-First In-Process Evaluation:** Connected SDKs evaluate flags in-memory with deterministic sticky bucketing and zero database I/O on evaluation hot paths (about 140 ns across SQLite, PostgreSQL, and In-Memory modes).
+- **Zero Flag Debt & Active Hygiene:** Automated detection of 100% rolled-out flags, longevity tracking, and safe deprecation workflows to eliminate dead code rot.
+- **4-Eyes Change Governance:** Configurable environment protection requiring peer review and dual authorization before production flag mutations are applied.
+- **Zero Customer PII Egress:** Targeting rules are compiled and distributed to SDKs; customer emails, IDs, and IP addresses never leave process memory: no user PII leaves your infrastructure.
+- **Predictable Infrastructure (No MAU Penalties):** A single Go binary with embedded SQLite or PostgreSQL. Evaluate millions of flags at flat cost without punitive monthly active user (MAU) billing tiers.
+- **OpenFeature Native:** Built-in standard OpenFeature providers for Go, TypeScript, Python, and Rust: switch or adopt Flagura with zero proprietary code lock-in.
+- **Strict Multi-Tenant Isolation:** Complete organization and project-level separation across storage, API credentials, and real-time SSE streaming channels.
+- **Versioned Configuration Synchronization:** Monotonic `config_version` stream protocol with real-time SSE push updates, cold-start disk snapshots, and automatic gap reconciliation.
+- **Authenticated Webhook Kill-Switch:** Secure automated circuit breakers (`X-Webhook-Secret` or Bearer token) for APM alerts (Datadog/Sentry) to shut down failing features instantly.
+- **Cryptographic Zero-Loss Disaster Recovery:** Atomic snapshot exports/imports with reverse-chronological replay to preserve SHA-256 tamper-evident audit hash chains (RTO < 15m, RPO < 1h).
+- **End-to-End Distributed Tracing:** Native OpenTelemetry W3C `traceparent` context propagation, child evaluation spans, and response `X-Trace-ID` injection across SDKs and APIs.
+- **Role-Based Multi-Tenant Rate Limiting:** High-performance in-process token buckets classifying traffic into Anonymous (120/m), Authenticated (1,200/m), and System (12,000/m) with standard headers.
 
 ---
 
-## ⚖️ Capability Matrix
+## Capability Matrix
 
-| Feature / Capability                  | ⚡ Flagura                                  | OpenFeature Native | Self-Hosted Support |
+| Feature / Capability                  | Flagura                                  | OpenFeature Native | Self-Hosted Support |
 | :------------------------------------ | :------------------------------------------ | :----------------: | :-----------------: |
-| **Local In-Process Evaluation**       | ✅ Sub-microsecond (~85-135ns)              |       ✅ Yes       |       ✅ Yes        |
-| **Durable ACID Persistence**          | ✅ PostgreSQL & SQLite Embedded             |        N/A         |       ✅ Yes        |
-| **Zero Flag Debt & Hygiene**          | ✅ Stale Flag Detection & Auditing          |        N/A         |       ✅ Yes        |
-| **Zero Customer PII Egress**          | ✅ In-Process (No PII Leaves Infra)         |       ✅ Yes       |       ✅ Yes        |
-| **Standard OpenFeature SDKs**         | ✅ Go, TypeScript, Python, Rust             |       ✅ Yes       |       ✅ Yes        |
-| **Flat Predictable Cost**             | ✅ No Per-MAU or Seat Penalties             |        N/A         |       ✅ Yes        |
-| **Multi-Tenant Organizations**        | ✅ Isolated Projects & Keys                 |        N/A         |       ✅ Yes        |
-| **Real-Time Streaming Sync**          | ✅ Project-Scoped SSE Channels              |       ✅ Yes       |       ✅ Yes        |
-| **Offline Snapshot Resilience**       | ✅ Local Cold-Start Disk Cache              |       ✅ Yes       |       ✅ Yes        |
-| **4-Eyes Change Governance**          | ✅ Peer Approval Pipeline                   |        N/A         |       ✅ Yes        |
-| **Config Version Reconciliation**     | ✅ Monotonic `config_version`               |        N/A         |       ✅ Yes        |
-| **Automated Webhook Kill-Switch**     | ✅ Token-Authenticated                      |        N/A         |       ✅ Yes        |
-| **A/B Experiment Statistics**         | ✅ Two-Tailed Z-Score & P-Values            |       ✅ Yes       |       ✅ Yes        |
-| **Native Prometheus Metrics**         | ✅ `/metrics` Standard Exporter             |        N/A         |       ✅ Yes        |
-| **OpenTelemetry Distributed Tracing** | ✅ W3C `traceparent` & Child Spans          |       ✅ Yes       |       ✅ Yes        |
-| **Role-Based Rate Limiting**          | ✅ Anonymous, Authenticated, System         |        N/A         |       ✅ Yes        |
-| **Social OAuth 2.0 Auth**            | ✅ Google & GitHub (JIT Auto-Provisioning)  |        N/A         |       ✅ Yes        |
-| **Cryptographic Disaster Recovery**   | ✅ Atomic Snapshot `.json.gz` & Hash Chains |        N/A         |       ✅ Yes        |
+| **Local In-Process Evaluation**       | Yes Sub-microsecond (~85-135ns)              |       Yes Yes       |       Yes Yes        |
+| **Durable ACID Persistence**          | Yes PostgreSQL & SQLite Embedded             |        N/A         |       Yes Yes        |
+| **Zero Flag Debt & Hygiene**          | Yes Stale Flag Detection & Auditing          |        N/A         |       Yes Yes        |
+| **Zero Customer PII Egress**          | Yes In-Process (No PII Leaves Infra)         |       Yes Yes       |       Yes Yes        |
+| **Standard OpenFeature SDKs**         | Yes Go, TypeScript, Python, Rust             |       Yes Yes       |       Yes Yes        |
+| **Flat Predictable Cost**             | Yes No Per-MAU or Seat Penalties             |        N/A         |       Yes Yes        |
+| **Multi-Tenant Organizations**        | Yes Isolated Projects & Keys                 |        N/A         |       Yes Yes        |
+| **Real-Time Streaming Sync**          | Yes Project-Scoped SSE Channels              |       Yes Yes       |       Yes Yes        |
+| **Offline Snapshot Resilience**       | Yes Local Cold-Start Disk Cache              |       Yes Yes       |       Yes Yes        |
+| **4-Eyes Change Governance**          | Yes Peer Approval Pipeline                   |        N/A         |       Yes Yes        |
+| **Config Version Reconciliation**     | Yes Monotonic `config_version`               |        N/A         |       Yes Yes        |
+| **Automated Webhook Kill-Switch**     | Yes Token-Authenticated                      |        N/A         |       Yes Yes        |
+| **A/B Experiment Statistics**         | Yes Two-Tailed Z-Score & P-Values            |       Yes Yes       |       Yes Yes        |
+| **Native Prometheus Metrics**         | Yes `/metrics` Standard Exporter             |        N/A         |       Yes Yes        |
+| **OpenTelemetry Distributed Tracing** | Yes W3C `traceparent` & Child Spans          |       Yes Yes       |       Yes Yes        |
+| **Role-Based Rate Limiting**          | Yes Anonymous, Authenticated, System         |        N/A         |       Yes Yes        |
+| **Social OAuth 2.0 Auth**            | Yes Google & GitHub (JIT Auto-Provisioning)  |        N/A         |       Yes Yes        |
+| **Cryptographic Disaster Recovery**   | Yes Atomic Snapshot `.json.gz` & Hash Chains |        N/A         |       Yes Yes        |
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -95,9 +100,9 @@ _Sub-microsecond local evaluations (~85ns), automated flag debt hygiene, 4-Eyes 
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-> 💡 **Deploying at Enterprise Scale?** See the **[Scaling and High Availability Guide](docs/scaling-and-ha.md)** covering multi-replica PostgreSQL topologies, token-bucket rate limiter sizing, and Kubernetes deployment.
+> **Deploying at Enterprise Scale?** See the **[Scaling and High Availability Guide](docs/scaling-and-ha.md)** covering multi-replica PostgreSQL topologies, token-bucket rate limiter sizing, and Kubernetes deployment.
 
-### 🔬 Reproducible In-Memory Benchmarks
+### Reproducible In-Memory Benchmarks
 
 All flag evaluations in Flagura SDKs happen strictly in-process with zero network hops, zero database queries, and zero I/O on evaluation hot paths. You can verify and reproduce the engine benchmark on your local machine:
 
@@ -118,7 +123,7 @@ go test -bench=. -benchmem ./pkg/engine
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 ### Option A: In-Memory Edge Mode (Zero Dependencies)
 
@@ -162,7 +167,7 @@ Open your browser to:
 
 ---
 
-## 🔌 REST API Reference
+## REST API Reference
 
 ### 1. Batch / Single Flag Evaluation
 
@@ -240,7 +245,7 @@ curl -X POST http://localhost:3000/api/v1/evaluate \
 | `GET`    | `/api/v1/flags/:key`                 | Retrieve configuration and rules for a specific flag                    |
 | `POST`   | `/api/v1/flags`                      | Create or update a feature flag configuration                           |
 | `PATCH`  | `/api/v1/flags/:key/toggle`          | Instant 1-click toggle for master kill-switch                           |
-| `PATCH`  | `/api/v1/flags/:key/rollout`         | Dynamically update percentage rollout (0–100%)                          |
+| `PATCH`  | `/api/v1/flags/:key/rollout`         | Dynamically update percentage rollout (0-100%)                          |
 | `POST`   | `/api/v1/flags/:key/promote`         | Promote flag configuration (e.g. `?from=staging&to=production`)         |
 | `POST`   | `/api/v1/webhooks/kill-switch/:key`  | Automated kill-switch endpoint for APM alerts (Datadog/Sentry)          |
 | `GET`    | `/api/v1/change-requests`            | List 4-Eyes change requests in project (`?status=PENDING`, etc.)        |
@@ -264,7 +269,7 @@ curl -X POST http://localhost:3000/api/v1/evaluate \
 
 ---
 
-## 🌐 OpenFeature Polyglot Ecosystem
+## OpenFeature Polyglot Ecosystem
 
 Flagura provides drop-in **OpenFeature Providers** across Go, TypeScript/JavaScript, and Python, ensuring zero vendor lock-in:
 
@@ -293,7 +298,7 @@ func main() {
 	flaguraClient := client.New("https://flagura.dev",
 		client.WithProject("proj_default"),                  // Project scope (optional)
 		client.WithLocalEvaluation(30*time.Second),
-		client.WithStreaming(true),                          // <5ms instant updates via SSE
+		client.WithStreaming(true),                          // instant updates via SSE
 		client.WithSnapshotFile("/tmp/flagura-cache.json"),  // offline resilience
 		client.WithCircuitBreaker(5, 10*time.Second),        // 3-state failure circuit breaker
 	)
@@ -324,7 +329,7 @@ import { FlaguraOpenFeatureProvider } from "flagura-sdk";
 const provider = new FlaguraOpenFeatureProvider({
   endpoint: "https://flagura.dev",
   apiKey: process.env.FLAGURA_API_KEY,
-  enableStreaming: true, // <5ms live flag sync
+  enableStreaming: true, // live flag sync
 });
 
 await OpenFeature.setProviderAndWait(provider);
@@ -349,7 +354,7 @@ from flagura.openfeature_provider import FlaguraOpenFeatureProvider
 api.set_provider(FlaguraOpenFeatureProvider(
     endpoint="https://flagura.dev",
     api_key="your-api-key",
-    enable_streaming=True, # <5ms live flag sync
+    enable_streaming=True, # live flag sync
 ))
 client = api.get_client()
 
@@ -358,33 +363,33 @@ ctx = EvaluationContext(targeting_key="usr_123", attributes={"email": "alice@fla
 is_enabled = client.get_boolean_value("ai-smart-search", False, ctx)
 ```
 
-👉 **[Complete OpenFeature Architecture & Guide](docs/integrations/openfeature.md)**
+**[Complete OpenFeature Architecture & Guide](docs/integrations/openfeature.md)**
 
 ---
 
-## 🚀 Standalone Runnable Polyglot Examples (`examples/`)
+## Standalone Runnable Polyglot Examples (`examples/`)
 
 Self-contained, working applications demonstrating Flagura Native and OpenFeature integrations:
 
 | Language       | Directory                                              | Description                                                    |
 | :------------- | :----------------------------------------------------- | :------------------------------------------------------------- |
-| **Go**         | [`examples/go/`](examples/go/main.go)                  | Native Go client (<85ns) + CNCF `openfeature.FeatureProvider`. |
+| **Go**         | [`examples/go/`](examples/go/main.go)                  | Native Go client  + CNCF `openfeature.FeatureProvider`. |
 | **TypeScript** | [`examples/typescript/`](examples/typescript/index.ts) | Server-side Node / TypeScript with `@openfeature/server-sdk`.  |
 | **Python**     | [`examples/python/`](examples/python/example.py)       | Standard `openfeature` evaluation + native Python client.      |
 | **Rust**       | [`examples/rust/`](examples/rust/src/main.rs)          | Async Tokio-based evaluation with microsecond execution.       |
 
-👉 **[Read Examples Quickstart Guide](examples/README.md)**
+**[Read Examples Quickstart Guide](examples/README.md)**
 
 ---
 
-## 🧹 Automated Code Hygiene & Flag Debt Management
+## Automated Code Hygiene & Flag Debt Management
 
 Feature flags that remain in codebases after 100% rollout generate technical debt and CPU branch overhead. Flagura includes an **automated flag debt elimination engine**:
 
 1. **Automated Health Analysis**: Flags are continually classified into:
-   - 🟢 **`ACTIVE`**: Actively splitting traffic or evaluating custom targeting rules.
-   - 🧹 **`READY_FOR_CLEANUP`**: 100% rolled out in production with 0 custom rules (safe to eliminate).
-   - ⚠️ **`DEAD_FLAG`**: Permanently disabled or kill-switched (0% traffic).
+   - **`ACTIVE`**: Actively splitting traffic or evaluating custom targeting rules.
+   - **`READY_FOR_CLEANUP`**: 100% rolled out in production with 0 custom rules (safe to eliminate).
+   - **`DEAD_FLAG`**: Permanently disabled or kill-switched (0% traffic).
 2. **In-App Cleanup Assistant**: Clicking a flag's health badge in the console reveals exact before/after code refactoring diffs across Go, TypeScript, and Python.
 3. **CLI Static Code Scanner (`flagura scan`)**:
    ```bash
@@ -392,24 +397,24 @@ Feature flags that remain in codebases after 100% rollout generate technical deb
    flagura scan .
    ```
 
-👉 **[Read Code Hygiene & Flag Debt Guide](docs/product/code-hygiene-and-flag-debt.md)**
+**[Read Code Hygiene & Flag Debt Guide](docs/product/code-hygiene-and-flag-debt.md)**
 
 ---
 
-## ⚡ Real-Time Streaming & Resilience
+## Real-Time Streaming & Resilience
 
 ### 1. Sub-5ms SSE Flag Streaming (`GET /api/v1/flags/stream`)
 
-Whenever a flag is toggled, rolled out, or promoted in the Flagura console or via API, the control plane broadcasts an instant Server-Sent Event (SSE) to all connected microservices worldwide. Your in-memory cache synchronizes in **`< 5ms`** without polling delays.
+Whenever a flag is toggled, rolled out, or promoted in the Flagura console or via API, the control plane broadcasts an instant Server-Sent Event (SSE) to all connected microservices worldwide. Your in-memory cache synchronizes in **``** without polling delays.
 
 ### 2. Offline Snapshot Persistence & 3-State Circuit Breaker
 
 - **Offline Snapshot (`WithSnapshotFile`)**: Writes atomic snapshots to disk. If your database or control plane goes down, your application cold-boots in **0ms** from disk cache with zero evaluation downtime.
-- **3-State Circuit Breaker (`CLOSED` ↔ `OPEN` ↔ `HALF_OPEN`)**: Automatically fast-fails remote network requests in `< 20µs` during server interruptions, shielding your application from latency spikes.
+- **3-State Circuit Breaker (`CLOSED` `OPEN` `HALF_OPEN`)**: Automatically fast-fails remote network requests in `< 20µs` during server interruptions, shielding your application from latency spikes.
 
 ---
 
-## 🚨 Automated Alert Webhook Kill-Switches
+## Automated Alert Webhook Kill-Switches
 
 Connect Flagura to your APM and monitoring infrastructure (**Datadog, Sentry, Prometheus Alertmanager, PagerDuty**):
 
@@ -419,11 +424,11 @@ curl -X POST "https://flagura.dev/api/v1/webhooks/kill-switch/ai-smart-search?en
   -H "Content-Type: application/json"
 ```
 
-When an alert triggers, Flagura instantly flips the master kill-switch and broadcasts the disable event to all microservices over SSE in **`< 5ms`**.
+When an alert triggers, Flagura instantly flips the master kill-switch and broadcasts the disable event to all microservices over SSE in **``**.
 
 ---
 
-## 🔍 Visual Rule Execution Trace ("Why Did I Get This Variant?")
+## Visual Rule Execution Trace ("Why Did I Get This Variant?")
 
 Debug complex targeting rules and multivariate splits using the on-demand trace engine:
 
@@ -472,7 +477,7 @@ curl -X POST "https://flagura.dev/api/v1/evaluate?trace=true" \
 
 ---
 
-## 🔀 Environment Promotion (Staging ➔ Production)
+## Environment Promotion (Staging Production)
 
 Promote verified rules and multivariate traffic allocations from Staging to Production in 1-click via the Dashboard or API:
 
@@ -483,7 +488,7 @@ curl -X POST "https://flagura.dev/api/v1/flags/ai-smart-search/promote?from=stag
 
 ---
 
-## 💻 Flagura Developer CLI (`cmd/cli`)
+## Flagura Developer CLI (`cmd/cli`)
 
 Flagura includes a single-binary CLI tool for developers, terminal evaluation, and CI/CD automated rollouts:
 
@@ -531,7 +536,7 @@ flagura backup restore --file /backups/flagura-backup.json.gz
 
 ---
 
-## 💻 Polyglot SDK Quickstart
+## Polyglot SDK Quickstart
 
 ### 1. Official Go Native SDK (`pkg/client`)
 
@@ -680,7 +685,7 @@ curl -X POST https://flagura.dev/api/v1/evaluate \
 
 ---
 
-## 🚢 Deployment Options
+## Deployment Options
 
 ### Option A: Vercel Serverless (Zero Config)
 
@@ -706,7 +711,7 @@ docker run -p 3000:3000 --env-file .env flagura:latest
 
 ---
 
-## ⚙️ Environment Variables Reference
+## Environment Variables Reference
 
 See [`.env.example`](.env.example) for a fully annotated template:
 
@@ -726,9 +731,9 @@ See [`.env.example`](.env.example) for a fully annotated template:
 
 ---
 
-## 🧪 Testing & Verification
+## Testing & Verification
 
-Run the comprehensive unit and integration test suite:
+Run the full unit and integration test suite:
 
 ```bash
 # Run all Go tests
@@ -744,18 +749,18 @@ go build -o bin/flagura ./cmd/cli
 
 ---
 
-## 📚 Operations & Runbooks
+## Operations & Runbooks
 
 Comprehensive SRE, emergency response, and operational runbooks are available in the [`docs/runbooks/`](docs/runbooks/README.md) directory:
 
-- 🚀 **[Deployment & Release Management](docs/runbooks/deployment.md)**: Standalone binary, Docker, Vercel serverless, and rollback procedures.
-- 🌐 **[Supabase & Vercel Integration Guide](docs/integrations/supabase-vercel-setup.md)**: Step-by-step cloud setup, connection pooling, and continuous deployment.
-- 🚨 **[Incident Response & Emergency Operations](docs/runbooks/incident-response.md)**: 1-click kill switch, database outage fallback, latency debugging, and audit forensics.
-- 🗄️ **[Database Operations & Disaster Recovery](docs/runbooks/database-operations.md)**: Supabase PostgreSQL schema, connection pool tuning, and PITR backup/recovery.
-- 🛡️ **[Security & Access Management](docs/runbooks/security-and-access.md)**: RBAC provisioning, credential rotation, and automated vulnerability triage.
+- **[Deployment & Release Management](docs/runbooks/deployment.md)**: Standalone binary, Docker, Vercel serverless, and rollback procedures.
+- **[Supabase & Vercel Integration Guide](docs/integrations/supabase-vercel-setup.md)**: Step-by-step cloud setup, connection pooling, and continuous deployment.
+- **[Incident Response & Emergency Operations](docs/runbooks/incident-response.md)**: 1-click kill switch, database outage fallback, latency debugging, and audit forensics.
+- **[Database Operations & Disaster Recovery](docs/runbooks/database-operations.md)**: Supabase PostgreSQL schema, connection pool tuning, and PITR backup/recovery.
+- **[Security & Access Management](docs/runbooks/security-and-access.md)**: RBAC provisioning, credential rotation, and automated vulnerability triage.
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the [MIT License](LICENSE).

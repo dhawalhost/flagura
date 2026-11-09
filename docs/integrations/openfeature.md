@@ -1,14 +1,14 @@
-# 🌐 CNCF OpenFeature Integration Guide
+# CNCF OpenFeature Integration Guide
 
 Flagura provides first-class support for **[OpenFeature](https://openfeature.dev/)**, the Cloud Native Computing Foundation (CNCF) open standard for vendor-neutral feature flag evaluation.
 
 With Flagura's OpenFeature providers, engineering teams get the best of both worlds:
-1. **Sub-microsecond (<85ns) local evaluation** with real-time SSE streaming synchronization.
+1. **Sub-microsecond local evaluation** with real-time SSE streaming synchronization.
 2. **Zero vendor lock-in** through universal OpenFeature APIs across Go, TypeScript/Node.js, and Python.
 
 ---
 
-## 🏛️ Architecture Overview
+## Architecture Overview
 
 ```mermaid
 flowchart LR
@@ -36,7 +36,7 @@ flowchart LR
 
 ---
 
-## 💻 Language Implementations
+## Language Implementations
 
 ### 1. Go OpenFeature Provider
 
@@ -180,7 +180,7 @@ client.close()
 
 ---
 
-## 🗺️ Resolution & Reason Mapping
+## Resolution & Reason Mapping
 
 Flagura maps internal evaluation reasons directly to OpenFeature resolution codes:
 
@@ -194,7 +194,7 @@ Flagura maps internal evaluation reasons directly to OpenFeature resolution code
 
 ---
 
-## ⚡ Real-Time SSE Bus Integration
+## Real-Time SSE Bus Integration
 
 All Flagura OpenFeature providers bind to the underlying SSE stream:
 - When a flag is modified, a `ProviderConfigChange` event is fired containing the slice of `changedKeys`.

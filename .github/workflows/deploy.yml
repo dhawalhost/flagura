@@ -29,11 +29,8 @@ jobs:
           go-version-file: "go.mod"
           cache: true
 
-      - name: Install Templ Compiler
-        run: go install github.com/a-h/templ/cmd/templ@latest
-
-      - name: Generate Templ Files
-        run: templ generate
+      - name: Generate and Build from Source
+        uses: ./.github/actions/build-from-source
 
       - name: Pre-Deployment Automated Tests
         run: go test -v -race ./...

@@ -1,228 +1,107 @@
 package views
 
 templ BenchmarkModal() {
-	<div class="space-y-8" x-show="activeView === 'benchmark'" x-cloak x-data="benchmarkViewComponent()">
-		<!-- Top Header Card -->
-		<div class="glass-panel p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 shadow-xs">
-			<div class="flex items-center gap-3.5">
-				<button
-					@click="navigateTo('overview')"
-					class="p-2 text-slate-500 hover:text-slate-900 transition-colors rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-2xs flex items-center gap-1.5 text-xs font-semibold cursor-pointer font-mono"
-					title="Return to overview"
-				>
-					<i data-lucide="arrow-left" class="h-4 w-4"></i>
-					<span class="hidden sm:inline">Back</span>
-				</button>
-				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 shadow-2xs">
-					<i data-lucide="activity" class="h-5 w-5"></i>
-				</div>
-				<div>
-					<div class="flex items-center gap-2">
-						<h2 class="text-base font-bold text-slate-900 font-display">Evaluation Latency Benchmark</h2>
-						<span class="rounded-md bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-[10px] font-mono text-indigo-700 font-bold uppercase">
-							Benchmark
-						</span>
-					</div>
-					<p class="text-xs text-slate-500 mt-0.5 font-sans">
-						Benchmark in-process 64-bit FNV-1a sticky hash &amp; targeting rules evaluation latency.
-					</p>
-				</div>
-			</div>
-
-			<div class="flex items-center gap-2 self-end sm:self-auto font-mono">
-				<button
-					@click="runStressTest()"
-					class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-sm hover:shadow flex items-center gap-2 cursor-pointer hover:scale-[1.02]"
-					:disabled="isRunning"
-				>
-					<i data-lucide="play" class="h-3.5 w-3.5 text-white"></i>
-					<span x-text="isRunning ? 'Running Stress Test...' : 'Execute Benchmark'"></span>
-				</button>
-			</div>
+	<div class="space-y-4" x-show="activeView === 'benchmark'" x-cloak x-data="benchmarkViewComponent()">
+		<div class="page-head flex flex-wrap items-center justify-between gap-3">
+			<p class="text-sm text-neutral-500">Measure flag evaluation latency on this server</p>
+			<button type="button" @click="navigateTo('evaluator')" class="text-xs text-accent-600 hover:underline cursor-pointer">Back to evaluator</button>
 		</div>
 
-		<!-- Controls Row -->
-		<div class="glass-panel p-6 sm:p-7 flex flex-col sm:flex-row items-center justify-between gap-6 font-mono bg-white border border-slate-200 shadow-xs">
-			<div class="flex-1 w-full space-y-2">
-				<div class="flex justify-between text-xs">
-					<span class="text-slate-600 font-semibold">Iterations Count</span>
-					<span class="font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-200" x-text="formatNumber(iterations)"></span>
+		<div class="panel p-4 flex flex-col sm:flex-row sm:items-end gap-4">
+			<div class="flex-1 w-full">
+				<div class="flex justify-between">
+					<label for="fld-benchmark-modal-1" class="field-label">Iterations</label>
+					<span class="font-mono text-xs text-neutral-900" x-text="formatNumber(iterations)"></span>
 				</div>
-				<input
-					type="range"
-					min="1000"
-					max="50000"
-					step="1000"
-					x-model="iterations"
-					class="w-full accent-indigo-600 cursor-pointer bg-slate-200"
-				/>
+				<input id="fld-benchmark-modal-1" type="range" min="1000" max="50000" step="1000" x-model="iterations" class="w-full cursor-pointer"/>
 			</div>
-			<button
-				@click="runStressTest()"
-				class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold w-full sm:w-auto flex items-center justify-center gap-2 shadow-sm hover:shadow cursor-pointer hover:scale-[1.02] transition-all"
-				:disabled="isRunning"
-			>
-				<i data-lucide="play" class="h-4 w-4 text-white"></i>
-				<span x-text="isRunning ? 'Running...' : 'Run ' + formatNumber(iterations) + ' Evaluations'"></span>
+			<button @click="runStressTest()" class="btn btn-primary" :disabled="isRunning">
+				<i data-lucide="play" class="h-3.5 w-3.5"></i>
+				<span x-text="isRunning ? 'Running' : 'Run benchmark'"></span>
 			</button>
 		</div>
 
-		<!-- Metrics Summary Cards -->
+		<p class="text-sm text-neutral-500" x-show="!metrics">No results yet. Run the benchmark to measure this server.</p>
+
 		<template x-if="metrics">
-			<div class="space-y-8">
-				<div class="grid grid-cols-2 sm:grid-cols-4 gap-5 font-mono text-xs">
-					<div class="glass-panel p-5 bg-white border border-slate-200 shadow-xs">
-						<div class="text-xs text-slate-500 uppercase font-semibold">Throughput</div>
-						<div class="text-emerald-700 text-2xl font-bold mt-1.5" x-text="metrics.opsPerSec ? formatNumber(metrics.opsPerSec) + ' ops/s' : 'N/A'"></div>
+			<div class="space-y-4">
+				<div class="panel grid grid-cols-2 lg:grid-cols-4 divide-x divide-neutral-200">
+					<div class="px-4 py-3">
+						<div class="text-xs text-neutral-500">Throughput</div>
+						<div class="mt-0.5 text-2xl font-semibold font-mono text-neutral-900" x-text="metrics.opsPerSec ? formatNumber(metrics.opsPerSec) : 'N/A'"></div>
+						<div class="text-2xs text-neutral-500">ops/s</div>
 					</div>
-					<div class="glass-panel p-5 bg-white border border-slate-200 shadow-xs">
-						<div class="text-xs text-slate-500 uppercase font-semibold">P50 Latency</div>
-						<div class="text-slate-900 text-2xl font-bold mt-1.5" x-text="metrics.p50Ns + ' ns'"></div>
+					<div class="px-4 py-3">
+						<div class="text-xs text-neutral-500">P50</div>
+						<div class="mt-0.5 text-2xl font-semibold font-mono text-neutral-900" x-text="metrics.p50Ns"></div>
+						<div class="text-2xs text-neutral-500">ns</div>
 					</div>
-					<div class="glass-panel p-5 bg-white border border-slate-200 shadow-xs">
-						<div class="text-xs text-slate-500 uppercase font-semibold">P99 Latency</div>
-						<div class="text-indigo-600 text-2xl font-bold mt-1.5" x-text="metrics.p99Ns + ' ns'"></div>
+					<div class="px-4 py-3 border-t border-neutral-200 lg:border-t-0">
+						<div class="text-xs text-neutral-500">P99</div>
+						<div class="mt-0.5 text-2xl font-semibold font-mono text-neutral-900" x-text="metrics.p99Ns"></div>
+						<div class="text-2xs text-neutral-500">ns</div>
 					</div>
-					<div class="glass-panel p-5 bg-white border border-slate-200 shadow-xs">
-						<div class="text-xs text-slate-500 uppercase font-semibold">Total Duration</div>
-						<div class="text-purple-600 text-2xl font-bold mt-1.5" x-text="metrics.totalDurationMs + ' ms'"></div>
+					<div class="px-4 py-3 border-t border-neutral-200 lg:border-t-0">
+						<div class="text-xs text-neutral-500">Total</div>
+						<div class="mt-0.5 text-2xl font-semibold font-mono text-neutral-900" x-text="metrics.totalDurationMs"></div>
+						<div class="text-2xs text-neutral-500">ms</div>
 					</div>
 				</div>
 
-				<!-- Histogram Chart Container -->
-				<div class="glass-panel p-6 sm:p-7 space-y-4 bg-white border border-slate-200 shadow-xs">
-					<div class="flex items-center justify-between text-xs font-mono border-b border-slate-100 pb-3">
-						<span class="text-slate-900 font-bold">100-Bucket Hash Uniform Distribution</span>
-						<span class="text-slate-500 text-[11px]">Deterministic FNV-1a Hash Slots</span>
-					</div>
+				<section class="panel p-4">
+					<h3 class="text-sm text-neutral-900">Hash bucket distribution</h3>
+					<p class="text-xs text-neutral-500 mb-3">Evaluations per bucket, 100 buckets. Even bars mean even rollouts.</p>
 					<div class="h-56 w-full">
 						<canvas id="benchmarkHistogramCanvas"></canvas>
 					</div>
-				</div>
+				</section>
 
-				<!-- Network Roundtrip vs In-Process Local Evaluation Architecture Card -->
-				<div class="glass-panel p-6 sm:p-7 space-y-6 bg-white border border-slate-200 shadow-xs">
-					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+				<section class="panel overflow-hidden">
+					<div class="px-4 py-2 border-b border-neutral-200 flex items-center justify-between gap-3">
 						<div>
-							<div class="flex items-center gap-2">
-								<span class="p-1.5 rounded-lg bg-sky-50 text-sky-700 border border-sky-200">
-									<i data-lucide="globe" class="h-4 w-4"></i>
-								</span>
-								<h3 class="text-sm font-bold text-slate-900 font-display">Network Roundtrip vs. In-Process Local Evaluation</h3>
-								<span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase">
-									flagura.dev
-								</span>
-							</div>
-							<p class="text-xs text-slate-500 mt-1 font-sans">
-								Real benchmark comparison between remote cloud network roundtrips and zero-allocation in-process evaluations.
-							</p>
+							<h3 class="text-sm text-neutral-900">Local evaluation vs network</h3>
+							<p class="text-xs text-neutral-500">Probe round trips from this browser to compare</p>
 						</div>
-
-						<button
-							@click="probeLiveNetwork()"
-							class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-mono text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer shrink-0"
-							:disabled="networkProbing"
-						>
-							<i data-lucide="activity" class="h-3.5 w-3.5" :class="networkProbing ? 'animate-spin text-sky-400' : 'text-slate-300'"></i>
-							<span x-text="networkProbing ? 'Probing Network (5 RTT)...' : 'Probe Live Network RTT'"></span>
+						<button @click="probeLiveNetwork()" class="btn shrink-0" :disabled="networkProbing">
+							<span class="inline-flex" :class="networkProbing ? 'animate-spin' : ''"><i data-lucide="activity" class="h-3.5 w-3.5"></i></span>
+							<span x-text="networkProbing ? 'Probing' : 'Probe network'"></span>
 						</button>
 					</div>
-
-					<!-- 3-Tier Latency Benchmark Cards -->
-					<div class="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono">
-						<!-- Tier 1: In-Process SDK Evaluation -->
-						<div class="p-5 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-2 relative overflow-hidden">
-							<div class="flex items-center justify-between">
-								<span class="text-[10px] uppercase font-bold text-emerald-800">In-Process Local SDK</span>
-								<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600 text-white">Recommended</span>
-							</div>
-							<div class="flex items-baseline gap-1.5">
-								<span class="text-3xl font-extrabold text-emerald-800">~85</span>
-								<span class="text-sm font-bold text-emerald-600">ns</span>
-								<span class="text-[11px] text-emerald-700 ml-auto">0.000085 ms</span>
-							</div>
-							<p class="text-[11px] text-emerald-900 font-sans leading-relaxed">
-								Zero network hops. Evaluated directly in CPU L1/L2 cache via FNV-1a hash across all storage options (SQLite, PostgreSQL, In-Memory).
-							</p>
-							<div class="pt-2 border-t border-emerald-200/60 text-[10px] text-emerald-800 font-bold flex items-center justify-between">
-								<span>Throughput:</span>
-								<span>~11,700,000 ops/s</span>
-							</div>
+					<dl class="divide-y divide-neutral-100 text-sm">
+						<div class="flex justify-between px-4 py-2">
+							<dt class="text-neutral-600">In-process P50</dt>
+							<dd class="font-mono text-neutral-900" x-text="metrics.p50Ns + ' ns'"></dd>
 						</div>
-
-						<!-- Tier 2: Warm Keep-Alive Remote HTTPS -->
-						<div class="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-							<div class="flex items-center justify-between">
-								<span class="text-[10px] uppercase font-bold text-slate-600">Warm HTTPS (Keep-Alive)</span>
-								<span class="text-[10px] font-bold text-indigo-600">HTTP/2 TLS</span>
-							</div>
-							<div class="flex items-baseline gap-1.5">
-								<span class="text-3xl font-extrabold text-slate-900">261.0</span>
-								<span class="text-sm font-bold text-slate-500">ms</span>
-								<span class="text-[11px] text-slate-500 ml-auto">P50 RTT</span>
-							</div>
-							<p class="text-[11px] text-slate-600 font-sans leading-relaxed">
-								Roundtrip over WAN to <code class="bg-slate-200 px-1 py-0.5 rounded text-[10px]">flagura.dev</code> with established TLS session.
-							</p>
-							<div class="pt-2 border-t border-slate-200 text-[10px] text-slate-600 flex items-center justify-between">
-								<span>Range:</span>
-								<span class="font-bold">218.5ms – 330.4ms</span>
-							</div>
-						</div>
-
-						<!-- Tier 3: Cold TLS Remote HTTPS -->
-						<div class="p-5 rounded-2xl bg-amber-50/50 border border-amber-200 space-y-2">
-							<div class="flex items-center justify-between">
-								<span class="text-[10px] uppercase font-bold text-amber-800">Cold Connection (Fresh TLS)</span>
-								<span class="text-[10px] font-bold text-amber-700">DNS + TLS 1.3</span>
-							</div>
-							<div class="flex items-baseline gap-1.5">
-								<span class="text-3xl font-extrabold text-amber-900">397.8</span>
-								<span class="text-sm font-bold text-amber-700">ms</span>
-								<span class="text-[11px] text-amber-800 ml-auto">P50 RTT</span>
-							</div>
-							<p class="text-[11px] text-amber-900 font-sans leading-relaxed">
-								Includes DNS lookup, TCP 3-way handshake, TLS cryptographic exchange, and edge routing.
-							</p>
-							<div class="pt-2 border-t border-amber-200/60 text-[10px] text-amber-800 flex items-center justify-between">
-								<span>Max Cold RTT:</span>
-								<span class="font-bold">~1,304.0ms</span>
-							</div>
-						</div>
-					</div>
-
-					<!-- Dynamic Live Probe Results -->
-					<template x-if="networkResults">
-						<div class="p-4 rounded-xl bg-slate-900 text-slate-100 font-mono text-xs space-y-3 shadow-inner">
-							<div class="flex items-center justify-between pb-2 border-b border-slate-800">
-								<div class="flex items-center gap-2">
-									<div class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
-									<span class="font-bold text-white">Live Network Probe Output (<span x-text="networkResults.samples.length"></span> Samples)</span>
+						<template x-if="networkResults">
+							<div class="divide-y divide-neutral-100">
+								<div class="flex justify-between gap-3 px-4 py-2">
+									<dt class="text-neutral-600">Network target</dt>
+									<dd class="font-mono text-neutral-900 truncate" x-text="getTargetOrigin()"></dd>
 								</div>
-								<span class="text-[10px] text-slate-400" x-text="'Target: ' + getTargetOrigin()"></span>
-							</div>
-
-							<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-								<div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700">
-									<div class="text-[10px] uppercase text-slate-400">Min RTT</div>
-									<div class="text-base font-extrabold text-emerald-400" x-text="networkResults.min.toFixed(2) + ' ms'"></div>
+								<div class="flex justify-between px-4 py-2">
+									<dt class="text-neutral-600">Samples</dt>
+									<dd class="font-mono text-neutral-900" x-text="networkResults.samples.length"></dd>
 								</div>
-								<div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700">
-									<div class="text-[10px] uppercase text-slate-400">Median (P50)</div>
-									<div class="text-base font-extrabold text-sky-400" x-text="networkResults.p50.toFixed(2) + ' ms'"></div>
+								<div class="flex justify-between px-4 py-2">
+									<dt class="text-neutral-600">Min round trip</dt>
+									<dd class="font-mono text-neutral-900" x-text="networkResults.min.toFixed(2) + ' ms'"></dd>
 								</div>
-								<div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700">
-									<div class="text-[10px] uppercase text-slate-400">Average RTT</div>
-									<div class="text-base font-extrabold text-indigo-400" x-text="networkResults.avg.toFixed(2) + ' ms'"></div>
+								<div class="flex justify-between px-4 py-2">
+									<dt class="text-neutral-600">Median round trip</dt>
+									<dd class="font-mono text-neutral-900" x-text="networkResults.p50.toFixed(2) + ' ms'"></dd>
 								</div>
-								<div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700">
-									<div class="text-[10px] uppercase text-slate-400">Speedup Factor</div>
-									<div class="text-base font-extrabold text-amber-400" x-text="getSpeedupFactor()"></div>
+								<div class="flex justify-between px-4 py-2">
+									<dt class="text-neutral-600">Average round trip</dt>
+									<dd class="font-mono text-neutral-900" x-text="networkResults.avg.toFixed(2) + ' ms'"></dd>
+								</div>
+								<div class="flex justify-between px-4 py-2">
+									<dt class="text-neutral-600">Local is faster by</dt>
+									<dd class="font-mono text-neutral-900" x-text="getSpeedupFactor()"></dd>
 								</div>
 							</div>
-						</div>
-					</template>
-				</div>
+						</template>
+					</dl>
+				</section>
 			</div>
 		</template>
 	</div>
