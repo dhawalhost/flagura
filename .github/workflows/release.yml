@@ -33,7 +33,7 @@ jobs:
           cache: true
 
       - name: Install Templ Compiler
-        run: go install github.com/a-h/templ/cmd/templ@latest
+        run: go install github.com/a-h/templ/cmd/templ@$(go list -m -f '{{.Version}}' github.com/a-h/templ)
 
       - name: Generate Templ Files
         run: templ generate
