@@ -1,13 +1,9 @@
-# Flagura
-
 <p>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="web/static/img/flagura-logo-plain-dark.svg">
-    <img src="web/static/img/flagura-logo-plain-light.svg" alt="Flagura" height="64">
+    <img src="web/static/img/flagura-logo-plain-light.svg" alt="Flagura" height="480">
   </picture>
 </p>
-
-Self-hosted feature flags.
 
 <div align="center">
 
