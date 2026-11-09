@@ -8,10 +8,9 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 	<div class="space-y-5" x-show="activeView === 'profile'" x-cloak x-data="profileSettingsComponent()">
 		<!-- Top Header Card -->
 		<div class="page-head flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-			<p class="text-sm text-neutral-500">Your account, security and workspace access.</p>
+			<p class="text-sm text-neutral-500">Your account, security and workspace access</p>
 		</div>
 
-		<!-- Identity Hero Banner -->
 		<div class="panel p-4 relative overflow-hidden">
 
 			<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
@@ -44,16 +43,15 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 								}
 							</h3>
 							<span 
-								class="px-2.5 py-0.5 rounded-md text-2xs font-medium border"
+								class="badge"
 								:class="{
 									'bg-accent-50 text-accent-700 border-accent-200': profile.role === 'admin',
 									'bg-accent-50 text-accent-700 border-accent-200': profile.role === 'developer',
 									'bg-neutral-100 text-neutral-700 border-neutral-200': profile.role === 'viewer'
 								}"
-								x-text="profile.role || 'Member'"
 							>
 								if user != nil {
-									{ string(user.Role) }
+									{ profileRole(user) }
 								} else {
 									Member
 								}
@@ -70,11 +68,9 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 									}
 								</span>
 							</span>
-							<span class="text-neutral-300">•</span>
-							<span class="flex items-center gap-1 text-ok-700 bg-ok-50 px-2 py-0.5 rounded border border-ok-200 text-2xs font-medium">
-								<i data-lucide="check" class="h-3 w-3"></i> Verified Account
+							<span class="badge badge-ok flex gap-1">
+								<i data-lucide="check" class="h-3 w-3"></i> Verified
 							</span>
-							<span class="text-neutral-300 hidden md:inline">•</span>
 							<span class="hidden md:flex items-center gap-1 text-2xs text-neutral-400">
 								<i data-lucide="clock" class="h-3.5 w-3.5"></i>
 								Member since { user.CreatedAt.Format("Jan 2006") }
@@ -85,7 +81,7 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 
 				<div class="flex sm:flex-col items-center sm:items-end gap-2 text-xs text-neutral-500 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-neutral-100">
 					<span class="text-2xs font-medium text-neutral-400">Account ID</span>
-					<div class="flex items-center gap-1.5 bg-neutral-50 px-2.5 py-1 rounded border border-neutral-200 text-neutral-700 font-semibold">
+					<div class="flex items-center gap-2 bg-neutral-50 px-2 py-1 rounded border border-neutral-200 text-neutral-700 font-semibold">
 						<code class="text-2xs select-all" x-text="profile.id">
 							if user != nil {
 								{ user.ID }
@@ -97,7 +93,7 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 							@click="copyToClipboard(profile.id, 'Account ID copied')" 
 							class="text-neutral-400 hover:text-neutral-700 transition cursor-pointer"
 							title="Copy Account ID"
-						>
+						 aria-label="Copy">
 							<i data-lucide="copy" class="h-3.5 w-3.5"></i>
 						</button>
 					</div>
@@ -105,46 +101,31 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 			</div>
 
 			<!-- Tab Navigation Bar -->
-			<div class="flex items-center gap-1 border-t border-neutral-100 mt-6 pt-4 text-xs overflow-x-auto">
+			<div class="seg mt-4">
 				<button 
-					@click="tab = 'general'" 
-					class="px-4 py-2 rounded-md font-medium transition flex items-center gap-2 cursor-pointer shrink-0"
-					:class="tab === 'general' ? 'bg-accent-50 text-accent-700 border border-accent-200' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
-				>
+					@click="tab = 'general'" :class="tab === 'general' ? 'seg-on' : ''">
 					<i data-lucide="user" class="h-4 w-4"></i>
-					<span>Personal Identity</span>
+					<span>Profile</span>
 				</button>
 				<button 
-					@click="tab = 'security'" 
-					class="px-4 py-2 rounded-md font-medium transition flex items-center gap-2 cursor-pointer shrink-0"
-					:class="tab === 'security' ? 'bg-accent-50 text-accent-700 border border-accent-200' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
-				>
+					@click="tab = 'security'" :class="tab === 'security' ? 'seg-on' : ''">
 					<i data-lucide="lock" class="h-4 w-4"></i>
-					<span>Security &amp; Password</span>
+					<span>Security</span>
 				</button>
 				<button 
-					@click="tab = 'workspaces'" 
-					class="px-4 py-2 rounded-md font-medium transition flex items-center gap-2 cursor-pointer shrink-0"
-					:class="tab === 'workspaces' ? 'bg-accent-50 text-accent-700 border border-accent-200' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
-				>
+					@click="tab = 'workspaces'" :class="tab === 'workspaces' ? 'seg-on' : ''">
 					<i data-lucide="layers" class="h-4 w-4"></i>
-					<span>Workspaces &amp; Projects</span>
+					<span>Workspaces</span>
 				</button>
 				<button 
-					@click="tab = 'permissions'" 
-					class="px-4 py-2 rounded-md font-medium transition flex items-center gap-2 cursor-pointer shrink-0"
-					:class="tab === 'permissions' ? 'bg-accent-50 text-accent-700 border border-accent-200' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
-				>
+					@click="tab = 'permissions'" :class="tab === 'permissions' ? 'seg-on' : ''">
 					<i data-lucide="shield" class="h-4 w-4"></i>
-					<span>Role Governance</span>
+					<span>Roles</span>
 				</button>
 				<button 
-					@click="tab = 'sso'; if (selectedOrgId) fetchOIDCConfig(selectedOrgId)" 
-					class="px-4 py-2 rounded-md font-medium transition flex items-center gap-2 cursor-pointer shrink-0"
-					:class="tab === 'sso' ? 'bg-accent-50 text-accent-700 border border-accent-200' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'"
-				>
+					@click="openSSOTab()" :class="tab === 'sso' ? 'seg-on' : ''">
 					<i data-lucide="key-round" class="h-4 w-4"></i>
-					<span>Enterprise SSO</span>
+					<span>SSO</span>
 				</button>
 			</div>
 		</div>
@@ -155,44 +136,43 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 				<!-- Edit Profile Details Card -->
 				<div class="lg:col-span-2 panel p-4 space-y-6">
 					<div class="border-b border-neutral-100 pb-4">
-						<h3 class="text-sm font-semibold text-neutral-900">Personal Information</h3>
+						<h3 class="text-sm font-semibold text-neutral-900">Profile</h3>
 						<p class="text-xs text-neutral-500 font-sans mt-0.5">
-							Update your public display name and avatar displayed on audit trails and change requests.
-						</p>
+							Update your public display name and avatar displayed on audit trails and change requests</p>
 					</div>
 
 					<form @submit.prevent="saveProfile()" class="space-y-5">
 						<!-- Full Name -->
-						<div class="space-y-1.5">
-							<label class="text-xs font-semibold text-neutral-700 flex items-center justify-between">
-								<span>Full Name</span>
+						<div class="space-y-2">
+							<label for="fld-profile-settings-1" class="text-xs font-semibold text-neutral-700 flex items-center justify-between">
+								<span>Full name</span>
 								<span class="text-2xs text-neutral-400">Required</span>
 							</label>
 							<div class="relative">
 								<i data-lucide="user" class="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-								<input 
+								<input id="fld-profile-settings-1" 
 									type="text" 
 									x-model="form.name" 
 									placeholder="e.g. Alex Mercer"
 									required
-									class="w-full bg-surface border border-neutral-200 rounded-md pl-9 pr-3 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition"
+									class="field pl-9 pr-3"
 								/>
 							</div>
 						</div>
 
 						<!-- Email Address (Read-only) -->
-						<div class="space-y-1.5">
-							<label class="text-xs font-semibold text-neutral-700 flex items-center justify-between">
-								<span>Email Address</span>
-								<span class="text-2xs text-ok-700 bg-ok-50 px-2 py-0.2 rounded border border-ok-200">Verified</span>
+						<div class="space-y-2">
+							<label for="fld-profile-settings-2" class="text-xs font-semibold text-neutral-700 flex items-center justify-between">
+								<span>Email address</span>
+								<span class="badge badge-ok">Verified</span>
 							</label>
 							<div class="relative">
 								<i data-lucide="mail" class="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-								<input 
+								<input id="fld-profile-settings-2" 
 									type="email" 
 									:value="profile.email" 
 									disabled
-									class="w-full bg-neutral-100/70 border border-neutral-200 rounded-md pl-9 pr-3 py-2.5 text-xs text-neutral-500 cursor-not-allowed"
+									class="field pl-9 pr-3 cursor-not-allowed"
 								/>
 							</div>
 							<p class="text-2xs text-neutral-400 font-sans">
@@ -201,23 +181,22 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 						</div>
 
 						<!-- Avatar URL -->
-						<div class="space-y-1.5">
-							<label class="text-xs font-semibold text-neutral-700 flex items-center justify-between">
-								<span>Avatar Image URL</span>
-								<span class="text-2xs text-neutral-400 font-sans">Optional HTTPS Link</span>
+						<div class="space-y-2">
+							<label for="fld-profile-settings-3" class="text-xs font-semibold text-neutral-700 flex items-center justify-between">
+								<span>Avatar image URL</span>
+								<span class="text-2xs text-neutral-400 font-sans">Optional</span>
 							</label>
 							<div class="relative">
 								<i data-lucide="image" class="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-								<input 
+								<input id="fld-profile-settings-3" 
 									type="url" 
 									x-model="form.avatarUrl" 
 									placeholder="https://images.unsplash.com/... or https://github.com/username.png"
-									class="w-full bg-surface border border-neutral-200 rounded-md pl-9 pr-3 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition"
+									class="field pl-9 pr-3"
 								/>
 							</div>
 							<p class="text-2xs text-neutral-400 font-sans">
-								Paste any direct image link to customize your console avatar.
-							</p>
+								Paste any direct image link to customize your console avatar</p>
 						</div>
 
 						<!-- Actions -->
@@ -227,18 +206,18 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 								<button 
 									type="button" 
 									@click="resetForm()" 
-									class="px-4 py-2 rounded-md text-xs font-semibold text-neutral-600 hover:bg-neutral-50 border border-neutral-200 transition cursor-pointer"
+									class="btn"
 								>
 									Reset
 								</button>
 								<button 
 									type="submit" 
 									:disabled="savingProfile"
-									class="px-5 py-2.5 rounded-md bg-neutral-900 hover:bg-neutral-700 text-surface font-medium text-xs transition flex items-center gap-2 cursor-pointer"
+									class="btn btn-primary"
 								>
 									<span class="inline-flex" x-show="!savingProfile"><i data-lucide="check" class="h-3.5 w-3.5"></i></span>
 									<span class="inline-flex" x-show="savingProfile"><i data-lucide="loader-2" class="h-3.5 w-3.5 animate-spin"></i></span>
-									<span x-text="savingProfile ? 'Saving Changes...' : 'Save Profile Changes'"></span>
+									<span x-text="savingProfile ? 'Saving Changes...' : 'Save profile'"></span>
 								</button>
 							</div>
 						</div>
@@ -250,23 +229,23 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 					<div class="panel p-4 space-y-4 text-xs">
 						<div class="flex items-center gap-2 border-b border-neutral-100 pb-3">
 							<i data-lucide="fingerprint" class="h-4 w-4 text-accent-600"></i>
-							<span class="font-medium text-neutral-900">Identity Metadata</span>
+							<span class="font-medium text-neutral-900">Account details</span>
 						</div>
 
 						<div class="space-y-3">
 							<div class="flex justify-between items-center text-neutral-600">
-								<span>Role Assignment:</span>
-								<span class="font-medium text-neutral-900" x-text="profile.role"></span>
+								<span>Role</span>
+								<span class="font-medium text-neutral-900">{ profileRole(user) }</span>
 							</div>
 							<div class="flex justify-between items-center text-neutral-600">
-								<span>Account Status:</span>
+								<span>Status</span>
 								<span class="font-medium text-ok-600 flex items-center gap-1">
 									<span class="w-1.5 h-1.5 rounded-full bg-ok-500"></span>
 									Active
 								</span>
 							</div>
 							<div class="flex justify-between items-center text-neutral-600">
-								<span>Cookie Protection:</span>
+								<span>Session cookie</span>
 								<span class="font-medium text-accent-600">SameSite=Lax</span>
 							</div>
 						</div>
@@ -275,7 +254,7 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 					<div class="panel p-4 bg-neutral-900 text-neutral-100 rounded-md space-y-3 font-mono text-xs code-scope">
 						<div class="flex items-center gap-2 text-accent-400">
 							<i data-lucide="terminal" class="h-4 w-4"></i>
-							<span class="font-medium text-2xs">Developer CLI Setup</span>
+							<span class="font-medium text-2xs">CLI setup</span>
 						</div>
 						<p class="text-2xs text-neutral-300 font-sans leading-relaxed">
 							Authenticate with the Flagura CLI directly using your credentials or an environment-scoped API token:
@@ -294,24 +273,23 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 				<!-- Password Form Card -->
 				<div class="lg:col-span-2 panel p-4 space-y-6">
 					<div class="border-b border-neutral-100 pb-4">
-						<h3 class="text-sm font-semibold text-neutral-900">Change Password</h3>
+						<h3 class="text-sm font-semibold text-neutral-900">Change password</h3>
 						<p class="text-xs text-neutral-500 font-sans mt-0.5">
-							Ensure your account uses a strong, complex passphrase compliant with enterprise security standards.
-						</p>
+							Use at least 8 characters with a mix of cases, a number and a symbol</p>
 					</div>
 
 					<form @submit.prevent="changePassword()" class="space-y-5">
 						<!-- Current Password -->
-						<div class="space-y-1.5">
-							<label class="text-xs font-semibold text-neutral-700">Current Password</label>
+						<div class="space-y-2">
+							<label for="fld-profile-settings-4" class="text-xs font-semibold text-neutral-700">Current password</label>
 							<div class="relative">
 								<i data-lucide="key" class="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-								<input 
+								<input id="fld-profile-settings-4" 
 									:type="showCurrentPassword ? 'text' : 'password'" 
 									x-model="passwordForm.currentPassword" 
-									placeholder="Enter existing password..."
+									placeholder="Enter existing password"
 									required
-									class="w-full bg-surface border border-neutral-200 rounded-md pl-9 pr-10 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition"
+									class="field pl-9 pr-10"
 								/>
 								<button 
 									type="button" 
@@ -324,16 +302,16 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 						</div>
 
 						<!-- New Password -->
-						<div class="space-y-1.5">
-							<label class="text-xs font-semibold text-neutral-700">New Password</label>
+						<div class="space-y-2">
+							<label for="fld-profile-settings-5" class="text-xs font-semibold text-neutral-700">New password</label>
 							<div class="relative">
 								<i data-lucide="lock" class="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-								<input 
+								<input id="fld-profile-settings-5" 
 									:type="showNewPassword ? 'text' : 'password'" 
 									x-model="passwordForm.newPassword" 
-									placeholder="At least 8 chars with uppercase, number & symbol..."
+									placeholder="At least 8 chars with uppercase, number & symbol"
 									required
-									class="w-full bg-surface border border-neutral-200 rounded-md pl-9 pr-10 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition"
+									class="field pl-9 pr-10"
 								/>
 								<button 
 									type="button" 
@@ -345,26 +323,26 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 							</div>
 
 							<!-- Live Complexity Criteria Checklist -->
-							<div class="p-3.5 rounded-md bg-neutral-50 border border-neutral-200 mt-2 space-y-2">
-								<span class="text-2xs font-medium text-neutral-500">Complexity Requirements</span>
+							<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 mt-2 space-y-2">
+								<span class="text-2xs font-medium text-neutral-500">Password requirements</span>
 								<div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-2xs">
-									<div class="flex items-center gap-1.5" :class="passRules.length ? 'text-ok-700' : 'text-neutral-400'">
+									<div class="flex items-center gap-2" :class="passRules.length ? 'text-ok-700' : 'text-neutral-400'">
 										<i :data-lucide="passRules.length ? 'check-circle-2' : 'circle'" class="w-3.5 h-3.5"></i>
 										<span>8+ characters</span>
 									</div>
-									<div class="flex items-center gap-1.5" :class="passRules.upper ? 'text-ok-700' : 'text-neutral-400'">
+									<div class="flex items-center gap-2" :class="passRules.upper ? 'text-ok-700' : 'text-neutral-400'">
 										<i :data-lucide="passRules.upper ? 'check-circle-2' : 'circle'" class="w-3.5 h-3.5"></i>
 										<span>Uppercase (A-Z)</span>
 									</div>
-									<div class="flex items-center gap-1.5" :class="passRules.lower ? 'text-ok-700' : 'text-neutral-400'">
+									<div class="flex items-center gap-2" :class="passRules.lower ? 'text-ok-700' : 'text-neutral-400'">
 										<i :data-lucide="passRules.lower ? 'check-circle-2' : 'circle'" class="w-3.5 h-3.5"></i>
 										<span>Lowercase (a-z)</span>
 									</div>
-									<div class="flex items-center gap-1.5" :class="passRules.digit ? 'text-ok-700' : 'text-neutral-400'">
+									<div class="flex items-center gap-2" :class="passRules.digit ? 'text-ok-700' : 'text-neutral-400'">
 										<i :data-lucide="passRules.digit ? 'check-circle-2' : 'circle'" class="w-3.5 h-3.5"></i>
 										<span>Digit (0-9)</span>
 									</div>
-									<div class="flex items-center gap-1.5" :class="passRules.special ? 'text-ok-700' : 'text-neutral-400'">
+									<div class="flex items-center gap-2" :class="passRules.special ? 'text-ok-700' : 'text-neutral-400'">
 										<i :data-lucide="passRules.special ? 'check-circle-2' : 'circle'" class="w-3.5 h-3.5"></i>
 										<span>Symbol (!@#$...)</span>
 									</div>
@@ -373,9 +351,9 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 						</div>
 
 						<!-- Confirm Password -->
-						<div class="space-y-1.5">
-							<label class="text-xs font-semibold text-neutral-700 flex items-center justify-between">
-								<span>Confirm New Password</span>
+						<div class="space-y-2">
+							<label for="fld-profile-settings-6" class="text-xs font-semibold text-neutral-700 flex items-center justify-between">
+								<span>Confirm new password</span>
 								<span 
 									class="text-2xs font-medium" 
 									x-show="passwordForm.confirmPassword"
@@ -385,12 +363,12 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 							</label>
 							<div class="relative">
 								<i data-lucide="shield-alert" class="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-								<input 
+								<input id="fld-profile-settings-6" 
 									type="password" 
 									x-model="passwordForm.confirmPassword" 
-									placeholder="Re-type new password..."
+									placeholder="Re-type new password"
 									required
-									class="w-full bg-surface border border-neutral-200 rounded-md pl-9 pr-3 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition"
+									class="field pl-9 pr-3"
 								/>
 							</div>
 						</div>
@@ -402,46 +380,16 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 							<button 
 								type="submit" 
 								:disabled="savingPassword || !isPasswordValid()"
-								class="ml-auto px-5 py-2.5 rounded-md bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed text-surface font-medium text-xs transition flex items-center gap-2 cursor-pointer"
+								class="btn btn-primary ml-auto disabled:bg-neutral-300 disabled:cursor-not-allowed"
 							>
 								<span class="inline-flex" x-show="!savingPassword"><i data-lucide="shield-check" class="h-3.5 w-3.5"></i></span>
 								<span class="inline-flex" x-show="savingPassword"><i data-lucide="loader-2" class="h-3.5 w-3.5 animate-spin"></i></span>
-								<span x-text="savingPassword ? 'Updating Password...' : 'Update Password'"></span>
+								<span x-text="savingPassword ? 'Updating Password...' : 'Update password'"></span>
 							</button>
 						</div>
 					</form>
 				</div>
 
-				<!-- Security Posture Info -->
-				<div class="space-y-6">
-					<div class="panel p-4 space-y-4 text-xs">
-						<div class="flex items-center gap-2 border-b border-neutral-100 pb-3">
-							<i data-lucide="shield" class="h-4 w-4 text-ok-600"></i>
-							<span class="font-medium text-neutral-900">Cryptographic Defense</span>
-						</div>
-
-						<div class="space-y-3 font-sans text-neutral-600 text-2xs leading-relaxed">
-							<div class="flex items-start gap-2.5">
-								<i data-lucide="check-circle-2" class="w-4 h-4 text-ok-600 shrink-0 mt-0.5"></i>
-								<div>
-									<strong class="text-neutral-900 font-mono">Bcrypt Hash:</strong> Passwords are salt-hashed using standard adaptive cost work factors preventing brute-force rainbow table lookups.
-								</div>
-							</div>
-							<div class="flex items-start gap-2.5">
-								<i data-lucide="check-circle-2" class="w-4 h-4 text-ok-600 shrink-0 mt-0.5"></i>
-								<div>
-									<strong class="text-neutral-900 font-mono">HttpOnly Cookies:</strong> Active session tokens are stored in tamper-proof, non-JavaScript-accessible cookie jars.
-								</div>
-							</div>
-							<div class="flex items-start gap-2.5">
-								<i data-lucide="check-circle-2" class="w-4 h-4 text-ok-600 shrink-0 mt-0.5"></i>
-								<div>
-									<strong class="text-neutral-900 font-mono">Instant Session Invalidation:</strong> Changing passwords automatically expires other existing login tokens across devices.
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
 			</div>
 		</div>
 
@@ -452,15 +400,14 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 					<div>
 						<h3 class="text-sm font-semibold text-neutral-900">Workspace &amp; Project Access</h3>
 						<p class="text-xs text-neutral-500 font-sans mt-0.5">
-							Organizations and project scopes you are currently authorized to view and manage.
-						</p>
+							Organizations and project scopes you are currently authorized to view and manage</p>
 					</div>
 					<button 
 						@click="$dispatch('open-create-project-modal')"
-						class="px-3 py-1.5 rounded-md bg-accent-50 hover:bg-accent-100 text-accent-700 text-xs font-medium flex items-center gap-1.5 border border-accent-200 cursor-pointer self-start sm:self-auto"
+						class="btn self-start sm:self-auto"
 					>
 						<i data-lucide="plus" class="w-3.5 h-3.5"></i>
-						<span>New Scope</span>
+						<span>New scope</span>
 					</button>
 				</div>
 
@@ -477,12 +424,12 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 										<span class="text-2xs text-neutral-400 font-mono">{ org.Slug }</span>
 									</div>
 								</div>
-								<span class="px-2 py-0.5 rounded text-2xs font-medium bg-ok-50 text-ok-700 border border-ok-200">
+								<span class="badge badge-ok">
 									Member
 								</span>
 							</div>
 
-							<div class="space-y-1.5 pt-2 border-t border-neutral-200/80">
+							<div class="space-y-2 pt-2 border-t border-neutral-200/80">
 								<span class="text-2xs font-medium text-neutral-400">Scoped Projects:</span>
 								<div class="space-y-1">
 									for _, p := range projects {
@@ -495,7 +442,7 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 												<button 
 													data-project-id={ p.ID }
 													@click="switchProject($el)"
-													class="px-2.5 py-1 rounded-md text-2xs font-medium bg-neutral-100 hover:bg-accent-50 hover:text-accent-700 text-neutral-700 transition cursor-pointer"
+													class="btn"
 												>
 													Switch
 												</button>
@@ -514,91 +461,83 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 		<div x-show="tab === 'permissions'" x-transition class="space-y-6">
 			<div class="panel p-4 space-y-6">
 				<div class="border-b border-neutral-100 pb-4">
-					<h3 class="text-sm font-semibold text-neutral-900">Governance &amp; Authorization Matrix</h3>
+					<h3 class="text-sm font-semibold text-neutral-900">Capabilities</h3>
 					<p class="text-xs text-neutral-500 font-sans mt-0.5">
-						Detailed authorization capabilities for your assigned role in this workspace.
+						What workspace roles can control. Your role is { profileRole(user) }.
 					</p>
 				</div>
 
 				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
 					<!-- Permission: Flags -->
-					<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-2">
+					<div class="py-2 space-y-0.5">
 						<div class="flex items-center justify-between">
-							<span class="font-medium text-neutral-900 font-sans">Flag Management</span>
-							<i data-lucide="check-circle" class="w-4 h-4 text-ok-600"></i>
+							<span class="font-medium text-neutral-900 font-sans">Flag management</span>
 						</div>
-						<p class="text-2xs text-neutral-500 font-sans">Create, edit, toggle, and configure multivariate rollouts across environments.</p>
+						<p class="text-2xs text-neutral-500 font-sans">Create, edit, toggle, and configure multivariate rollouts across environments</p>
 					</div>
 
 					<!-- Permission: Kill Switches -->
-					<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-2">
+					<div class="py-2 space-y-0.5">
 						<div class="flex items-center justify-between">
-							<span class="font-medium text-neutral-900 font-sans">Automated Kill-Switches</span>
-							<i data-lucide="check-circle" class="w-4 h-4 text-ok-600"></i>
+							<span class="font-medium text-neutral-900 font-sans">Kill switches</span>
 						</div>
-						<p class="text-2xs text-neutral-500 font-sans">Trigger instant SSE kill-switches via APM webhooks or console.</p>
+						<p class="text-2xs text-neutral-500 font-sans">Trigger instant SSE kill-switches via APM webhooks or console</p>
 					</div>
 
 					<!-- Permission: 4-Eyes Governance -->
-					<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-2">
+					<div class="py-2 space-y-0.5">
 						<div class="flex items-center justify-between">
-							<span class="font-medium text-neutral-900 font-sans">4-Eyes Change Requests</span>
-							<i data-lucide="check-circle" class="w-4 h-4 text-accent-600"></i>
+							<span class="font-medium text-neutral-900 font-sans">Change approvals</span>
 						</div>
-						<p class="text-2xs text-neutral-500 font-sans">Author production change requests and review peer changes (author self-review blocked).</p>
+						<p class="text-2xs text-neutral-500 font-sans">Author production change requests and review peer changes (author self-review blocked)</p>
 					</div>
 
 					<!-- Permission: Canary Progressive Rollouts -->
-					<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-2">
+					<div class="py-2 space-y-0.5">
 						<div class="flex items-center justify-between">
-							<span class="font-medium text-neutral-900 font-sans">Progressive Canary Ramps</span>
-							<i data-lucide="check-circle" class="w-4 h-4 text-ok-600"></i>
+							<span class="font-medium text-neutral-900 font-sans">Canary rollouts</span>
 						</div>
-						<p class="text-2xs text-neutral-500 font-sans">Automate multi-stage rollout increments with metric guardrail rollbacks.</p>
+						<p class="text-2xs text-neutral-500 font-sans">Automate multi-stage rollout increments with metric guardrail rollbacks</p>
 					</div>
 
 					<!-- Permission: API Service Keys -->
-					<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-2">
+					<div class="py-2 space-y-0.5">
 						<div class="flex items-center justify-between">
-							<span class="font-medium text-neutral-900 font-sans">Service Accounts &amp; Keys</span>
-							<i data-lucide="check-circle" class="w-4 h-4 text-ok-600"></i>
+							<span class="font-medium text-neutral-900 font-sans">Service accounts and keys</span>
 						</div>
-						<p class="text-2xs text-neutral-500 font-sans">Generate cryptographically secure tokens for microservice SDK evaluations.</p>
+						<p class="text-2xs text-neutral-500 font-sans">Generate cryptographically secure tokens for microservice SDK evaluations</p>
 					</div>
 
 					<!-- Permission: Audit Trail -->
-					<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-2">
+					<div class="py-2 space-y-0.5">
 						<div class="flex items-center justify-between">
-							<span class="font-medium text-neutral-900 font-sans">Immutable Audit Trail</span>
-							<i data-lucide="check-circle" class="w-4 h-4 text-ok-600"></i>
+							<span class="font-medium text-neutral-900 font-sans">Audit trail</span>
 						</div>
-						<p class="text-2xs text-neutral-500 font-sans">Inspect tamper-evident action logs, actors, and state deltas.</p>
+						<p class="text-2xs text-neutral-500 font-sans">Inspect tamper-evident action logs, actors, and state deltas</p>
 					</div>
 				</div>
 			</div>
 		</div>
 
-		<!-- TAB 5: Enterprise SSO & OIDC Identity Providers -->
 		<div x-show="tab === 'sso'" x-transition class="space-y-6">
 			<div class="panel p-4 space-y-6">
 				<div class="border-b border-neutral-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 					<div>
 						<div class="flex items-center gap-2">
 							<h3 class="text-sm font-semibold text-neutral-900">Single Sign-On (OIDC) Configuration</h3>
-							<span class="rounded bg-accent-50 border border-accent-200 px-2 py-0.5 text-2xs text-accent-700 font-medium">Enterprise</span>
+							<span class="badge badge-accent">Enterprise</span>
 						</div>
 						<p class="text-xs text-neutral-500 font-sans mt-0.5">
-							Delegate enterprise employee authentication to an OpenID Connect identity provider (Google, Okta, Azure AD, Keycloak).
-						</p>
+							Delegate enterprise employee authentication to an OpenID Connect identity provider (Google, Okta, Azure AD, Keycloak)</p>
 					</div>
 
 					<!-- Organization Selector for SSO -->
 					<div class="flex items-center gap-2">
-						<label class="text-xs font-semibold text-neutral-600 shrink-0">Organization:</label>
-						<select 
+						<label for="fld-profile-settings-7" class="text-xs font-semibold text-neutral-600 shrink-0">Organization:</label>
+						<select id="fld-profile-settings-7" 
 							x-model="selectedOrgId" 
 							@change="fetchOIDCConfig(selectedOrgId)"
-							class="bg-surface border border-neutral-200 rounded-md px-3 py-1.5 text-xs text-neutral-800 font-mono focus:outline-none focus:border-accent-500"
+							class="field font-mono"
 						>
 							for _, org := range orgs {
 								<option value={ org.ID }>{ org.Name } ({ org.Slug })</option>
@@ -615,15 +554,14 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 							type="button"
 							@click="copyToClipboard(getOIDCCallbackUrl(), 'Redirect URI copied')" 
 							class="text-accent-600 hover:text-accent-700 font-semibold flex items-center gap-1 cursor-pointer"
-						>
+						 aria-label="Copy">
 							<i data-lucide="copy" class="w-3.5 h-3.5"></i>
 							<span>Copy</span>
 						</button>
 					</div>
-					<div class="p-2.5 bg-surface rounded border border-neutral-200 text-neutral-800 select-all font-mono text-2xs break-all" x-text="getOIDCCallbackUrl()"></div>
+					<div class="p-2 bg-surface rounded border border-neutral-200 text-neutral-800 select-all font-mono text-2xs break-all" x-text="getOIDCCallbackUrl()"></div>
 					<p class="text-2xs text-neutral-500 font-sans">
-						Add this URL as an Authorized Redirect URI in your Identity Provider's application management console.
-					</p>
+						Add this URL as an Authorized Redirect URI in your Identity Provider's application management console</p>
 				</div>
 
 				<!-- Loading State -->
@@ -637,75 +575,75 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 						<!-- Provider Name -->
 						<div>
-							<label class="block text-xs font-semibold text-neutral-700 mb-1.5">Identity Provider Name</label>
-							<input 
+							<label for="fld-profile-settings-8" class="block text-xs font-semibold text-neutral-700 mb-2">Identity provider name</label>
+							<input id="fld-profile-settings-8" 
 								type="text" 
 								x-model="oidcForm.provider_name" 
 								required 
 								placeholder="e.g. Okta, Google Workspace, Azure AD"
-								class="w-full bg-surface border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors font-sans"
+								class="field"
 							/>
 						</div>
 
 						<!-- Issuer URL -->
 						<div>
-							<label class="block text-xs font-semibold text-neutral-700 mb-1.5">Issuer URL (OpenID Discovery)</label>
-							<input 
+							<label for="fld-profile-settings-9" class="block text-xs font-semibold text-neutral-700 mb-2">Issuer URL (OpenID Discovery)</label>
+							<input id="fld-profile-settings-9" 
 								type="url" 
 								x-model="oidcForm.issuer_url" 
 								required 
 								placeholder="https://company.okta.com or https://accounts.google.com"
-								class="w-full bg-surface border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors font-mono"
+								class="field font-mono"
 							/>
 						</div>
 
 						<!-- Client ID -->
 						<div>
-							<label class="block text-xs font-semibold text-neutral-700 mb-1.5">Client ID</label>
-							<input 
+							<label for="fld-profile-settings-10" class="block text-xs font-semibold text-neutral-700 mb-2">Client ID</label>
+							<input id="fld-profile-settings-10" 
 								type="text" 
 								x-model="oidcForm.client_id" 
 								required 
 								placeholder="Client Identifier from IdP"
-								class="w-full bg-surface border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors font-mono"
+								class="field font-mono"
 							/>
 						</div>
 
 						<!-- Client Secret -->
 						<div>
-							<label class="block text-xs font-semibold text-neutral-700 mb-1.5">Client Secret</label>
-							<input 
+							<label for="fld-profile-settings-11" class="block text-xs font-semibold text-neutral-700 mb-2">Client secret</label>
+							<input id="fld-profile-settings-11" 
 								type="password" 
 								x-model="oidcForm.client_secret" 
 								:placeholder="oidcConfig && oidcConfig.id ? '•••••••• (leave blank to keep current)' : 'Client Secret from IdP'"
-								class="w-full bg-surface border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors font-mono"
+								class="field font-mono"
 							/>
 						</div>
 
 						<!-- Allowed Corporate Domains -->
 						<div>
-							<label class="block text-xs font-semibold text-neutral-700 mb-1.5">Allowed Email Domains (comma-separated)</label>
-							<input 
+							<label for="fld-profile-settings-12" class="block text-xs font-semibold text-neutral-700 mb-2">Allowed Email Domains (comma-separated)</label>
+							<input id="fld-profile-settings-12" 
 								type="text" 
 								x-model="oidcForm.allowed_domains" 
 								required 
 								placeholder="e.g. acme.com, acme.io"
-								class="w-full bg-surface border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors font-mono"
+								class="field font-mono"
 							/>
-							<p class="text-2xs text-neutral-400 font-sans mt-1">Users with emails outside these domains will be rejected upon SSO sign-in.</p>
+							<p class="text-2xs text-neutral-400 font-sans mt-1">Users with emails outside these domains will be rejected upon SSO sign-in</p>
 						</div>
 
 						<!-- Default Member Role -->
 						<div>
-							<label class="block text-xs font-semibold text-neutral-700 mb-1.5">Default Provisioned Role</label>
-							<select 
+							<label for="fld-profile-settings-13" class="block text-xs font-semibold text-neutral-700 mb-2">Default role</label>
+							<select id="fld-profile-settings-13" 
 								x-model="oidcForm.default_role" 
-								class="w-full bg-surface border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors font-mono"
+								class="field font-mono"
 							>
 								<option value="developer">Developer (Author changes, evaluate flags)</option>
 								<option value="viewer">Viewer (Read-only observation)</option>
 							</select>
-							<p class="text-2xs text-neutral-400 font-sans mt-1">Role assigned to first-time JIT-provisioned members.</p>
+							<p class="text-2xs text-neutral-400 font-sans mt-1">Role assigned to first-time JIT-provisioned members</p>
 						</div>
 					</div>
 
@@ -729,7 +667,7 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 								<button 
 									type="button" 
 									@click="deleteOIDCConfig()" 
-									class="px-4 py-2 rounded-md text-xs font-medium text-danger-600 hover:bg-danger-50 border border-danger-200 transition cursor-pointer"
+									class="btn btn-danger"
 								>
 									Delete Configuration
 								</button>
@@ -738,7 +676,7 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 
 						<button 
 							type="submit" 
-							class="px-5 py-2.5 rounded-md text-xs font-medium flex items-center gap-2 bg-neutral-900 hover:bg-neutral-700 text-surface transition cursor-pointer"
+							class="btn btn-primary"
 							:disabled="oidcSaving"
 						>
 							<span class="inline-flex" x-show="oidcSaving"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i></span>
@@ -750,4 +688,11 @@ templ ProfileSettings(user *domain.User, orgs []domain.Organization, projects []
 			</div>
 		</div>
 	</div>
+}
+
+func profileRole(user *domain.User) string {
+	if user == nil || user.EffectiveRole() == "" {
+		return "member"
+	}
+	return user.EffectiveRole()
 }

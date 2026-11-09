@@ -1,6 +1,6 @@
 # Flagura Rust SDK (`flagura-rs`)
 
-Official high-performance Rust client SDK for the [Flagura](https://github.com/dhawalhost/flagura) Feature Flag & Experimentation Engine.
+Official Rust client SDK for the [Flagura](https://github.com/dhawalhost/flagura) Feature Flag & Experimentation Engine.
 
 ## Installation
 

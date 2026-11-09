@@ -1,4 +1,4 @@
-# 🛡️ Security, Access & Credential Management Runbook
+# Security, Access & Credential Management Runbook
 
 This runbook provides step-by-step instructions for managing user roles, enforcing password policies, handling password resets, credential rotation, responding to security vulnerabilities, and maintaining compliance in Flagura.
 
@@ -10,9 +10,9 @@ Flagura supports three distinct user roles:
 
 | Role | Permissions | Mutation Access | Deletion & Reset Access | Governance Reviewer |
 | :--- | :--- | :---: | :---: | :---: |
-| `admin` | Full system control & emergency operations | ✅ Allowed | ✅ Allowed (`DELETE /flags`, `POST /reset`) | ✅ Auto-assigned for 4-eyes approvals |
-| `developer` | Flag creation, rollout adjustments, toggle switches | ✅ Allowed | ❌ Restricted (`403 Forbidden`) | ❌ Author only |
-| `viewer` | Read-only access to dashboard and logs | ❌ Restricted | ❌ Restricted | ❌ No approval rights |
+| `admin` | Full system control & emergency operations | Yes Allowed | Yes Allowed (`DELETE /flags`, `POST /reset`) | Yes Auto-assigned for 4-eyes approvals |
+| `developer` | Flag creation, rollout adjustments, toggle switches | Yes Allowed | No Restricted (`403 Forbidden`) | No Author only |
+| `viewer` | Read-only access to dashboard and logs | No Restricted | No Restricted | No No approval rights |
 
 ### Provisioning a New User via API:
 ```bash
@@ -40,7 +40,7 @@ Flagura enforces **defense-in-depth password complexity** on all signups and pas
 5. **Special Symbol**: At least one symbol (`!@#$%^&*()_+-=[]{}|;:,.<>?`).
 
 ### Client & Server Enforcement:
-- **Pre-Submission Interception**: Real-time client-side evaluation displays visual checkmarks (`✓`) and a strength meter. Form submission is blocked until all 5 criteria are met.
+- **Pre-Submission Interception**: Real-time client-side evaluation displays visual checkmarks (``) and a strength meter. Form submission is blocked until all 5 criteria are met.
 - **Backend Defense-in-Depth**: `validatePasswordComplexity()` in `pkg/api/handlers_auth.go` validates every password before hashing with bcrypt (cost factor: 10).
 
 ---

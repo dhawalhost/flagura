@@ -1,10 +1,10 @@
-# 🌐 Multi-Environment Workflows
+# Multi-Environment Workflows
 
 Flagura provides full multi-environment isolation across **Production**, **Staging**, and **Development**. Each environment has its own independent master switch, rollout strategy, targeting rules, and audit logs.
 
 ---
 
-## 🏢 Environment Topology
+## Environment Topology
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -20,7 +20,7 @@ Flagura provides full multi-environment isolation across **Production**, **Stagi
 
 ---
 
-## 🚦 Recommended Promotion Workflow
+## Recommended Promotion Workflow
 
 ```
 [Write Code & Flag]
@@ -49,7 +49,7 @@ Flagura provides full multi-environment isolation across **Production**, **Stagi
 
 ---
 
-## 🛡️ Production Safety Safeguards
+## Production Safety Safeguards
 
 1. **Environment Protection Gates**: Changing production flags or modifying database schemas requires authorized role permissions (`admin`).
 2. **Deterministic Context Scoping**: When client requests evaluate flags, specifying `environment: "production"` or `environment: "staging"` ensures complete separation of configuration without cross-environment leaks.

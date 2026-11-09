@@ -62,7 +62,7 @@ In a horizontally scaled cluster, replicas must hold a consistent view of config
 
 ## 3. Role-Based Tenant Rate Limiting (REQ-O03)
 
-Flagura enforces in-process, high-performance token-bucket rate limiting (`golang.org/x/time/rate`) per replica, maintaining sub-millisecond API response times without adding an external Redis network hop to the hot request path.
+Flagura enforces in-process, token-bucket rate limiting (`golang.org/x/time/rate`) per replica, maintaining sub-millisecond API response times without adding an external Redis network hop to the hot request path.
 
 ### 3.1 Role-Based Infrastructure Tiers
 Traffic is classified by caller authentication status, ensuring unauthenticated public traffic cannot exhaust quotas needed by production microservice clusters:
@@ -198,7 +198,7 @@ Flagura separates ephemeral process caches from durable configuration snapshots:
 
 ### 6.3 Automated Kubernetes CronJob Drill
 See the complete operational guide and ready-to-deploy manifest:
-👉 **[Disaster Recovery & Hot Backups Runbook](runbooks/disaster-recovery.md)**
+**[Disaster Recovery & Hot Backups Runbook](runbooks/disaster-recovery.md)**
 
 ---
 

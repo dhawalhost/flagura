@@ -1,10 +1,10 @@
-# 🌐 Supabase & Vercel Production Integration Guide
+# Supabase & Vercel Production Integration Guide
 
 This guide provides step-by-step instructions for provisioning **Supabase PostgreSQL** and **Vercel Serverless Functions** to host and maintain Flagura with zero maintenance, automatic scaling, and continuous deployment.
 
 ---
 
-## ⚡ Guide Structure & Key Highlights
+## Guide Structure & Key Highlights
 
 | Section | Focus Area | Key Highlights & Takeaways |
 | :--- | :--- | :--- |
@@ -16,7 +16,7 @@ This guide provides step-by-step instructions for provisioning **Supabase Postgr
 
 ---
 
-## 📑 Table of Contents
+## Table of Contents
 1. [Supabase Setup (Persistent Database)](#1-supabase-setup-persistent-database)
 2. [Vercel Setup (Serverless Application)](#2-vercel-setup-serverless-application)
 3. [GitHub Actions Automated CD Pipeline](#3-github-actions-automated-cd-pipeline)
@@ -27,7 +27,7 @@ This guide provides step-by-step instructions for provisioning **Supabase Postgr
 
 ## 1. Supabase Setup (Persistent Database)
 
-Supabase provides enterprise-grade PostgreSQL with automated connection pooling and physical backups.
+Supabase provides production PostgreSQL with automated connection pooling and physical backups.
 
 ### Step 1.1: Create a Supabase Project
 1. Log in to [Supabase](https://supabase.com) and click **New Project**.
@@ -36,7 +36,7 @@ Supabase provides enterprise-grade PostgreSQL with automated connection pooling 
    - **Database Password**: Choose a strong, random password and save it securely.
    - **Region**: Select the region closest to your Vercel edge deployment (e.g. `us-east-1`, `eu-west-1`).
    - **Pricing Plan**: Free or Pro tier.
-3. Click **Create new project** and wait 1–2 minutes for database provisioning.
+3. Click **Create new project** and wait 1-2 minutes for database provisioning.
 
 ---
 

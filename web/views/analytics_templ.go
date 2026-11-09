@@ -34,7 +34,7 @@ func AnalyticsDashboard(flags []domain.FeatureFlag) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-5\" x-show=\"activeView === 'analytics'\" x-cloak x-data=\"analyticsViewComponent()\"><!-- Page Header --><div class=\"page-head flex flex-col sm:flex-row sm:items-center justify-between gap-3\"><p class=\"text-sm text-neutral-500\">Evaluation volume reported by connected SDKs over the last 24 hours.</p><!-- Global actions --><div class=\"flex items-center gap-2.5\"><button @click=\"navigateTo('flags')\" class=\"px-3.5 py-2 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-xs font-semibold text-neutral-700 transition-colors cursor-pointer flex items-center gap-1.5\"><i data-lucide=\"sliders\" class=\"h-3.5 w-3.5 text-neutral-500\"></i> <span>Manage Flags</span></button> <button @click=\"navigateTo('evaluator')\" class=\"px-4 py-2 rounded-md bg-accent-600 hover:bg-accent-700 text-xs font-medium text-surface transition-colors cursor-pointer flex items-center gap-1.5\"><i data-lucide=\"zap\" class=\"h-3.5 w-3.5 text-surface\"></i> <span>Live Sandbox</span></button></div></div><div class=\"panel grid grid-cols-2 divide-x divide-neutral-200\"><div class=\"px-4 py-3\"><div class=\"text-xs text-neutral-500\">Evaluations, last 24h</div><div class=\"mt-0.5 text-2xl font-semibold font-mono text-neutral-900\" x-text=\"totalEvaluationsLabel\"></div></div><div class=\"px-4 py-3\"><div class=\"text-xs text-neutral-500\">Partial rollouts in production</div><div class=\"mt-0.5 text-2xl font-semibold font-mono text-neutral-900\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-5\" x-show=\"activeView === 'analytics'\" x-cloak x-data=\"analyticsViewComponent()\"><!-- Page Header --><div class=\"page-head flex flex-col sm:flex-row sm:items-center justify-between gap-3\"><p class=\"text-sm text-neutral-500\">Evaluation volume reported by connected SDKs over the last 24 hours</p><!-- Global actions --><div class=\"flex items-center gap-2\"><button @click=\"navigateTo('flags')\" class=\"btn\"><i data-lucide=\"sliders\" class=\"h-3.5 w-3.5 text-neutral-500\"></i> <span>Manage flags</span></button> <button @click=\"navigateTo('evaluator')\" class=\"btn btn-primary\"><i data-lucide=\"zap\" class=\"h-3.5 w-3.5 text-surface\"></i> <span>Open evaluator</span></button></div></div><div class=\"panel grid grid-cols-2 divide-x divide-neutral-200\"><div class=\"px-4 py-3\"><div class=\"text-xs text-neutral-500\">Evaluations, last 24h</div><div class=\"mt-0.5 text-2xl font-semibold font-mono text-neutral-900\" x-text=\"totalEvaluationsLabel\"></div></div><div class=\"px-4 py-3\"><div class=\"text-xs text-neutral-500\">Partial rollouts in production</div><div class=\"mt-0.5 text-2xl font-semibold font-mono text-neutral-900\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -47,7 +47,7 @@ func AnalyticsDashboard(flags []domain.FeatureFlag) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</div></div></div><!-- 24-Hour Evaluation Volume Hourly Chart --><div class=\"panel p-4 space-y-5\"><div class=\"flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-100 pb-4\"><div><div class=\"text-xs font-medium text-neutral-600\">Evaluations by hour</div><div class=\"text-xs text-neutral-500 mt-0.5 font-sans\">Two-hour buckets, last 24 hours</div></div><div class=\"flex items-center gap-2\"><select x-model=\"selectedAnalyticsFlag\" @change=\"updateAnalyticsChart()\" class=\"bg-surface border border-neutral-200 rounded-md px-3.5 py-2 font-mono text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors\"><option value=\"all\">All flags</option> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</div></div></div><!-- 24-Hour Evaluation Volume Hourly Chart --><div class=\"panel p-4 space-y-5\"><div class=\"flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-100 pb-4\"><div><div class=\"text-xs font-medium text-neutral-600\">Evaluations by hour</div><div class=\"text-xs text-neutral-500 mt-0.5 font-sans\">Two-hour buckets, last 24 hours</div></div><div class=\"flex items-center gap-2\"><select aria-label=\"Choose flag\" x-model=\"selectedAnalyticsFlag\" @change=\"updateAnalyticsChart()\" class=\"field font-mono\"><option value=\"all\">All flags</option> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -96,12 +96,12 @@ func AnalyticsDashboard(flags []domain.FeatureFlag) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</select></div></div><p class=\"text-sm text-neutral-500\" x-show=\"!hasData\">No evaluations reported yet. Connect an SDK with telemetry enabled to see volume here.</p><div class=\"h-64 w-full\" x-show=\"hasData\"><canvas id=\"analyticsChartCanvas\"></canvas></div></div><!-- Per-Flag Performance Breakdown Table --><div class=\"panel p-4 space-y-5\"><div class=\"flex items-center justify-between border-b border-neutral-100 pb-4\"><span class=\"text-xs font-medium text-neutral-600\">Flags</span> <span class=\"text-xs font-mono text-neutral-500\"><span class=\"font-mono\" x-text=\"currentEnv\"></span></span></div><div class=\"overflow-x-auto\"><table class=\"w-full text-left text-xs font-mono\"><thead class=\"bg-neutral-50 text-neutral-500 text-2xs border-b border-neutral-200\"><tr><th class=\"px-4 py-3 font-medium\">Key</th><th class=\"px-4 py-3 font-medium\">Rollout</th><th class=\"px-4 py-3 font-medium\">Strategy</th><th class=\"px-4 py-3 text-right font-medium\">Actions</th></tr></thead> <tbody class=\"divide-y divide-neutral-100\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</select></div></div><p class=\"text-sm text-neutral-500\" x-show=\"!hasData\">No evaluations reported yet. Connect an SDK with telemetry enabled to see volume here.</p><div class=\"h-64 w-full\" x-show=\"hasData\"><canvas id=\"analyticsChartCanvas\"></canvas></div></div><!-- Per-Flag Performance Breakdown Table --><div class=\"panel p-4 space-y-5\"><div class=\"flex items-center justify-between border-b border-neutral-100 pb-4\"><span class=\"text-xs font-medium text-neutral-600\">Flags</span> <span class=\"text-xs font-mono text-neutral-500\"><span class=\"font-mono\" x-text=\"currentEnv\"></span></span></div><div class=\"overflow-x-auto\"><table class=\"w-full text-left text-xs font-mono\"><thead class=\"border-b border-neutral-200 text-xs text-neutral-500\"><tr><th class=\"px-4 py-2 font-normal\">Key</th><th class=\"px-4 py-2 font-normal\">Rollout</th><th class=\"px-4 py-2 font-normal\">Strategy</th><th class=\"px-4 py-2 text-right font-normal\">Actions</th></tr></thead> <tbody class=\"divide-y divide-neutral-100\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, f := range flags {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<tr class=\"hover:bg-neutral-50 transition-colors\"><td class=\"px-4 py-3.5\"><div class=\"font-medium text-neutral-900 font-mono\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<tr class=\"group hover:bg-neutral-50 transition-colors\"><td class=\"px-4 py-4\"><div class=\"font-medium text-neutral-900 font-mono\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -127,51 +127,64 @@ func AnalyticsDashboard(flags []domain.FeatureFlag) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div></td><td class=\"px-4 py-3.5 font-mono text-neutral-800\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div></td><td class=\"px-4 py-4 font-mono text-neutral-800\"><div class=\"flex items-center gap-2\"><span class=\"rollbar\" aria-hidden=\"true\"><span :style=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f%%", f.ProdPercentage()))
+			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("'width: %.0f%%'", f.ProdPercentage()))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 95, Col: 102}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 95, Col: 200}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</td><td class=\"px-4 py-3.5\"><span class=\"font-mono text-xs text-neutral-600\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\"></span></span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var9 string
-			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(f.ProdStrategy())
+			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f%%", f.ProdPercentage()))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 97, Col: 76}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 95, Col: 260}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</span></td><td class=\"px-4 py-3.5 text-right\"><button data-key=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div></td><td class=\"px-4 py-4\"><span class=\"font-mono text-xs text-neutral-600\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var10 string
-			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
+			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(f.ProdStrategy())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 101, Col: 26}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 97, Col: 76}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" @click=\"openEvaluatorForFlag($el)\" class=\"text-accent-600 hover:underline font-semibold flex items-center gap-1 justify-end ml-auto cursor-pointer font-sans\"><span>Test in Sandbox</span> <i data-lucide=\"arrow-right\" class=\"h-3.5 w-3.5\"></i></button></td></tr>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</span></td><td class=\"px-4 py-4 text-right\"><button data-key=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var11 string
+			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 101, Col: 26}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\" @click=\"openEvaluatorForFlag($el)\" class=\"text-accent-600 hover:underline flex items-center gap-1 justify-end ml-auto cursor-pointer lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100 transition-opacity\"><span>Test</span></button></td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</tbody></table></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</tbody></table></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

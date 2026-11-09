@@ -1,22 +1,22 @@
-# 🌟 Product Overview & Core Concepts
+# Product Overview & Core Concepts
 
-Flagura is a modern, high-performance feature flagging and progressive delivery engine engineered for **sub-microsecond deterministic evaluation**.
+Flagura is a feature flagging and progressive delivery engine built for **sub-microsecond deterministic evaluation**.
 
 ---
 
-## 🎯 The Problem Flagura Solves
+## The Problem Flagura Solves
 
 Traditional SaaS feature flag providers require client applications to make remote HTTP requests (~20ms to 100ms) on every feature check, or suffer from complex synchronization protocols that introduce unpredictable latency and degrade Core Web Vitals (CWV).
 
 Flagura eliminates this overhead:
 1. **Deterministic Hashing**: Rollout percentages are computed using mathematical **64-bit FNV-1a sticky hashing**. Users land in the exact same rollout bucket every single time without requiring database lookups.
-2. **Sub-Microsecond Latency**: Local in-memory evaluations execute in **~85 nanoseconds across all storage backends** (SQLite, PostgreSQL, and In-Memory Edge Store), enabling millions of checks per second without blocking the application thread or paying database I/O penalties.
+2. **Sub-Microsecond Latency**: Local in-memory evaluations execute in **about 140 ns across all storage backends** (SQLite, PostgreSQL, and In-Memory Edge Store), enabling millions of checks per second without blocking the application thread or paying database I/O penalties.
 3. **Zero External Dependencies**: Runs as a single binary with embedded **SQLite (WAL mode)**, distributed **PostgreSQL**, or a zero-dependency **In-Memory Edge Store**.
 4. **Decoupled Architecture**: Flag configurations are managed centrally in the Flagura control plane and evaluated locally in-process anywhere (Microservices, Edge Workers, Lambdas, or Frontend apps).
 
 ---
 
-## 🧠 Mental Model & Key Primitives
+## Mental Model & Key Primitives
 
 Flagura organizes feature delivery around 5 core primitives:
 
@@ -40,7 +40,7 @@ Flagura organizes feature delivery around 5 core primitives:
 
 ---
 
-## ⚡ Execution Lifecycle
+## Execution Lifecycle
 
 When an evaluation request is triggered:
 
@@ -68,7 +68,7 @@ When an evaluation request is triggered:
 
 ---
 
-## 🛡️ Master Kill-Switch Circuit Breaker
+## Master Kill-Switch Circuit Breaker
 
 Every flag in Flagura includes an **instant 1-click master kill-switch**. If a newly rolled out feature triggers production errors or memory leaks:
 - Flip the toggle switch to `OFF` in the console.
@@ -76,23 +76,23 @@ Every flag in Flagura includes an **instant 1-click master kill-switch**. If a n
 
 ---
 
-## 🧹 Automated Code Hygiene & Technical Debt Elimination
+## Automated Code Hygiene & Technical Debt Elimination
 
 Unlike legacy flag platforms where obsolete flags rot inside production codebases, Flagura actively manages flag lifecycles:
 - **Automatic Stale Detection**: Flags that are 100% rolled out in production with no custom rules are flagged as `READY_FOR_CLEANUP`.
 - **In-App Refactoring Guidance**: Interactive cleanup assistant shows exact before/after code diffs in **Go**, **TypeScript**, and **Python**.
 - **CLI Static Scanning**: Run `flagura scan .` in your repositories to locate all flag occurrences in code and integrate with CI/CD gates (`--fail-on-stale`).
 
-👉 **[Read Code Hygiene & Flag Debt Guide](code-hygiene-and-flag-debt.md)**
+**[Read Code Hygiene & Flag Debt Guide](code-hygiene-and-flag-debt.md)**
 
 ---
 
-## 🌐 CNCF OpenFeature Standard Native
+## CNCF OpenFeature Standard Native
 
 Flagura provides drop-in OpenFeature Providers for **Go**, **TypeScript**, and **Python**:
 - **Zero Vendor Lock-In**: Code against standard OpenFeature APIs.
 - **Real-Time Config Bus**: Automatically emits `ProviderReady` and `ProviderConfigChange` events via SSE streams.
 - **Polyglot Examples**: Complete working applications available in [`examples/`](../../examples/README.md).
 
-👉 **[Read OpenFeature Integration Guide](../integrations/openfeature.md)**
+**[Read OpenFeature Integration Guide](../integrations/openfeature.md)**
 

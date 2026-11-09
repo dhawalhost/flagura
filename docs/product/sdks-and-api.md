@@ -1,4 +1,4 @@
-# 💻 SDKs & REST API Developer Guide
+# SDKs & REST API Developer Guide
 
 This guide details how to integrate Flagura into your applications using the **Official Go SDK**, TypeScript / React, Python, or standard REST API endpoints.
 
@@ -32,7 +32,7 @@ func main() {
 		client.WithProject("proj_default"),                  // scope to project (optional)
 		client.WithEnvironment(domain.EnvProduction),        // default environment scope
 		client.WithLocalEvaluation(30*time.Second),
-		client.WithStreaming(true),                          // <5ms instant updates via SSE
+		client.WithStreaming(true),                          // instant updates via SSE
 		client.WithSnapshotFile("/tmp/flagura-cache.json"),  // 0ms offline cold-boot
 		client.WithCircuitBreaker(5, 10*time.Second),        // 3-state failure circuit breaker
 		client.WithTelemetryFlushInterval(60*time.Second),   // evaluation metrics push
@@ -165,7 +165,7 @@ from flagura import FlaguraClient, EvaluationContext
 client = FlaguraClient(
     endpoint="https://flagura.dev",
     api_key="your-api-key",
-    enable_streaming=True, # <5ms live flag updates
+    enable_streaming=True, # live flag updates
 )
 
 # Register real-time change listener
@@ -281,8 +281,8 @@ ctx = EvaluationContext(targeting_key="usr_123")
 enabled = client.get_boolean_value("ai-smart-search", False, ctx)
 ```
 
-👉 **[Deep-Dive OpenFeature Architecture Guide](../integrations/openfeature.md)**  
-👉 **[Runnable Cross-Language Code Examples (`examples/`)](../../examples/README.md)**
+**[Deep-Dive OpenFeature Architecture Guide](../integrations/openfeature.md)**  
+**[Runnable Cross-Language Code Examples (`examples/`)](../../examples/README.md)**
 
 ---
 
@@ -410,7 +410,7 @@ curl -X DELETE "https://flagura.dev/api/v1/api-keys/key_1788085710350701000_b3f8
 
 ### 8. Disaster Recovery Snapshot & Backup (`GET /api/v1/backup/export`, `POST /api/v1/backup/import`)
 
-Flagura supports full, atomic JSON and gzip-compressed snapshot backups of your entire control plane configuration—flags, targeting rules, environments, API keys, and tamper-evident audit logs.
+Flagura supports full, atomic JSON and gzip-compressed snapshot backups of your entire control plane configuration, flags, targeting rules, environments, API keys, and tamper-evident audit logs.
 
 #### Export Snapshot (Optional Gzip Compression):
 ```bash
@@ -461,13 +461,13 @@ All API errors return standard HTTP status codes accompanied by a structured JSO
 
 | Layer Range | Architectural Subsystem | Example Code | Description |
 |:---|:---|:---|:---|
-| **`1000–1999`** | Security, Auth & RBAC | `1001` (Unauthorized), `1006` (Environment Restricted) | Authentication, permission tokens, environment boundaries |
-| **`2000–2999`** | Multi-Tenancy & Workspaces | `2001` (Org Not Found), `2003` (Project Not Found) | Tenant isolation, organization/project management |
-| **`3000–3999`** | Feature Flag Engine | `3001` (Flag Not Found), `3004` (Invalid Rollout) | Flag resolution, targeting rules, rollout percentages |
-| **`4000–4999`** | Governance & 4-Eyes Approvals | `4001` (CR Not Found), `4002` (Four-Eyes Violation) | Change reviews, author self-approval violations |
-| **`5000–5999`** | Storage & Database Layer | `5001` (DB Connection), `5002` (DB Query Error) | SQL constraints, connection failures |
-| **`6000–6999`** | Transport & Network Layer | `6002` (Circuit Breaker Open), `6003` (Rate Limit) | SSE streams, rate limiting, request validation |
-| **`9000–9999`** | Internal Server Layer | `9001` (Internal Error) | Unhandled panics, system runtime exceptions |
+| **`1000-1999`** | Security, Auth & RBAC | `1001` (Unauthorized), `1006` (Environment Restricted) | Authentication, permission tokens, environment boundaries |
+| **`2000-2999`** | Multi-Tenancy & Workspaces | `2001` (Org Not Found), `2003` (Project Not Found) | Tenant isolation, organization/project management |
+| **`3000-3999`** | Feature Flag Engine | `3001` (Flag Not Found), `3004` (Invalid Rollout) | Flag resolution, targeting rules, rollout percentages |
+| **`4000-4999`** | Governance & 4-Eyes Approvals | `4001` (CR Not Found), `4002` (Four-Eyes Violation) | Change reviews, author self-approval violations |
+| **`5000-5999`** | Storage & Database Layer | `5001` (DB Connection), `5002` (DB Query Error) | SQL constraints, connection failures |
+| **`6000-6999`** | Transport & Network Layer | `6002` (Circuit Breaker Open), `6003` (Rate Limit) | SSE streams, rate limiting, request validation |
+| **`9000-9999`** | Internal Server Layer | `9001` (Internal Error) | Unhandled panics, system runtime exceptions |
 
 ---
 
@@ -530,7 +530,7 @@ On quota exhaustion, Flagura returns `429 Too Many Requests` with a standard `Re
 
 For maintainers and contributors wishing to release new versions of the Flagura SDKs to public registries (**Go Modules**, **NPM**, **PyPI**, **Crates.io**), see the complete operational guide:
 
-👉 **[SDK Release & Publishing Runbook](../runbooks/sdk-publishing.md)**
+**[SDK Release & Publishing Runbook](../runbooks/sdk-publishing.md)**
 
 ---
 

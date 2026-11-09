@@ -53,7 +53,7 @@ func Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.A
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<aside class=\"w-56 fixed lg:sticky top-0 h-screen bg-surface border-r border-neutral-200 p-3 flex flex-col justify-between z-40 transition-transform duration-150 shrink-0\" :class=\"isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'\"><div class=\"space-y-5\"><!-- Logo & Flagura Brand --><div class=\"flex items-center justify-between px-1\"><a href=\"/\" class=\"flex items-center gap-3 group\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<aside class=\"w-60 fixed lg:sticky top-0 h-screen bg-shell p-3 flex flex-col justify-between z-40 transition-transform duration-150 shrink-0\" :class=\"isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'\"><div class=\"space-y-5\"><!-- Logo & Flagura Brand --><div class=\"flex items-center justify-between px-1\"><a href=\"/\" class=\"flex items-center gap-3 group\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -61,7 +61,7 @@ func Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.A
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"flex flex-col\"><span class=\"font-semibold text-neutral-900 text-base leading-none flex items-center gap-1.5\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"flex flex-col\"><span class=\"font-semibold text-neutral-900 text-base leading-none flex items-center gap-2\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -69,7 +69,7 @@ func Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.A
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<span class=\"text-2xs font-mono font-normal text-neutral-400\">v")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<span class=\"text-2xs font-mono font-normal text-neutral-600\">v")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -82,7 +82,7 @@ func Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.A
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</span></span></div></a> <button @click=\"isMobileSidebarOpen = false\" class=\"lg:hidden p-1.5 rounded text-neutral-400 hover:text-neutral-700\"><i data-lucide=\"x\" class=\"w-4 h-4\"></i></button></div><!-- Organization & Project Selector Dropdown --><div class=\"relative\" x-data=\"dropdownComponent()\"><button @click=\"toggle()\" class=\"w-full flex items-center justify-between p-2.5 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-left transition group cursor-pointer\"><div class=\"flex items-center gap-2.5 min-w-0\"><div class=\"min-w-0\"><div class=\"text-2xs font-semibold text-neutral-500 truncate\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</span></span></div></a> <button @click=\"isMobileSidebarOpen = false\" class=\"lg:hidden p-1.5 rounded text-neutral-400 hover:text-neutral-700\"><i data-lucide=\"x\" class=\"w-4 h-4\"></i></button></div><!-- Organization & Project Selector Dropdown --><div class=\"relative\" x-data=\"dropdownComponent()\"><button @click=\"toggle()\" class=\"w-full flex items-center justify-between p-2 rounded-md bg-surface hover:bg-neutral-50 nav-card text-left transition group cursor-pointer\"><div class=\"flex items-center gap-2 min-w-0\"><div class=\"min-w-0\"><div class=\"text-2xs font-semibold text-neutral-500 truncate\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -112,7 +112,7 @@ func Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.A
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></div></div><i data-lucide=\"chevrons-up-down\" class=\"w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-600 shrink-0\"></i></button><!-- Dropdown Menu --><div x-show=\"isOpen\" @click.outside=\"close()\" class=\"absolute left-0 mt-1.5 w-full bg-surface p-2 z-50 shadow-pop border border-neutral-200 rounded-md space-y-1\" style=\"display: none;\" x-transition><div class=\"max-h-56 overflow-y-auto space-y-1.5\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></div></div><i data-lucide=\"chevrons-up-down\" class=\"w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-600 shrink-0\"></i></button><!-- Dropdown Menu --><div x-show=\"isOpen\" @click.outside=\"close()\" class=\"absolute left-0 mt-2 w-full bg-surface p-2 z-50 shadow-pop border border-neutral-200 rounded-xl space-y-1\" style=\"display: none;\" x-transition><div class=\"max-h-56 overflow-y-auto space-y-2\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -149,7 +149,7 @@ func Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.A
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" @click=\"selectProject($el)\" class=\"w-full text-left px-2.5 py-2 rounded-md text-xs flex items-center justify-between hover:bg-neutral-50 text-neutral-700 hover:text-neutral-900 cursor-pointer transition-colors\"><div class=\"truncate\"><div class=\"font-semibold text-neutral-900 truncate\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" @click=\"selectProject($el)\" class=\"w-full text-left px-2 py-2 rounded-md text-xs flex items-center justify-between hover:bg-neutral-50 text-neutral-700 hover:text-neutral-900 cursor-pointer transition-colors\"><div class=\"truncate\"><div class=\"font-semibold text-neutral-900 truncate\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -192,40 +192,40 @@ func Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.A
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</div><div class=\"border-t border-neutral-100 pt-1.5 mt-1 space-y-0.5\"><button @click=\"openCreateProject()\" class=\"w-full text-left px-2.5 py-1.5 rounded text-xs font-semibold text-accent-600 hover:bg-accent-50 flex items-center gap-1.5 cursor-pointer\"><i data-lucide=\"plus\" class=\"w-3.5 h-3.5\"></i> <span>Create Project Scope</span></button> <button @click=\"openInvite()\" class=\"w-full text-left px-2.5 py-1.5 rounded text-xs font-semibold text-neutral-600 hover:bg-neutral-50 flex items-center gap-1.5 cursor-pointer\"><i data-lucide=\"user-plus\" class=\"w-3.5 h-3.5 text-neutral-500\"></i> <span>Invite Team Member</span></button></div></div></div><!-- Navigation Links --><nav class=\"space-y-1\"><!-- 1: Overview --><button @click=\"navigateTo('overview')\" class=\"w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer\" :class=\"activeView === 'overview' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'\"><div class=\"flex items-center gap-2.5\"><i data-lucide=\"layout-dashboard\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Overview</span></div></button><!-- 2: Flags & Rollouts --><button @click=\"navigateTo('flags')\" class=\"w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer\" :class=\"activeView === 'flags' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'\"><div class=\"flex items-center gap-2.5\"><i data-lucide=\"sliders\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Flags & Rollouts</span></div><span class=\"text-2xs font-mono text-neutral-400\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</div><div class=\"border-t border-neutral-100 pt-2 mt-1 space-y-0.5\"><button @click=\"openCreateProject()\" class=\"w-full text-left px-2 py-1.5 rounded text-xs font-semibold text-accent-600 hover:bg-accent-50 flex items-center gap-2 cursor-pointer\"><i data-lucide=\"plus\" class=\"w-3.5 h-3.5\"></i> <span>New project</span></button> <button @click=\"openInvite()\" class=\"w-full text-left px-2 py-1.5 rounded text-xs font-semibold text-neutral-600 hover:bg-neutral-50 flex items-center gap-2 cursor-pointer\"><i data-lucide=\"user-plus\" class=\"w-3.5 h-3.5 text-neutral-500\"></i> <span>Invite teammate</span></button></div></div></div><!-- Navigation Links --><nav class=\"space-y-6\"><div class=\"nav-group\"><p class=\"nav-label\">Release</p><!-- 1: Overview --><button @click=\"navigateTo('overview')\" class=\"w-full flex items-center justify-between px-3 h-9 rounded-md text-sm font-normal transition-colors cursor-pointer\" :class=\"activeView === 'overview' ? 'nav-active' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'\"><div class=\"flex items-center gap-2\"><i data-lucide=\"layout-dashboard\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Overview</span></div></button><!-- 2: Flags --><button @click=\"navigateTo('flags')\" class=\"w-full flex items-center justify-between px-3 h-9 rounded-md text-sm font-normal transition-colors cursor-pointer\" :class=\"activeView === 'flags' ? 'nav-active' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'\"><div class=\"flex items-center gap-2\"><i data-lucide=\"sliders\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Flags</span></div><span class=\"text-2xs font-mono text-neutral-600\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%02d", len(flags)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/sidebar.templ`, Line: 151, Col: 88}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/sidebar.templ`, Line: 152, Col: 88}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</span></button><!-- 3: Analytics & Telemetry --><button @click=\"navigateTo('analytics')\" class=\"w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer\" :class=\"activeView === 'analytics' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'\"><div class=\"flex items-center gap-2.5\"><i data-lucide=\"bar-chart-3\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Analytics & Telemetry</span></div></button><!-- 4: Live Evaluator --><button @click=\"navigateTo('evaluator')\" class=\"w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer\" :class=\"activeView === 'evaluator' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'\"><div class=\"flex items-center gap-2.5\"><i data-lucide=\"zap\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Live Evaluator</span></div></button><!-- 5: Latency Benchmark --><button @click=\"navigateTo('benchmark')\" class=\"w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer\" :class=\"activeView === 'benchmark' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'\"><div class=\"flex items-center gap-2.5\"><i data-lucide=\"activity\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Latency Benchmark</span></div></button><!-- 6: Audit Trail --><button @click=\"navigateTo('audit')\" class=\"w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer\" :class=\"activeView === 'audit' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'\"><div class=\"flex items-center gap-2.5\"><i data-lucide=\"file-text\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Audit Trail</span></div><span class=\"text-2xs font-mono text-neutral-400\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</span></button><!-- 8: 4-Eyes Approvals --><button @click=\"openGovernanceModal()\" class=\"w-full flex items-center justify-between px-3 h-9 rounded-md text-sm font-normal transition-colors cursor-pointer text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900\"><div class=\"flex items-center gap-2\"><i data-lucide=\"shield-check\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Approvals</span></div></button></div><div class=\"nav-group\"><p class=\"nav-label\">Inspect</p><!-- 4: Evaluator --><button @click=\"navigateTo('evaluator')\" class=\"w-full flex items-center justify-between px-3 h-9 rounded-md text-sm font-normal transition-colors cursor-pointer\" :class=\"activeView === 'evaluator' || activeView === 'benchmark' ? 'nav-active' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'\"><div class=\"flex items-center gap-2\"><i data-lucide=\"zap\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Evaluator</span></div></button><!-- 3: Analytics --><button @click=\"navigateTo('analytics')\" class=\"w-full flex items-center justify-between px-3 h-9 rounded-md text-sm font-normal transition-colors cursor-pointer\" :class=\"activeView === 'analytics' ? 'nav-active' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'\"><div class=\"flex items-center gap-2\"><i data-lucide=\"bar-chart-3\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Analytics</span></div></button><!-- 6: Audit trail --><button @click=\"navigateTo('audit')\" class=\"w-full flex items-center justify-between px-3 h-9 rounded-md text-sm font-normal transition-colors cursor-pointer\" :class=\"activeView === 'audit' ? 'nav-active' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'\"><div class=\"flex items-center gap-2\"><i data-lucide=\"file-text\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Audit trail</span></div><span class=\"text-2xs font-mono text-neutral-600\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", len(auditLogs)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/sidebar.templ`, Line: 203, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/sidebar.templ`, Line: 202, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</span></button><!-- 7: SDK Quickstart --><button @click=\"navigateTo('sdk')\" class=\"w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer\" :class=\"activeView === 'sdk' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'\"><div class=\"flex items-center gap-2.5\"><i data-lucide=\"code-2\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">SDK Quickstart</span></div></button><!-- 8: 4-Eyes Change Approvals --><button @click=\"openGovernanceModal()\" class=\"w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900\"><div class=\"flex items-center gap-2.5\"><i data-lucide=\"shield-check\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Change Approvals</span></div></button><!-- 9: Profile Settings --><button @click=\"navigateTo('profile')\" class=\"w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer\" :class=\"activeView === 'profile' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'\"><div class=\"flex items-center gap-2.5\"><i data-lucide=\"user-cog\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Profile Settings</span></div></button></nav></div><div class=\"pt-3 border-t border-neutral-200\"><button @click=\"navigateTo('profile')\" class=\"w-full text-left text-xs text-neutral-600 hover:text-neutral-900 truncate transition-colors cursor-pointer\" title=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</span></button></div><div class=\"nav-group\"><p class=\"nav-label\">Connect</p><!-- 7: SDKs --><button @click=\"navigateTo('sdk')\" class=\"w-full flex items-center justify-between px-3 h-9 rounded-md text-sm font-normal transition-colors cursor-pointer\" :class=\"activeView === 'sdk' ? 'nav-active' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'\"><div class=\"flex items-center gap-2\"><i data-lucide=\"code-2\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">SDKs</span></div></button><!-- API Keys --><button @click=\"navigateTo('apikeys')\" class=\"w-full flex items-center justify-between px-3 h-9 rounded-md text-sm font-normal transition-colors cursor-pointer\" :class=\"activeView === 'apikeys' ? 'nav-active' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'\"><div class=\"flex items-center gap-2\"><i data-lucide=\"key\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">API keys</span></div></button></div><div class=\"nav-group\"><!-- 9: Settings --><button @click=\"navigateTo('profile')\" class=\"w-full flex items-center justify-between px-3 h-9 rounded-md text-sm font-normal transition-colors cursor-pointer\" :class=\"activeView === 'profile' ? 'nav-active' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'\"><div class=\"flex items-center gap-2\"><i data-lucide=\"user-cog\" class=\"w-4 h-4\"></i> <span class=\"font-sans font-medium\">Settings</span></div></button></div></nav></div><div class=\"pt-3 border-t border-neutral-200\"><button @click=\"navigateTo('profile')\" class=\"w-full text-left text-xs text-neutral-600 hover:text-neutral-900 truncate transition-colors cursor-pointer\" title=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(user.Email)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/sidebar.templ`, Line: 250, Col: 22}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/sidebar.templ`, Line: 252, Col: 22}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 		if templ_7745c5c3_Err != nil {
@@ -239,7 +239,7 @@ func Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.A
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(user.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/sidebar.templ`, Line: 253, Col: 16}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/sidebar.templ`, Line: 255, Col: 16}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {

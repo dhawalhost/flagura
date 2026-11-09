@@ -34,12 +34,12 @@ func GovernanceModal(user *domain.User, changeRequests []domain.ChangeRequest) t
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div x-data=\"governanceModalComponent()\" @open-governance-modal.window=\"open = true\" @keydown.escape.window=\"close\" x-show=\"open\" x-cloak class=\"fixed inset-0 z-50 overflow-y-auto\" aria-labelledby=\"modal-title\" role=\"dialog\" aria-modal=\"true\"><!-- Backdrop --><div x-show=\"open\" x-transition:enter=\"ease-out duration-150\" x-transition:enter-start=\"opacity-0\" x-transition:enter-end=\"opacity-100\" x-transition:leave=\"ease-in duration-200\" x-transition:leave-start=\"opacity-100\" x-transition:leave-end=\"opacity-0\" class=\"fixed inset-0 bg-scrim/40 transition-opacity\" @click=\"close\"></div><div class=\"flex min-h-full items-center justify-center p-4 text-center sm:p-4\"><div x-show=\"open\" x-transition:enter=\"ease-out duration-150\" x-transition:enter-start=\"opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95\" x-transition:enter-end=\"opacity-100 translate-y-0 sm:scale-100\" x-transition:leave=\"ease-in duration-200\" x-transition:leave-start=\"opacity-100 translate-y-0 sm:scale-100\" x-transition:leave-end=\"opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95\" class=\"relative w-full max-w-4xl transform overflow-hidden rounded-md bg-surface border border-neutral-200 text-left shadow-2xl transition-colors\" @click.away=\"close\"><!-- Header --><div class=\"flex items-center justify-between border-b border-neutral-100 bg-surface px-6 py-4\"><div class=\"flex items-center space-x-3\"><div><h3 class=\"text-base font-semibold text-neutral-900 flex items-center gap-2\">Change approvals</h3><p class=\"text-xs text-neutral-500 font-sans\">Review, approve, and audit production flag mutations before deployment.</p></div></div><button @click=\"close\" class=\"rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition cursor-pointer\"><i data-lucide=\"x\" class=\"h-5 w-5\"></i></button></div><!-- Content Body --><div class=\"p-4\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div x-data=\"governanceModalComponent()\" @open-governance-modal.window=\"open = true\" @keydown.escape.window=\"close\" x-show=\"open\" x-cloak class=\"fixed inset-0 z-50 overflow-y-auto\" aria-labelledby=\"modal-title\" role=\"dialog\" aria-modal=\"true\"><!-- Backdrop --><div x-show=\"open\" x-transition:enter=\"ease-out duration-150\" x-transition:enter-start=\"opacity-0\" x-transition:enter-end=\"opacity-100\" x-transition:leave=\"ease-in duration-200\" x-transition:leave-start=\"opacity-100\" x-transition:leave-end=\"opacity-0\" class=\"fixed inset-0 bg-scrim/40 transition-opacity\" @click=\"close\"></div><div class=\"flex min-h-full items-center justify-center p-4 text-center sm:p-4\"><div x-show=\"open\" x-transition:enter=\"ease-out duration-150\" x-transition:enter-start=\"opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95\" x-transition:enter-end=\"opacity-100 translate-y-0 sm:scale-100\" x-transition:leave=\"ease-in duration-200\" x-transition:leave-start=\"opacity-100 translate-y-0 sm:scale-100\" x-transition:leave-end=\"opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95\" class=\"relative w-full max-w-4xl transform overflow-hidden rounded-xl bg-surface border border-neutral-200 text-left shadow-pop transition-colors\" @click.away=\"close\"><!-- Header --><div class=\"flex items-center justify-between border-b border-neutral-100 bg-surface px-6 py-4\"><div class=\"flex items-center space-x-3\"><div><h3 class=\"text-base font-semibold text-neutral-900 flex items-center gap-2\">Change approvals</h3><p class=\"text-xs text-neutral-500 font-sans\">Review, approve, and audit production flag mutations before deployment</p></div></div><button @click=\"close\" class=\"rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition cursor-pointer\"><i data-lucide=\"x\" class=\"h-5 w-5\"></i></button></div><!-- Content Body --><div class=\"p-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(changeRequests) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"py-12 text-center space-y-3\"><div class=\"mx-auto flex h-14 w-14 items-center justify-center rounded-md bg-ok-50 text-ok-600 border border-ok-200 mb-2\"><i data-lucide=\"check-circle-2\" class=\"h-7 w-7 text-ok-600\"></i></div><h4 class=\"text-base font-semibold text-neutral-900\">No Pending Change Requests</h4><p class=\"text-xs text-neutral-500 max-w-sm mx-auto font-sans leading-relaxed\">All production configurations are synced. New change proposals requiring peer review will appear here.</p></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"py-12 text-center space-y-3\"><div class=\"mx-auto flex h-14 w-14 items-center justify-center rounded-md bg-ok-50 text-ok-600 border border-ok-200 mb-2\"><i data-lucide=\"check-circle-2\" class=\"h-7 w-7 text-ok-600\"></i></div><h4 class=\"text-base font-semibold text-neutral-900\">No changes waiting for approval</h4><p class=\"text-xs text-neutral-500 max-w-sm mx-auto font-sans leading-relaxed\">All production configurations are synced. New change proposals requiring peer review will appear here.</p></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -49,7 +49,7 @@ func GovernanceModal(user *domain.User, changeRequests []domain.ChangeRequest) t
 				return templ_7745c5c3_Err
 			}
 			for _, cr := range changeRequests {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"rounded-md border border-neutral-200 bg-neutral-50/50 p-5 hover:border-neutral-300 transition-colors font-mono\"><div class=\"flex items-start justify-between gap-4\"><div class=\"space-y-1.5\"><div class=\"flex items-center gap-2 flex-wrap\"><span class=\"font-mono text-sm font-medium text-accent-700\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"rounded-md border border-neutral-200 bg-neutral-50/50 p-5 hover:border-neutral-300 transition-colors font-mono\"><div class=\"flex items-start justify-between gap-4\"><div class=\"space-y-2\"><div class=\"flex items-center gap-2 flex-wrap\"><span class=\"font-mono text-sm font-medium text-accent-700\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -62,7 +62,7 @@ func GovernanceModal(user *domain.User, changeRequests []domain.ChangeRequest) t
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</span> <span class=\"rounded bg-ok-50 px-2 py-0.5 text-xs font-semibold text-ok-700 border border-ok-200\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</span> <span class=\"badge badge-ok\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -75,7 +75,7 @@ func GovernanceModal(user *domain.User, changeRequests []domain.ChangeRequest) t
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</span> <span class=\"rounded bg-warn-50 px-2 py-0.5 text-xs font-medium text-warn-700 border border-warn-200\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</span> <span class=\"badge badge-warn\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -137,27 +137,27 @@ func GovernanceModal(user *domain.User, changeRequests []domain.ChangeRequest) t
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</strong></span> <span>•</span> <span>Strategy: <strong class=\"text-neutral-900\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</strong></span> <span>Strategy: <strong class=\"text-neutral-900\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(string(cr.ProposedConfig.Strategy))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/governance_modal.templ`, Line: 94, Col: 97}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/governance_modal.templ`, Line: 93, Col: 97}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</strong></span> <span>•</span> <span>Rollout: <strong class=\"text-accent-600\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</strong></span> <span>Rollout: <strong class=\"text-accent-600\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f%%", cr.ProposedConfig.Percentage))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/governance_modal.templ`, Line: 96, Col: 112}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/governance_modal.templ`, Line: 94, Col: 112}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -169,7 +169,7 @@ func GovernanceModal(user *domain.User, changeRequests []domain.ChangeRequest) t
 				}
 				if cr.Status == domain.ChangeRequestStatusPending {
 					if user != nil && user.Email == cr.AuthorEmail {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div class=\"text-right\"><span class=\"inline-flex items-center gap-1.5 rounded-md bg-warn-50 px-3 py-1.5 text-xs font-medium text-warn-700 border border-warn-200\"><i data-lucide=\"alert-circle\" class=\"h-3.5 w-3.5\"></i> Awaiting Peer Review (Self-Approval Prohibited)</span></div>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div class=\"text-right\"><span class=\"inline-flex items-center gap-2 rounded-md bg-warn-50 px-3 py-1.5 text-xs font-medium text-warn-700 border border-warn-200\"><i data-lucide=\"alert-circle\" class=\"h-3.5 w-3.5\"></i> Awaiting Peer Review (Self-Approval Prohibited)</span></div>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -181,26 +181,26 @@ func GovernanceModal(user *domain.User, changeRequests []domain.ChangeRequest) t
 						var templ_7745c5c3_Var10 string
 						templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(cr.ID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/governance_modal.templ`, Line: 112, Col: 32}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/governance_modal.templ`, Line: 110, Col: 32}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" data-approved=\"true\" @click=\"handleReviewClick\" :disabled=\"submitting\" class=\"inline-flex items-center gap-1.5 rounded-md bg-accent-600 hover:bg-accent-700 px-4 py-2 text-xs font-medium text-surface transition-colors cursor-pointer disabled:opacity-50\"><i data-lucide=\"check\" class=\"h-3.5 w-3.5 text-surface\"></i> Approve &amp; Apply</button> <button data-cr-id=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" data-approved=\"true\" @click=\"handleReviewClick\" :disabled=\"submitting\" class=\"inline-flex items-center gap-2 rounded-md bg-accent-600 hover:bg-accent-700 px-4 py-2 text-xs font-medium text-surface transition-colors cursor-pointer disabled:opacity-50\"><i data-lucide=\"check\" class=\"h-3.5 w-3.5 text-surface\"></i> Approve &amp; Apply</button> <button data-cr-id=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var11 string
 						templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(cr.ID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/governance_modal.templ`, Line: 122, Col: 32}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/governance_modal.templ`, Line: 120, Col: 32}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" data-approved=\"false\" @click=\"handleReviewClick\" :disabled=\"submitting\" class=\"inline-flex items-center gap-1.5 rounded-md bg-danger-50 border border-danger-200 px-3 py-2 text-xs font-semibold text-danger-600 hover:bg-danger-100 transition-colors cursor-pointer disabled:opacity-50\"><i data-lucide=\"x\" class=\"h-3.5 w-3.5\"></i> Reject</button></div>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" data-approved=\"false\" @click=\"handleReviewClick\" :disabled=\"submitting\" class=\"btn btn-danger disabled:opacity-50\"><i data-lucide=\"x\" class=\"h-3.5 w-3.5\"></i> Reject</button></div>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -216,7 +216,7 @@ func GovernanceModal(user *domain.User, changeRequests []domain.ChangeRequest) t
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div><!-- Footer --><div class=\"flex items-center justify-between border-t border-neutral-100 bg-neutral-50 px-6 py-4 text-xs text-neutral-500\"><span></span> <button @click=\"close\" class=\"rounded-md bg-neutral-200 px-4 py-2 font-semibold text-neutral-800 hover:bg-neutral-300 transition cursor-pointer\">Close</button></div></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div><!-- Footer --><div class=\"flex items-center justify-between border-t border-neutral-100 bg-neutral-50 px-6 py-4 text-xs text-neutral-500\"><span></span> <button @click=\"close\" class=\"btn\">Close</button></div></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

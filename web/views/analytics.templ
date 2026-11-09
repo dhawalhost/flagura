@@ -9,23 +9,23 @@ templ AnalyticsDashboard(flags []domain.FeatureFlag) {
 	<div class="space-y-5" x-show="activeView === 'analytics'" x-cloak x-data="analyticsViewComponent()">
 		<!-- Page Header -->
 		<div class="page-head flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-			<p class="text-sm text-neutral-500">Evaluation volume reported by connected SDKs over the last 24 hours.</p>
+			<p class="text-sm text-neutral-500">Evaluation volume reported by connected SDKs over the last 24 hours</p>
 
 			<!-- Global actions -->
-			<div class="flex items-center gap-2.5">
+			<div class="flex items-center gap-2">
 				<button
 					@click="navigateTo('flags')"
-					class="px-3.5 py-2 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-xs font-semibold text-neutral-700 transition-colors cursor-pointer flex items-center gap-1.5"
+					class="btn"
 				>
 					<i data-lucide="sliders" class="h-3.5 w-3.5 text-neutral-500"></i>
-					<span>Manage Flags</span>
+					<span>Manage flags</span>
 				</button>
 				<button
 					@click="navigateTo('evaluator')"
-					class="px-4 py-2 rounded-md bg-accent-600 hover:bg-accent-700 text-xs font-medium text-surface transition-colors cursor-pointer flex items-center gap-1.5"
+					class="btn btn-primary"
 				>
 					<i data-lucide="zap" class="h-3.5 w-3.5 text-surface"></i>
-					<span>Live Sandbox</span>
+					<span>Open evaluator</span>
 				</button>
 			</div>
 		</div>
@@ -50,9 +50,9 @@ templ AnalyticsDashboard(flags []domain.FeatureFlag) {
 				</div>
 				<div class="flex items-center gap-2">
 					<select 
-						x-model="selectedAnalyticsFlag" 
+						aria-label="Choose flag" x-model="selectedAnalyticsFlag" 
 						@change="updateAnalyticsChart()"
-						class="bg-surface border border-neutral-200 rounded-md px-3.5 py-2 font-mono text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors"
+						class="field font-mono"
 					>
 						<option value="all">All flags</option>
 						for _, f := range flags {
@@ -77,33 +77,32 @@ templ AnalyticsDashboard(flags []domain.FeatureFlag) {
 
 			<div class="overflow-x-auto">
 				<table class="w-full text-left text-xs font-mono">
-					<thead class="bg-neutral-50 text-neutral-500 text-2xs border-b border-neutral-200">
+					<thead class="border-b border-neutral-200 text-xs text-neutral-500">
 						<tr>
-							<th class="px-4 py-3 font-medium">Key</th>
-							<th class="px-4 py-3 font-medium">Rollout</th>
-							<th class="px-4 py-3 font-medium">Strategy</th>
-							<th class="px-4 py-3 text-right font-medium">Actions</th>
+							<th class="px-4 py-2 font-normal">Key</th>
+							<th class="px-4 py-2 font-normal">Rollout</th>
+							<th class="px-4 py-2 font-normal">Strategy</th>
+							<th class="px-4 py-2 text-right font-normal">Actions</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-neutral-100">
 						for _, f := range flags {
-							<tr class="hover:bg-neutral-50 transition-colors">
-								<td class="px-4 py-3.5">
+							<tr class="group hover:bg-neutral-50 transition-colors">
+								<td class="px-4 py-4">
 									<div class="font-medium text-neutral-900 font-mono">{ f.Key }</div>
 									<div class="text-xs text-neutral-500 mt-0.5 font-sans">{ f.Name }</div>
 								</td>
-								<td class="px-4 py-3.5 font-mono text-neutral-800">{ fmt.Sprintf("%.0f%%", f.ProdPercentage()) }</td>
-								<td class="px-4 py-3.5">
+								<td class="px-4 py-4 font-mono text-neutral-800"><div class="flex items-center gap-2"><span class="rollbar" aria-hidden="true"><span :style={ fmt.Sprintf("'width: %.0f%%'", f.ProdPercentage()) }></span></span>{ fmt.Sprintf("%.0f%%", f.ProdPercentage()) }</div></td>
+								<td class="px-4 py-4">
 									<span class="font-mono text-xs text-neutral-600">{ f.ProdStrategy() }</span>
 								</td>
-								<td class="px-4 py-3.5 text-right">
+								<td class="px-4 py-4 text-right">
 									<button 
 										data-key={ f.Key }
 										@click="openEvaluatorForFlag($el)"
-										class="text-accent-600 hover:underline font-semibold flex items-center gap-1 justify-end ml-auto cursor-pointer font-sans"
+										class="text-accent-600 hover:underline flex items-center gap-1 justify-end ml-auto cursor-pointer lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100 transition-opacity"
 									>
-										<span>Test in Sandbox</span>
-										<i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
+										<span>Test</span>
 									</button>
 								</td>
 							</tr>

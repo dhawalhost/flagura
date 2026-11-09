@@ -1,10 +1,10 @@
-# 📚 Flagura Operations & SRE Runbooks
+# Flagura Operations & SRE Runbooks
 
 This directory contains the operational runbooks and standard operating procedures (SOPs) for maintaining, deploying, troubleshooting, and securing the **Flagura** feature flagging platform in production.
 
 ---
 
-## ⚡ Emergency Quick Reference (P0 / P1 Incidents)
+## Emergency Quick Reference (P0 / P1 Incidents)
 
 | Incident Scenario | Severity | Immediate Action | Runbook Link |
 | :--- | :---: | :--- | :--- |
@@ -12,13 +12,13 @@ This directory contains the operational runbooks and standard operating procedur
 | **PostgreSQL Outage / Connection Drop** | **P1** | Flagura automatically falls back to In-Memory Edge Store. Check Supabase Pooler status | [Database Incident Response](incident-response.md#2-database-connectivity-outage--edge-fallback-p1) |
 | **High Latency (> 10ms on Evaluation)** | **P1** | Check network latency / switch client SDK to Local In-Memory Evaluation mode | [Latency & Performance Runbook](incident-response.md#3-high-evaluation-latency-troubleshooting-p1) |
 | **Compromised Admin Credentials** | **P0** | Revoke sessions in `sessions` table, update bcrypt hash, rotate API keys | [Security & Credential Revocation](security-and-access.md#4-compromised-credentials--session-revocation) |
-| **Data Loss / Database Corruption** | **P0** | Restore from latest verified snapshot via `flagura backup restore --file <snapshot>` | [Disaster Recovery Runbook](disaster-recovery.md#2-restoration-procedure) |
+| **Data Loss / Database Corruption** | **P0** | Restore from latest verified snapshot via `flagura backup restore --file <snapshot>` | [Disaster Recovery Runbook](disaster-recovery.md) |
 | **Email / Password Reset Outage** | **P2** | Check SMTP logs or perform manual database password reset via SQL | [Email Delivery Remediation](incident-response.md#5-email-delivery--password-reset-failures-p2) |
 | **Failed Deployment / Build Error** | **P2** | Rollback Vercel / Docker deployment to previous stable release SHA | [Deployment & Rollback Runbook](deployment.md#4-rollback-procedures) |
 
 ---
 
-## 📑 Runbook Directory
+## Runbook Directory
 
 1. **[Deployment & Release Management](deployment.md)**
    - Complete Environment Variables Reference

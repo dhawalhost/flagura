@@ -9,6 +9,7 @@ import (
 type envSummary struct {
 	Name    string
 	Enabled int
+	Full    int
 	Partial int
 	Off     int
 }
@@ -31,6 +32,7 @@ func summarizeEnvironments(flags []domain.FeatureFlag) []envSummary {
 				summary.Partial++
 				summary.Enabled++
 			default:
+				summary.Full++
 				summary.Enabled++
 			}
 		}
@@ -50,92 +52,156 @@ func changesInLastDay(audits []domain.AuditLogEntry) int {
 	return count
 }
 
+func pendingRequests(requests []domain.ChangeRequest) []domain.ChangeRequest {
+	pending := make([]domain.ChangeRequest, 0, len(requests))
+	for _, r := range requests {
+		if r.Status == domain.ChangeRequestStatusPending {
+			pending = append(pending, r)
+		}
+	}
+	return pending
+}
+
+func flagsNeedingCleanup(flags []domain.FeatureFlag) []domain.FeatureFlag {
+	matches := make([]domain.FeatureFlag, 0, len(flags))
+	for _, f := range flags {
+		status := domain.AnalyzeFlagHealth(f).Status
+		if status == domain.HealthStatusStale || status == domain.HealthStatusDead {
+			matches = append(matches, f)
+		}
+	}
+	return matches
+}
+
+func partialProductionFlags(flags []domain.FeatureFlag) []domain.FeatureFlag {
+	matches := make([]domain.FeatureFlag, 0, len(flags))
+	for _, f := range flags {
+		if isPartialRollout(f.ProdConfig()) {
+			matches = append(matches, f)
+		}
+	}
+	return matches
+}
+
+func leafState(cfg domain.EnvironmentConfig) string {
+	switch {
+	case !cfg.Enabled:
+		return "off"
+	case isPartialRollout(cfg):
+		return "partial"
+	default:
+		return "on"
+	}
+}
+
+func metricName(base string, env string) string {
+	if env == "production" {
+		return base
+	}
+	return base + "-" + env
+}
+
 templ overviewMetric(label string, metric string, value int) {
-	<div class="px-4 py-3">
-		<div class="text-xs text-neutral-500">{ label }</div>
-		<div class="mt-0.5 text-2xl font-semibold font-mono text-neutral-900" data-metric={ metric }>{ fmt.Sprintf("%d", value) }</div>
+	<div class="px-5 py-4">
+		<div class="text-xs text-neutral-600">{ label }</div>
+		<div class="mt-1 text-4xl font-medium font-mono text-neutral-900" data-metric={ metric }>{ fmt.Sprintf("%d", value) }</div>
 	</div>
 }
 
-templ BentoOverview(flags []domain.FeatureFlag, audits []domain.AuditLogEntry, driverName string) {
-	{{ prod := summarizeEnvironments(flags)[0] }}
-	<div class="space-y-4" x-show="activeView === 'overview'" x-cloak>
-		<div class="panel grid grid-cols-2 lg:grid-cols-4 divide-x divide-neutral-200">
-			@overviewMetric("Flags", "total", len(flags))
-			@overviewMetric("On in production", "enabled", prod.Enabled)
-			<div class="border-t border-neutral-200 lg:border-t-0">
-				@overviewMetric("Partial rollouts", "partial", prod.Partial)
-			</div>
-			<div class="border-t border-neutral-200 lg:border-t-0">
-				@overviewMetric("Changes, last 24h", "changes", changesInLastDay(audits))
-			</div>
-		</div>
+templ needsHeading(text string, count int) {
+	<h4 class="px-4 pt-3 pb-1 text-xs text-neutral-500">{ text } <span class="font-mono">{ fmt.Sprintf("%d", count) }</span></h4>
+}
 
-		<div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-			<section class="lg:col-span-8 panel flex flex-col overflow-hidden">
-				<div class="px-4 py-2.5 border-b border-neutral-200 flex items-center justify-between">
-					<h3 class="text-sm text-neutral-900">Production flags</h3>
-					<button @click="navigateTo('flags')" class="text-xs text-accent-600 hover:underline cursor-pointer">All flags</button>
+templ BentoOverview(flags []domain.FeatureFlag, audits []domain.AuditLogEntry, changeRequests []domain.ChangeRequest, driverName string) {
+	{{ pending := pendingRequests(changeRequests) }}
+	{{ cleanup := flagsNeedingCleanup(flags) }}
+	{{ rolling := partialProductionFlags(flags) }}
+	<div class="space-y-4" x-show="activeView === 'overview'" x-cloak>
+		for _, env := range summarizeEnvironments(flags) {
+			<section class="on-ink hero-band fold-bottom [--fold:24px] rounded-t-xl" x-show={ "currentEnv === '" + env.Name + "'" }>
+				<div class="grid grid-cols-2 lg:grid-cols-4 divide-x divide-neutral-200">
+					@overviewMetric("Flags", metricName("total", env.Name), len(flags))
+					@overviewMetric("On in "+env.Name, metricName("enabled", env.Name), env.Enabled)
+					@overviewMetric("Partial rollouts", metricName("partial", env.Name), env.Partial)
+					@overviewMetric("Changes, last 24h", metricName("changes", env.Name), changesInLastDay(audits))
 				</div>
-				<div class="overflow-x-auto">
-					<table class="w-full text-left text-sm">
-						<thead class="border-b border-neutral-200 text-xs text-neutral-500">
-							<tr>
-								<th class="py-2 px-4 font-normal">Key</th>
-								<th class="py-2 px-3 font-normal">State</th>
-								<th class="py-2 px-3 font-normal hidden sm:table-cell">Type</th>
-								<th class="py-2 px-4 font-normal text-right">Toggle</th>
-							</tr>
-						</thead>
-						<tbody class="divide-y divide-neutral-100">
-							for i, f := range flags {
-								if i < 7 {
-									<tr 
-										class="hover:bg-neutral-50 transition-colors"
-										x-data="flagRowComponent()"
-										data-key={ f.Key }
-										data-envs={ f.EnvironmentsJSON() }
-									>
-										<td class="py-2 px-4">
-											<div class="font-mono text-neutral-900">{ f.Key }</div>
-											<div class="text-xs text-neutral-500 truncate max-w-[9rem] sm:max-w-xs">{ f.Name }</div>
-										</td>
-										<td class="py-2 px-3 whitespace-nowrap">
-											<span 
-												class="text-xs font-medium"
-												:class="isProd ? (prodPct < 100 ? 'text-warn-700' : 'text-ok-700') : 'text-neutral-500'"
-												x-text="isProd ? (prodPct < 100 ? 'On, ' + prodPct + '%' : 'On') : 'Off'"
-											></span>
-										</td>
-										<td class="py-2 px-3 hidden sm:table-cell font-mono text-xs text-neutral-500">{ f.Type }</td>
-										<td class="py-2 px-4 text-right">
-											<button
-												@click.stop="toggleProd"
-												aria-label={ "Toggle " + f.Key + " in production" }
-												class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150"
-												:class="isProd ? 'bg-ok-600' : 'bg-neutral-300'"
-											>
-												<span 
-													class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-surface transition duration-150"
-													:class="isProd ? 'translate-x-3' : 'translate-x-0'"
-												></span>
-											</button>
-										</td>
-									</tr>
-								}
-							}
-							if len(flags) == 0 {
-								<tr>
-									<td colspan="4" class="p-6 text-center text-neutral-500">No flags yet. Create one to get started.</td>
-								</tr>
-							}
-						</tbody>
-					</table>
+				if len(flags) > 0 {
+					<div class="leaf-strip px-5 pb-5 flex flex-wrap gap-x-2 gap-y-1" role="img" aria-label={ fmt.Sprintf("%d of %d flags on in %s", env.Enabled, len(flags), env.Name) }>
+						for _, f := range flags {
+							<span title={ f.Key + ": " + leafState(f.EnvConfig(env.Name)) } class={ "leaf leaf-" + leafState(f.EnvConfig(env.Name)) }>
+								<svg viewBox="78 82 105 58" aria-hidden="true"><path d="M183 82H123C99 82 90 98 85 116C82 125 80 133 78 140C87 130 99 124 115 124H131C159 124 177 108 183 82Z"></path></svg>
+							</span>
+						}
+					</div>
+				}
+			</section>
+		}
+
+		<div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+			<section class="lg:col-span-7 panel overflow-hidden">
+				<div class="px-4 py-2 border-b border-neutral-200">
+					<h3 class="text-sm text-neutral-900">Needs you</h3>
 				</div>
+				if len(pending) == 0 && len(cleanup) == 0 && len(rolling) == 0 {
+					<p class="p-6 text-center text-sm text-neutral-500">Nothing needs you right now</p>
+				}
+				if len(pending) > 0 {
+					@needsHeading("Waiting for approval", len(pending))
+					<ul class="divide-y divide-neutral-100">
+						for _, r := range pending {
+							<li class="px-4 py-2 flex items-center justify-between gap-3">
+								<div class="min-w-0">
+									<div class="text-sm text-neutral-900 truncate">{ r.Title }</div>
+									<div class="text-xs text-neutral-500 truncate"><span class="font-mono">{ r.FlagKey }</span> by { r.AuthorEmail }</div>
+								</div>
+								<button type="button" @click="openGovernanceModal()" class="btn shrink-0">Review</button>
+							</li>
+						}
+					</ul>
+				}
+				if len(cleanup) > 0 {
+					@needsHeading("Ready to clean up", len(cleanup))
+					<ul class="divide-y divide-neutral-100">
+						for _, f := range cleanup {
+							{{ report := domain.AnalyzeFlagHealth(f) }}
+							<li class="px-4 py-2 flex items-center justify-between gap-3" x-data="flagRowComponent()" data-key={ f.Key } data-envs={ f.EnvironmentsJSON() }>
+								<div class="min-w-0">
+									<div class="font-mono text-sm text-neutral-900 truncate">{ f.Key }</div>
+									<div class="text-xs text-neutral-500 truncate">{ report.Reason }</div>
+								</div>
+								<button
+									type="button"
+									data-health-key={ f.Key }
+									data-health-name={ f.Name }
+									data-health-status={ report.Status }
+									data-health-reason={ report.Reason }
+									data-health-action={ report.SuggestedAction }
+									@click="openHygiene($el)"
+									class="btn shrink-0"
+								>Clean up</button>
+							</li>
+						}
+					</ul>
+				}
+				if len(rolling) > 0 {
+					@needsHeading("Rolling out in production", len(rolling))
+					<ul class="divide-y divide-neutral-100">
+						for _, f := range rolling {
+							<li class="px-4 py-2 flex items-center justify-between gap-3" x-data="flagRowComponent()" data-key={ f.Key } data-envs={ f.EnvironmentsJSON() }>
+								<div class="min-w-0 flex items-center gap-3">
+									<span class="font-mono text-sm text-neutral-900 truncate">{ f.Key }</span>
+									<span class="rollbar" aria-hidden="true"><span :style="'width: ' + prodPct + '%'"></span></span>
+									<span class="font-mono text-xs text-warn-700" x-text="prodPct + '%'"></span>
+								</div>
+								<button type="button" data-key={ f.Key } @click="openEditFlag($el)" class="btn shrink-0">Adjust</button>
+							</li>
+						}
+					</ul>
+				}
 			</section>
 
-			<section class="lg:col-span-4 panel flex flex-col overflow-hidden">
-				<div class="px-4 py-2.5 border-b border-neutral-200 flex items-center justify-between">
+			<section class="lg:col-span-5 panel overflow-hidden">
+				<div class="px-4 py-2 border-b border-neutral-200 flex items-center justify-between">
 					<h3 class="text-sm text-neutral-900">Recent changes</h3>
 					<button @click="navigateTo('audit')" class="text-xs text-accent-600 hover:underline cursor-pointer">Audit trail</button>
 				</div>
@@ -145,7 +211,7 @@ templ BentoOverview(flags []domain.FeatureFlag, audits []domain.AuditLogEntry, d
 							<li class="px-4 py-2">
 								<div class="flex items-center justify-between gap-2">
 									<span class="font-mono text-sm text-neutral-900 truncate">{ a.FlagKey }</span>
-									<span class="font-mono text-2xs text-neutral-400 shrink-0">{ a.Timestamp.Format("15:04:05") }</span>
+									<span class="font-mono text-2xs text-neutral-500 shrink-0">{ a.Timestamp.Format("15:04:05") }</span>
 								</div>
 								<div class="text-xs text-neutral-500 truncate">
 									<span class="font-mono">{ string(a.Action) }</span> by { a.Actor }
@@ -160,21 +226,64 @@ templ BentoOverview(flags []domain.FeatureFlag, audits []domain.AuditLogEntry, d
 			</section>
 		</div>
 
+		<section class="panel overflow-hidden">
+			<div class="px-4 py-2 border-b border-neutral-200 flex items-center justify-between">
+				<h3 class="text-sm text-neutral-900">Flags in <span class="font-mono" x-text="currentEnv"></span></h3>
+				<button @click="navigateTo('flags')" class="text-xs text-accent-600 hover:underline cursor-pointer">All flags</button>
+			</div>
+			<div class="overflow-x-auto">
+				<table class="w-full text-left text-sm">
+					<thead class="border-b border-neutral-200 text-xs text-neutral-500">
+						<tr>
+							<th class="py-2 px-4 font-normal">Key</th>
+							<th class="py-2 px-3 font-normal">Rollout</th>
+							<th class="py-2 px-4 text-right font-normal">Toggle</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-neutral-100">
+						for i, f := range flags {
+							if i < 7 {
+								<tr class="hover:bg-neutral-50 transition-colors" x-data="flagRowComponent()" data-key={ f.Key } data-envs={ f.EnvironmentsJSON() }>
+									<td class="py-2 px-4">
+										<div class="font-mono text-neutral-900">{ f.Key }</div>
+										<div class="text-xs text-neutral-500 truncate max-w-[9rem] sm:max-w-xs">{ f.Name }</div>
+									</td>
+									<td class="py-2 px-3 whitespace-nowrap">
+										<div class="flex items-center gap-2">
+											<span class="font-mono text-xs" :class="envOn ? (envPct < 100 ? 'text-warn-700' : 'text-ok-700') : 'text-neutral-500'" x-text="envOn ? (envPct < 100 ? envPct + '%' : 'on') : 'off'"></span>
+										</div>
+									</td>
+									<td class="py-2 px-4 text-right">
+										@Switch(f.Key+" in current environment", "envOn", "envPct", "isBusy(currentEnv)", "toggleCurrent")
+									</td>
+								</tr>
+							}
+						}
+						if len(flags) == 0 {
+							<tr>
+								<td colspan="3" class="p-6 text-center text-neutral-500">No flags yet. Create one to get started.</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</section>
+
 		<section class="panel overflow-x-auto">
 			<table class="w-full text-left text-sm">
 				<thead class="border-b border-neutral-200 text-xs text-neutral-500">
 					<tr>
 						<th class="py-2 px-4 font-normal">Environment</th>
-						<th class="py-2 px-3 font-normal text-right">On</th>
-						<th class="py-2 px-3 font-normal text-right">Partial</th>
-						<th class="py-2 px-4 font-normal text-right">Off</th>
+						<th class="py-2 px-3 text-right font-normal">Full</th>
+						<th class="py-2 px-3 text-right font-normal">Partial</th>
+						<th class="py-2 px-4 text-right font-normal">Off</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-neutral-100 font-mono">
 					for _, env := range summarizeEnvironments(flags) {
 						<tr>
 							<td class="py-2 px-4 text-neutral-900">{ env.Name }</td>
-							<td class="py-2 px-3 text-right text-neutral-700">{ fmt.Sprintf("%d", env.Enabled) }</td>
+							<td class="py-2 px-3 text-right text-neutral-700">{ fmt.Sprintf("%d", env.Full) }</td>
 							<td class="py-2 px-3 text-right text-neutral-700">{ fmt.Sprintf("%d", env.Partial) }</td>
 							<td class="py-2 px-4 text-right text-neutral-700">{ fmt.Sprintf("%d", env.Off) }</td>
 						</tr>

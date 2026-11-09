@@ -1,4 +1,4 @@
-# 🧹 Automated Code Hygiene & Flag Debt Management
+# Automated Code Hygiene & Flag Debt Management
 
 Feature flags are incredible for shipping safely, but left unmanaged, they become **technical debt**:
 - Stale flags cluttering production codebases.
@@ -9,19 +9,19 @@ Flagura is built with a **first-class Code Hygiene Engine** that proactively ide
 
 ---
 
-## 🚦 Flag Lifecycle Health States
+## Flag Lifecycle Health States
 
 Flagura continuously analyzes every flag's environment settings and targeting rule configurations:
 
 | Health Status | Badge | Condition | Recommended Action |
 | :--- | :--- | :--- | :--- |
-| **`ACTIVE`** | 🟢 Active | Flag is running canary rollout percentage, active targeting rules, or was updated recently (<14 days). | Monitor canary health; increment percentage as confidence increases. |
-| **`READY_FOR_CLEANUP`** | 🧹 Ready for Cleanup | Flag is **100% rolled out** in production with 0 custom rules and has baked for at least **7 days** without modification. | Feature is permanent and stable! Remove the conditional check from codebase. |
-| **`DEAD_FLAG`** | ⚠️ Dead Flag | Flag is disabled or kill-switched across environments for more than **14 days** without modification. | Experiment abandoned or permanently cancelled. Safely purge dead code. |
+| **`ACTIVE`** | Active | Flag is running canary rollout percentage, active targeting rules, or was updated recently (<14 days). | Monitor canary health; increment percentage as confidence increases. |
+| **`READY_FOR_CLEANUP`** | Ready for Cleanup | Flag is **100% rolled out** in production with 0 custom rules and has baked for at least **7 days** without modification. | Feature is permanent and stable! Remove the conditional check from codebase. |
+| **`DEAD_FLAG`** | Dead Flag | Flag is disabled or kill-switched across environments for more than **14 days** without modification. | Experiment abandoned or permanently cancelled. Safely purge dead code. |
 
 ---
 
-## 🖥️ Interactive Web UI Cleanup Assistant
+## Interactive Web UI Cleanup Assistant
 
 In the **Flag Matrix** (`/dashboard`):
 1. Use the **Health Filter** dropdown to isolate all flags that are `Stale (100% Launched)` or `Dead (0% / Disabled)`.
@@ -33,7 +33,7 @@ In the **Flag Matrix** (`/dashboard`):
 
 ---
 
-## 💻 CLI Codebase Scanning (`flagura scan`)
+## CLI Codebase Scanning (`flagura scan`)
 
 The Flagura Developer CLI includes an automated static analysis scanner that walks your Git repository and identifies all flag occurrences in code:
 

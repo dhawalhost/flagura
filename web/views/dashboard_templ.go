@@ -52,7 +52,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"min-h-screen flex bg-canvas text-neutral-900 relative\"><!-- Docked Left Sidebar -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"min-h-screen flex bg-shell text-neutral-900 relative\"><!-- Docked Left Sidebar --><div x-show=\"isMobileSidebarOpen\" @click=\"isMobileSidebarOpen = false\" class=\"fixed inset-0 z-30 bg-scrim/40 lg:hidden\" x-cloak></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -60,7 +60,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<!-- Main Content Viewport --><div class=\"flex-1 flex flex-col min-w-0\"><!-- Docked Top Header Bar -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<!-- Main Content Viewport --><div class=\"app-sheet flex-1 flex flex-col min-w-0\"><!-- Docked Top Header Bar -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -68,11 +68,11 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<!-- Wide-Canvas Fluid Workspace --><main class=\"flex-1 p-4 max-w-[1680px] mx-auto w-full space-y-4\"><!-- VIEW 1: Overview Dashboard (Asymmetric Bento Cockpit) -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<!-- Wide-Canvas Fluid Workspace --><main class=\"flex-1 p-4 sm:p-6 max-w-[1600px] mx-auto w-full space-y-5\"><h1 class=\"page-title\" x-text=\"getViewTitle()\">Overview</h1>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = BentoOverview(flags, auditLogs, driverName).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = BentoOverview(flags, auditLogs, changeRequests, driverName).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -124,7 +124,15 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<!-- VIEW 8: Flag Editor & Rule Creator -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<!-- VIEW 7b: API Keys -->")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = APIKeysPage().Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<!-- VIEW 8: Flag Editor & Rule Creator -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -132,7 +140,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<!-- VIEW 9: A/B Testing & Statistical Experimentation -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<!-- VIEW 9: A/B Testing & Statistical Experimentation -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -140,7 +148,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<!-- VIEW 10: 4-Eyes Change Governance Approvals -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<!-- VIEW 10: 4-Eyes Change Governance Approvals -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -148,7 +156,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<!-- VIEW 11: Project & Workspace Modal -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<!-- VIEW 11: Project & Workspace Modal -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -156,7 +164,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<!-- VIEW 12: Automated Code Hygiene & Cleanup Modal -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<!-- VIEW 12: Automated Code Hygiene & Cleanup Modal -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -164,7 +172,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<!-- VIEW 13: Profile & Account Settings -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<!-- VIEW 13: Profile & Account Settings -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -172,13 +180,47 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</main></div></div>")
+			templ_7745c5c3_Err = ToggleConfirm().Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</main></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
 		templ_7745c5c3_Err = Layout(resolveDashboardTitle(title)).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// ToggleConfirm asks before a change that reaches production traffic.
+func ToggleConfirm() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var3 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var3 == nil {
+			templ_7745c5c3_Var3 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div id=\"toggle-confirm\" x-show=\"confirmOpen\" x-cloak role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"toggle-confirm-title\" @keydown.escape.window=\"cancelToggle()\" @click.self=\"cancelToggle()\" @click.stop class=\"fixed inset-0 z-50 bg-scrim/40 flex items-center justify-center p-4\"><div class=\"panel shadow-pop w-full max-w-sm p-4 space-y-3\"><h2 id=\"toggle-confirm-title\" class=\"text-base text-neutral-900\" x-text=\"confirmTitle\"></h2><p class=\"text-sm text-neutral-600\" x-text=\"confirmBody\"></p><div class=\"flex justify-end gap-2 pt-1\"><button type=\"button\" @click=\"cancelToggle()\" class=\"btn\">Cancel</button> <button type=\"button\" @click=\"confirmToggleNow()\" class=\"btn btn-primary\" x-text=\"confirmAction\"></button></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

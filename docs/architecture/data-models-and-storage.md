@@ -1,10 +1,10 @@
-# 💾 Data Models & Storage Architecture
+# Data Models & Storage Architecture
 
 This document details Flagura's relational schema design, JSONB configuration modeling, connection pooling strategies, and storage abstraction patterns.
 
 ---
 
-## ⚡ The Dual-Plane Storage Architecture
+## The Dual-Plane Storage Architecture
 
 > **"Persisted in PostgreSQL. Evaluated in CPU Cache."**
 
@@ -12,9 +12,9 @@ Flagura strictly decouples **Control Plane state persistence** from **Data Plane
 
 | Layer                 | Responsibility                                                                                | Storage Medium                                                    | Latency Profile                |
 | --------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------ |
-| **Control Plane**     | Flag management, 4-Eyes change requests, user RBAC, project API keys, immutable audit logging | **Durable Relational ACID Store** (PostgreSQL or Embedded SQLite) | `1ms – 5ms` write latency      |
-| **Edge Distribution** | Real-time rule synchronization across distributed nodes                                       | **Persistent Server-Sent Events (SSE)**                           | `<5ms` propagation             |
-| **Data Plane (SDK)**  | High-throughput request evaluation on critical user paths                                     | **In-Process RAM + Local Disk Snapshot**                          | **`~85ns`** (zero network I/O) |
+| **Control Plane**     | Flag management, 4-Eyes change requests, user RBAC, project API keys, immutable audit logging | **Durable Relational ACID Store** (PostgreSQL or Embedded SQLite) | `1ms, 5ms` write latency      |
+| **Edge Distribution** | Real-time rule synchronization across distributed nodes                                       | **Persistent Server-Sent Events (SSE)**                           | `` propagation             |
+| **Data Plane (SDK)**  | High-throughput request evaluation on critical user paths                                     | **In-Process RAM + Local Disk Snapshot**                          | **`about 140 ns`** (zero network I/O) |
 
 ### Why In-Process Evaluation Requires Durable Persistence
 
@@ -24,7 +24,7 @@ Flagura strictly decouples **Control Plane state persistence** from **Data Plane
 
 ---
 
-## 🗄️ Entity-Relationship Diagram (ERD)
+## Entity-Relationship Diagram (ERD)
 
 ```mermaid
 erDiagram
@@ -124,7 +124,7 @@ erDiagram
 
 ---
 
-## 📦 JSONB Environment Configuration Modeling
+## JSONB Environment Configuration Modeling
 
 Rather than creating separate rows and foreign-key joins for every environment and targeting rule, Flagura stores per-environment configurations inside a high-speed **`JSONB` column**:
 
@@ -166,7 +166,7 @@ Rather than creating separate rows and foreign-key joins for every environment a
 
 ---
 
-## ⚡ Connection Pooling & Database Sizing
+## Connection Pooling & Database Sizing
 
 Flagura is optimized for **Transaction Connection Poolers** (e.g. Supabase Port 6543 / pgBouncer / AWS RDS Proxy):
 
@@ -185,9 +185,9 @@ db.SetConnMaxIdleTime(5 * time.Minute)  // Reclaims idle connections
 
 ---
 
-## 🛡️ Store Interface Abstraction
+## Store Interface Abstraction
 
-The persistence layer adheres to the clean **Go `Store` interface** in [`pkg/store/store.go`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/store/store.go):
+The persistence layer adheres to the clean **Go `Store` interface** in [`pkg/store/store.go`](../../pkg/store/store.go):
 
 ```go
 type Store interface {
@@ -211,15 +211,15 @@ type Store interface {
 
 ---
 
-## 🔌 Supported Storage Engines
+## Supported Storage Engines
 
 Flagura ships with 3 pluggable storage drivers implementing `store.Store`:
 
 | Driver | Implementation | Best For | Activation |
 |---|---|---|---|
-| **Embedded SQLite** | [`SQLiteStore`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/store/sqlite.go) | Single-binary self-hosting, lightweight VPS, Raspberry Pi, durable single-node | `DATABASE_URL=sqlite://data/flagura.db` or ends with `.db` |
-| **PostgreSQL** | [`PostgresStore`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/store/postgres.go) | Distributed HA production, Supabase, Neon, AWS Aurora/RDS | `DATABASE_URL=postgres://...` |
-| **In-Memory Edge Store** | [`MemoryStore`](file:///Users/dhawal.dyavanpalli/go/src/flagura/pkg/store/memory.go) | Zero-dependency local developer trials, unit testing, instant sandbox | Default when `DATABASE_URL` is empty |
+| **Embedded SQLite** | [`SQLiteStore`](../../pkg/store/sqlite.go) | Single-binary self-hosting, lightweight VPS, Raspberry Pi, durable single-node | `DATABASE_URL=sqlite://data/flagura.db` or ends with `.db` |
+| **PostgreSQL** | [`PostgresStore`](../../pkg/store/postgres.go) | Distributed HA production, Supabase, Neon, AWS Aurora/RDS | `DATABASE_URL=postgres://...` |
+| **In-Memory Edge Store** | [`MemoryStore`](../../pkg/store/memory.go) | Zero-dependency local developer trials, unit testing, instant sandbox | Default when `DATABASE_URL` is empty |
 
 ### SQLite Engine Specifics
 - **Pure Go Driver (`modernc.org/sqlite`)**: Requires zero CGo (`CGO_ENABLED=0`), maintaining effortless cross-compilation across Linux, macOS, and Windows.

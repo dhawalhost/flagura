@@ -1,21 +1,21 @@
-# 🚀 Flagura SDK Integration & OpenFeature Examples
+# Flagura SDK Integration & OpenFeature Examples
 
 This directory contains clean, runnable, copy-paste ready integration examples demonstrating both the **Native Flagura SDKs** and the **CNCF OpenFeature Provider** across multiple programming languages.
 
 ---
 
-## 📂 Available Examples
+## Available Examples
 
 | Directory | Language / Runtime | Features Demonstrated |
 | :--- | :--- | :--- |
-| [`go/`](./go) | **Go 1.25+** | Native in-process evaluator (`<85ns`), SSE streaming synchronization, `openfeature.FeatureProvider`. |
+| [`go/`](./go) | **Go 1.25+** | Native in-process evaluator (`<about 140 ns`), SSE streaming synchronization, `openfeature.FeatureProvider`. |
 | [`typescript/`](./typescript) | **TypeScript / Node.js** | Native typed client, `@openfeature/server-sdk` provider, context mapping. |
 | [`python/`](./python) | **Python 3.10+** | Native `FlaguraClient`, `openfeature` standard API, variant resolution. |
 | [`rust/`](./rust) | **Rust 1.70+** | Async Tokio client, zero-allocation context building, microsecond evaluation. |
 
 ---
 
-## 🏃‍♂️ Quickstart
+## ‍Quickstart
 
 ### Prerequisites
 By default, all examples connect out-of-the-box to the hosted demo at `https://flagura.dev` (with automatic fallback).
@@ -105,7 +105,7 @@ Evaluation Details: Flag=ai-smart-search, Enabled=true, Variant=claude-3-opus, R
 
 ---
 
-## 🛡️ CNCF OpenFeature Standard Benefits
+## CNCF OpenFeature Standard Benefits
 Using the Flagura OpenFeature Provider allows your engineering teams to:
 1. **Prevent Vendor Lock-In**: Write standard OpenFeature evaluation code across your applications. If your infrastructure evolves, switch providers with 1 line of configuration.
 2. **Standardized Context**: Universal evaluation attributes (`targetingKey`, `userId`, `email`, `role`, `tier`) are consistently passed to targeting rules.

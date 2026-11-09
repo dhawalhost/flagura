@@ -1,6 +1,6 @@
-# ⚡ Performance, Latency Profiling & Scalability
+# Performance, Latency Profiling & Scalability
 
-Flagura is engineered for extreme throughput, zero runtime latency penalties, and high scalability across microservices and edge networks.
+Flagura is built for extreme throughput, zero runtime latency penalties, and high scalability across microservices and edge networks.
 
 ---
 
@@ -36,15 +36,15 @@ To fact-check whether the sub-microsecond latency claim holds regardless of your
 | :--- | :---: | :---: | :---: | :---: |
 | **In-Memory Edge Store** | **`142.3 ns/op`** | `422.9 ns/op` | **~7,000,000 ops/sec** | `32 B/op` |
 | **Embedded SQLite (WAL)** | **`143.9 ns/op`** | `18,295.0 ns/op` (~18.3 µs) | **~7,000,000 ops/sec** | `32 B/op` |
-| **PostgreSQL / Supabase** | **`142–144 ns/op`** | `500,000–2,000,000 ns/op` (~0.5–2 ms) | **~7,000,000 ops/sec** | `32 B/op` |
+| **PostgreSQL / Supabase** | **`142-144 ns/op`** | `500,000-2,000,000 ns/op` (~0.5-2 ms) | **~7,000,000 ops/sec** | `32 B/op` |
 
 #### Key Architectural Truth:
 - **Does the sub-microsecond claim hold across ALL storage options?**  
   **YES, 100%**. Flagura's core architectural principle is:  
   > *"Persisted in SQLite or PostgreSQL. Evaluated in CPU Cache."*  
-  The client SDK maintains an in-memory synchronized copy of the flag configurations (updated via SSE streaming in `<5ms`). When your application evaluates a flag, it **NEVER issues a database query**. It computes the deterministic 64-bit FNV-1a sticky hash in CPU L1/L2 cache.
+  The client SDK maintains an in-memory synchronized copy of the flag configurations (updated via SSE streaming in ``). When your application evaluates a flag, it **NEVER issues a database query**. It computes the deterministic 64-bit FNV-1a sticky hash in CPU L1/L2 cache.
 - **Why In-Process Evaluation Matters**:  
-  Direct SQLite disk queries take **~18.3 microseconds** (~130x slower). Direct PostgreSQL network queries take **1,000–2,000 microseconds** (~10,000x slower). By evaluating in-process, Flagura delivers identical **sub-microsecond speed (~85–140ns)** across In-Memory, SQLite, and PostgreSQL.
+  Direct SQLite disk queries take **~18.3 microseconds** (~130x slower). Direct PostgreSQL network queries take **1,000-2,000 microseconds** (~10,000x slower). By evaluating in-process, Flagura delivers identical **sub-microsecond speed (~85-140ns)** across In-Memory, SQLite, and PostgreSQL.
 
 ---
 
@@ -57,11 +57,11 @@ Includes JSON request body parsing, context extraction, deterministic evaluation
 | **Local In-Memory SDK (`pkg/client`)** | **`123 ns`** (0.00012 ms) | **`380 ns`** | In-process cache with zero network hops. |
 | **Localhost HTTP REST API** | **`145 µs`** (0.145 ms) | **`320 µs`** | Measured via `BenchmarkHTTPEvaluateEndpoint`. |
 | **Vercel Edge Network (`https://flagura.dev`)** | **`1.8 ms`** | **`4.8 ms`** | Live global edge request including TLS handshake. |
-| **Traditional SaaS Feature Flag Provider** | **`25 ms`** – `45 ms` | **`90 ms`** – `150 ms` | Remote SaaS API call with database roundtrips. |
+| **Traditional SaaS Feature Flag Provider** | **`25 ms`**, `45 ms` | **`90 ms`**, `150 ms` | Remote SaaS API call with database roundtrips. |
 
 ---
 
-## 🧠 Memory Profiling & Zero-Allocation Hot Path
+## Memory Profiling & Zero-Allocation Hot Path
 
 Flagura eliminates Heap allocations during evaluation:
 1. **Stack-Allocated FNV-1a Hashing**: Loops through character byte values directly without string slicing or allocations (`0 B/op, 0 allocs/op`).
@@ -70,7 +70,7 @@ Flagura eliminates Heap allocations during evaluation:
 
 ---
 
-## 📈 Scalability Characteristics
+## Scalability Characteristics
 
 ### 1. Vertical Scaling (Single Node)
 - **Concurrency**: Goroutine-per-request architecture scales linearly across all available CPU cores.

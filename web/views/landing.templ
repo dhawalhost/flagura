@@ -1,274 +1,120 @@
 package views
 
+templ landingFeature(title string, body string, specimen string) {
+	<li class="grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-2 py-6 border-t border-neutral-200">
+		<h3 class="md:col-span-5 text-xl text-neutral-900">{ title }</h3>
+		<div class="md:col-span-7">
+			<p class="text-base text-neutral-600 max-w-xl">{ body }</p>
+			<p class="mt-2 font-mono text-xs text-accent-700 break-words">{ specimen }</p>
+		</div>
+	</li>
+}
+
+templ landingBench(label string, value string) {
+	<div class="flex justify-between gap-4 py-2 border-t border-neutral-200 text-sm">
+		<dt class="text-neutral-600">{ label }</dt>
+		<dd class="font-mono text-neutral-900">{ value }</dd>
+	</div>
+}
+
 templ LandingPage() {
 	@Layout("Self-hosted feature flags") {
-		<div class="min-h-screen bg-canvas text-neutral-900 relative selection:bg-accent-100 selection:text-accent-900 overflow-x-hidden font-sans" x-data="landingPageComponent()">
-
-			<!-- Floating Pill Header -->
-			<header class="fixed top-4 inset-x-0 z-50 max-w-6xl mx-auto px-4 sm:px-6">
-				<div class="panel px-5 py-3 flex items-center justify-between rounded-md">
-					<!-- Brand -->
-					<a href="/" class="flex items-center gap-3 group">
-						@LogoMark("h-7 w-7")
-						<div class="flex flex-col">
+		<div class="min-h-screen bg-canvas text-neutral-900 overflow-x-hidden" x-data="landingPageComponent()">
+			<section id="section-hero" class="on-ink fold-bottom">
+				<div class="max-w-[1320px] mx-auto px-4 sm:px-8 pb-24">
+					<header class="flex items-center justify-between gap-4 py-5">
+						<a href="/" class="flex items-center gap-2" aria-label="Flagura home">
+							@LogoMark("h-7 w-7")
 							@LogoWordmark("h-[22px] translate-y-[3px]")
+						</a>
+						<nav class="hidden md:flex items-center gap-6 text-sm text-neutral-600">
+							<a href="#section-bento" class="hover:text-neutral-900 transition-colors">Features</a>
+							<a href="#section-sdk" class="hover:text-neutral-900 transition-colors">SDKs</a>
+							<a href="#section-benchmark" class="hover:text-neutral-900 transition-colors">Performance</a>
+							<a href="https://github.com/dhawalhost/flagura/blob/main/docs/product/sdks-and-api.md" target="_blank" rel="noopener" class="hover:text-neutral-900 transition-colors">Docs</a>
+							<a href="https://github.com/dhawalhost/flagura" target="_blank" rel="noopener" class="hover:text-neutral-900 transition-colors">GitHub</a>
+						</nav>
+						<div class="flex items-center gap-2">
+							<button type="button" @click="toggleTheme()" class="btn !p-1.5" aria-label="Switch colour theme" title="Switch colour theme">
+								<span x-show="isDark"><i data-lucide="sun" class="w-3.5 h-3.5"></i></span>
+								<span x-show="!isDark"><i data-lucide="moon" class="w-3.5 h-3.5"></i></span>
+							</button>
+							<a href="/dashboard" class="btn btn-primary">Open console</a>
 						</div>
-					</a>
+					</header>
 
-					<!-- Nav Links -->
-					<nav class="hidden md:flex items-center gap-6 text-xs font-semibold text-neutral-600">
-						<a href="#section-hero" class="hover:text-neutral-900 transition-colors">Switchboard</a>
-						<a href="#section-bento" class="hover:text-neutral-900 transition-colors">Features</a>
-						<a href="#section-benchmark" class="hover:text-neutral-900 transition-colors">Live Benchmark</a>
-						<a href="https://github.com/dhawalhost/flagura/blob/main/docs/product/sdks-and-api.md" target="_blank" class="hover:text-neutral-900 transition-colors">API Docs</a>
-						<a href="https://github.com/dhawalhost/flagura" target="_blank" class="flex items-center gap-1 hover:text-neutral-900 transition-colors">
-							<i data-lucide="github" class="h-3.5 w-3.5"></i>
-							<span>GitHub</span>
-						</a>
-					</nav>
+					<div class="grid grid-cols-1 lg:grid-cols-12 gap-x-8 gap-y-6 pt-12 sm:pt-20 lg:items-end">
+						<h1 class="display lg:col-span-8">Decide who gets it.</h1>
+						<div class="lg:col-span-4 lg:pb-3">
+							<p class="text-lg text-neutral-700">Flagura is feature flags you host yourself. Roll out by percentage or rule, and turn anything off in one click. SDKs evaluate in memory, so user data stays in your process.</p>
+							<div class="mt-5 flex flex-wrap gap-2">
+								<a href="/dashboard" class="btn btn-primary !px-4 !py-2">Open console</a>
+								<a href="#section-install" class="btn !px-4 !py-2">Install</a>
+							</div>
+						</div>
+					</div>
 
-					<!-- Action Buttons -->
-					<div class="flex items-center gap-2.5">
-						<a 
-							href="/dashboard"
-							class="px-4 py-2 rounded-md bg-neutral-900 hover:bg-neutral-700 text-surface font-medium text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-						>
-							<span>Open Dashboard</span>
-							<i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
-						</a>
+					<div class="mt-12 sm:mt-16" x-data="rolloutField()">
+						<canvas x-ref="field" class="block w-full" role="img" aria-label="A field of users, lit when the flag is on for them"></canvas>
+						<div class="mt-6 grid grid-cols-1 md:grid-cols-12 gap-x-8 gap-y-5 md:items-end">
+							<div class="md:col-span-6">
+								<div class="flex justify-between text-sm">
+									<label for="rollout-range" class="text-neutral-600">Rollout of <span class="font-mono text-neutral-900">new-checkout</span></label>
+									<span class="font-mono text-neutral-900" x-text="killed ? 'killed' : rollout + '%'"></span>
+								</div>
+								<input id="rollout-range" type="range" min="0" max="100" x-model="rollout" @input="onDrag()" class="w-full cursor-pointer mt-1"/>
+							</div>
+							<div class="md:col-span-4">
+								<label for="rollout-user" class="field-label">Your user ID</label>
+								<div class="flex items-center gap-3">
+									<input id="rollout-user" type="text" x-model="userId" @input="onUser()" class="field font-mono" spellcheck="false"/>
+									<span class="font-mono text-sm whitespace-nowrap" :class="userOn ? 'text-accent-700' : 'text-neutral-500'" x-text="userOn ? 'on' : 'off'"></span>
+								</div>
+							</div>
+							<div class="md:col-span-2">
+								<button type="button" role="switch" :aria-checked="killed ? 'true' : 'false'" @click="toggleKill()" class="btn w-full" :class="killed ? 'text-danger-700' : ''" x-text="killed ? 'Restore' : 'Kill switch'"></button>
+							</div>
+						</div>
+						<p class="mt-4 text-sm text-neutral-500">Each leaf is one user, hashed the way Flagura hashes them. Drag up and the lit leaves stay lit. Your ID lands in <span class="font-mono" x-text="'bucket ' + userBucket"></span>.</p>
 					</div>
 				</div>
-			</header>
+			</section>
 
-			<!-- Main Content Space -->
-			<main class="pt-24 pb-16 space-y-16">
+			<main>
+				<section id="section-bento" class="max-w-[1320px] mx-auto px-4 sm:px-8 pt-20 pb-16">
+					<h2 class="section-title max-w-3xl">Built for the day a release goes wrong.</h2>
+					<ol class="mt-10 border-b border-neutral-200">
+						@landingFeature("Rollouts and rules", "Set a percentage or target by email, country, plan or any attribute you pass, per environment. Hashing is sticky, so nobody flips between versions.", "plan in [pro, enterprise] and country = DE, then 25%")
+						@landingFeature("A kill switch that reaches everyone", "Changes go to connected SDKs over a server-sent event stream. A webhook from your APM can also roll a canary back to 0% for you.", "canary_rollback: new-checkout to 0%")
+						@landingFeature("Two people for production", "Protect an environment and changes wait for a second person to review them, like a pull request for your flags.", "ramp new-checkout to 100%: awaiting review")
+						@landingFeature("An audit trail you can check", "Each entry is hashed with the one before it. One API call verifies the whole chain, and you can export it as CSV or JSON.", "GET /api/v1/audit/verify")
+						@landingFeature("Cleanup for finished flags", "Flagura finds flags stuck at 100% and flags nobody turned back on, then tells you which ones to take out of your code.", "checkout-v2: 100% in production, ready for cleanup")
+					</ol>
+				</section>
 
-				<!-- 1. HERO SECTION & CONSOLE PREVIEW -->
-				<section id="section-hero" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-					<div class="text-center max-w-4xl mx-auto space-y-6 pt-8">
-						<!-- Headline -->
-						<h1 class="text-4xl sm:text-5xl lg:text-5xl font-semibold text-neutral-900 leading-[1.08]">
-							Self-hosted feature flags with an audit trail you can verify.
-						</h1>
-
-						<p class="text-base sm:text-xl text-neutral-600 font-sans max-w-2xl mx-auto leading-relaxed">
-							In-process evaluation, stale flag cleanup, and two-person approval for production changes — without the per-MAU billing trap.
-						</p>
-
-						<!-- Hero Action Buttons -->
-						<div class="flex flex-wrap items-center justify-center gap-4 pt-2">
-							<a 
-								href="/dashboard"
-								class="px-6 py-3.5 rounded-md bg-neutral-900 hover:bg-neutral-700 text-surface font-medium text-sm transition-colors flex items-center gap-2 cursor-pointer"
-							>
-								<span>Open Dashboard</span>
-								<i data-lucide="arrow-right" class="h-4 w-4"></i>
-							</a>
-
-							<a 
-								href="#section-bento"
-								class="px-5 py-3.5 rounded-md bg-surface hover:bg-neutral-50 text-neutral-700 font-semibold text-sm border border-neutral-200 flex items-center gap-2 transition cursor-pointer"
-							>
-								<span>See features</span>
-							</a>
-						</div>
+				<section id="section-sdk" class="max-w-[1320px] mx-auto px-4 sm:px-8 py-16 grid grid-cols-1 lg:grid-cols-12 gap-x-8 gap-y-8">
+					<div class="lg:col-span-5">
+						<h2 class="section-title">Evaluated where your code runs.</h2>
+						<ol class="mt-8 space-y-5">
+							<li><div class="font-mono text-xs text-neutral-400">store</div><p class="text-base text-neutral-700">Flags live in SQLite or PostgreSQL, on your infrastructure</p></li>
+							<li><div class="font-mono text-xs text-neutral-400">stream</div><p class="text-base text-neutral-700">A change is pushed to every connected SDK over SSE, with backoff when a connection drops</p></li>
+							<li><div class="font-mono text-xs text-neutral-400">memory</div><p class="text-base text-neutral-700">Your service holds the rules and evaluates locally. Emails and IDs never need to leave it.</p></li>
+						</ol>
 					</div>
-
-					<!-- Strategic Wedge KPI Cards (4 Pillars) -->
-					<div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
-						<div class="panel p-5 text-center space-y-1">
-							<div class="text-2xs text-neutral-500 font-semibold">Flag Hygiene</div>
-							<div class="text-2xl font-semibold text-neutral-900 mt-1">Stale flags</div>
-							<div class="text-2xs text-neutral-400">Detected and flagged for cleanup</div>
-						</div>
-						<div class="panel p-5 text-center space-y-1">
-							<div class="text-2xs text-neutral-500 font-semibold">Release Safety</div>
-							<div class="text-2xl font-semibold text-neutral-900 mt-1">4-Eyes</div>
-							<div class="text-2xs text-neutral-400">Peer dual reviews for prod</div>
-						</div>
-						<div class="panel p-5 text-center space-y-1">
-							<div class="text-2xs text-neutral-500 font-semibold">Customer Privacy</div>
-							<div class="text-2xl font-semibold text-neutral-900 mt-1">Zero Egress</div>
-							<div class="text-2xs text-neutral-400">PII never leaves your host</div>
-						</div>
-						<div class="panel p-5 text-center space-y-1">
-							<div class="text-2xs text-neutral-500 font-semibold">In-Memory Speed</div>
-							<div class="text-2xl font-semibold text-neutral-900 mt-1">In process</div>
-							<div class="text-2xs text-neutral-400">No network hop to evaluate</div>
-						</div>
-					</div>
-
-					<!-- Console Preview (Switchboard & Code Preview) -->
-					<div class="max-w-5xl mx-auto panel p-6 sm:p-8 space-y-6">
-						<!-- Console Header Tabs -->
-						<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-4">
-							<div class="flex items-center gap-3">
-								<div class="flex items-center gap-1.5">
-									<div class="w-3 h-3 rounded-full bg-danger-400"></div>
-									<div class="w-3 h-3 rounded-full bg-warn-400"></div>
-									<div class="w-3 h-3 rounded-full bg-ok-400"></div>
-								</div>
-								<span class="text-xs font-mono font-medium text-neutral-900">flagura-edge-switchboard</span>
+					<div class="lg:col-span-7 min-w-0">
+						<div class="flex items-center justify-between gap-3 mb-2">
+							<div class="seg">
+							<button type="button" @click="sdkLanguage = 'go'" :class="sdkLanguage === 'go' ? 'seg-on' : ''">Go</button>
+							<button type="button" @click="sdkLanguage = 'ts'" :class="sdkLanguage === 'ts' ? 'seg-on' : ''">TypeScript</button>
+							<button type="button" @click="sdkLanguage = 'python'" :class="sdkLanguage === 'python' ? 'seg-on' : ''">Python</button>
+							<button type="button" @click="sdkLanguage = 'rust'" :class="sdkLanguage === 'rust' ? 'seg-on' : ''">Rust</button>
+							<button type="button" @click="sdkLanguage = 'curl'" :class="sdkLanguage === 'curl' ? 'seg-on' : ''">cURL</button>
 							</div>
-
-							<!-- Mode Switcher -->
-							<div class="flex items-center gap-2 text-xs">
-								<button 
-									@click="consoleMode = 'switchboard'"
-									class="px-3 py-1.5 rounded-md transition cursor-pointer font-medium"
-									:class="consoleMode === 'switchboard' ? 'bg-neutral-900 text-surface' : 'text-neutral-600 hover:text-neutral-900 bg-neutral-100'"
-								>
-									Switchboard
-								</button>
-								<button 
-									@click="consoleMode = 'code'"
-									class="px-3 py-1.5 rounded-md transition cursor-pointer font-medium"
-									:class="consoleMode === 'code' ? 'bg-neutral-900 text-surface' : 'text-neutral-600 hover:text-neutral-900 bg-neutral-100'"
-								>
-									SDK code
-								</button>
-							</div>
+							<button type="button" @click="copySnippet()" class="btn shrink-0" x-text="codeCopied ? 'Copied' : 'Copy'"></button>
 						</div>
-
-						<!-- Mode 1: Interactive Switchboard -->
-						<div x-show="consoleMode === 'switchboard'" class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-							<!-- Left Control Box -->
-							<div class="md:col-span-7 space-y-4">
-								<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-3">
-									<div class="flex items-center justify-between text-xs">
-										<span class="text-neutral-600 font-semibold">Flag Key:</span>
-										<span class="text-accent-600 font-medium">ai-smart-search</span>
-									</div>
-
-									<div>
-										<div class="flex items-center justify-between mb-1">
-											<label class="text-2xs text-neutral-500">Target User ID (Context Hash):</label>
-											<button 
-												type="button"
-												@click="randomizeUser()" 
-												class="text-2xs text-accent-600 hover:text-accent-800 font-semibold flex items-center gap-1 cursor-pointer transition"
-												title="Test with a different user ID"
-											>
-												<i data-lucide="shuffle" class="h-3 w-3"></i>
-												<span>Randomize</span>
-											</button>
-										</div>
-										<input 
-											type="text" 
-											x-model="testUserId" 
-											@input="computeHashModulo()"
-											class="w-full bg-surface border border-neutral-200 rounded-md px-3.5 py-2 text-xs text-neutral-900 focus:outline-none focus:border-accent-500 font-mono"
-											placeholder="usr_alex_42"
-										/>
-										<div class="flex items-center gap-1.5 pt-2 text-2xs text-neutral-400">
-											<span>Quick Test:</span>
-											<button type="button" @click="selectTestUser('usr_alex_42')" class="px-2 py-0.5 rounded bg-neutral-200/70 hover:bg-neutral-300 text-neutral-700 transition cursor-pointer">alex_42</button>
-											<button type="button" @click="selectTestUser('sarah@stripe.com')" class="px-2 py-0.5 rounded bg-neutral-200/70 hover:bg-neutral-300 text-neutral-700 transition cursor-pointer">sarah@stripe</button>
-											<button type="button" @click="selectTestUser('enterprise_vip')" class="px-2 py-0.5 rounded bg-neutral-200/70 hover:bg-neutral-300 text-neutral-700 transition cursor-pointer">vip_tenant</button>
-										</div>
-									</div>
-
-									<!-- Rollout Slider -->
-									<div class="space-y-1.5 pt-2 border-t border-neutral-200">
-										<div class="flex items-center justify-between text-xs">
-											<span class="text-neutral-600">Canary Allocation:</span>
-											<span class="font-medium text-accent-700" x-text="canaryPercent + '%'"></span>
-										</div>
-										<input 
-											type="range" 
-											min="0" 
-											max="100" 
-											step="5" 
-											x-model="canaryPercent" 
-											@input="computeHashModulo()"
-											class="w-full accent-accent-600 cursor-pointer bg-neutral-200"
-										/>
-									</div>
-								</div>
-							</div>
-
-							<!-- Right Output Box -->
-							<div class="md:col-span-5 p-5 rounded-md bg-neutral-900 text-neutral-100 border border-neutral-800 space-y-3 font-mono code-scope">
-								<div class="text-2xs text-neutral-400 font-semibold">Deterministic Output</div>
-								
-								<div class="flex items-center justify-between py-2 border-b border-neutral-800">
-									<span class="text-xs text-neutral-400">FNV-1a Hash:</span>
-									<span class="text-xs text-accent-400 font-medium" x-text="computedHashHex"></span>
-								</div>
-
-								<div class="flex items-center justify-between py-2 border-b border-neutral-800">
-									<span class="text-xs text-neutral-400">Bucket Index:</span>
-									<span class="text-xs text-accent-400 font-medium" x-text="computedBucket + ' / 100'"></span>
-								</div>
-
-								<div class="flex items-center justify-between pt-1">
-									<span class="text-xs text-neutral-400">Resolved State:</span>
-									<span 
-										class="px-2.5 py-1 rounded text-xs font-medium font-mono"
-										:class="isEvaluatedTrue ? 'bg-ok-500/20 text-ok-400 border border-ok-500/40' : 'bg-danger-500/20 text-danger-400 border border-danger-500/40'"
-										x-text="isEvaluatedTrue ? 'ENABLED (ON)' : 'DISABLED (OFF)'"
-									></span>
-								</div>
-
-								<div class="text-2xs text-neutral-500 text-center pt-2">
-									Computed in your browser
-								</div>
-							</div>
-						</div>
-
-						<!-- Mode 2: Multi-Language SDK Code Playground -->
-						<div x-show="consoleMode === 'code'" class="space-y-4">
-							<!-- Language Tabs -->
-							<div class="flex items-center gap-2 border-b border-neutral-100 pb-3 text-xs overflow-x-auto">
-								<button 
-									@click="sdkLanguage = 'go'"
-									class="px-3 py-1.5 rounded transition cursor-pointer font-medium"
-									:class="sdkLanguage === 'go' ? 'bg-ok-50 text-ok-700 border border-ok-200' : 'text-neutral-600 hover:text-neutral-900'"
-								>
-									Go
-								</button>
-								<button 
-									@click="sdkLanguage = 'ts'"
-									class="px-3 py-1.5 rounded transition cursor-pointer font-medium"
-									:class="sdkLanguage === 'ts' ? 'bg-accent-50 text-accent-700 border border-accent-200' : 'text-neutral-600 hover:text-neutral-900'"
-								>
-									TypeScript
-								</button>
-								<button 
-									@click="sdkLanguage = 'python'"
-									class="px-3 py-1.5 rounded transition cursor-pointer font-medium"
-									:class="sdkLanguage === 'python' ? 'bg-warn-50 text-warn-700 border border-warn-200' : 'text-neutral-600 hover:text-neutral-900'"
-								>
-									Python
-								</button>
-								<button 
-									@click="sdkLanguage = 'rust'"
-									class="px-3 py-1.5 rounded transition cursor-pointer font-medium"
-									:class="sdkLanguage === 'rust' ? 'bg-danger-50 text-danger-700 border border-danger-200' : 'text-neutral-600 hover:text-neutral-900'"
-								>
-									Rust
-								</button>
-								<button 
-									@click="sdkLanguage = 'curl'"
-									class="px-3 py-1.5 rounded transition cursor-pointer font-medium"
-									:class="sdkLanguage === 'curl' ? 'bg-accent-50 text-accent-700 border border-accent-200' : 'text-neutral-600 hover:text-neutral-900'"
-								>
-									cURL
-								</button>
-								<a 
-									href="https://github.com/dhawalhost/flagura/blob/main/docs/product/sdks-and-api.md" 
-									target="_blank" 
-									class="ml-auto text-2xs text-accent-600 hover:text-accent-800 flex items-center gap-1 font-sans font-semibold transition-colors"
-								>
-									<span>Full API &amp; SDK Guide</span>
-									<i data-lucide="external-link" class="h-3 w-3"></i>
-								</a>
-							</div>
-
-							<!-- Code Block -->
-							<div class="p-5 rounded-md bg-neutral-900 text-neutral-100 border border-neutral-800 text-xs overflow-x-auto leading-relaxed font-mono code-scope">
-								<template x-if="sdkLanguage === 'go'">
-									<pre class="text-ok-400"><code>{ `package main
+						<div class="panel code-scope bg-neutral-900 p-4 text-xs leading-relaxed font-mono overflow-x-auto">
+							<template x-if="sdkLanguage === 'go'">
+								<pre class="text-neutral-200"><code>{ `package main
 
 import (
     "context"
@@ -290,10 +136,9 @@ func main() {
 
     fmt.Printf("Enabled: %v | Latency: %v ns\n", res.Enabled, res.EvaluationLatencyNs)
 }` }</code></pre>
-								</template>
-
-								<template x-if="sdkLanguage === 'ts'">
-									<pre class="text-accent-300"><code>{ `import { FlaguraClient } from '@flagura/sdk';
+							</template>
+							<template x-if="sdkLanguage === 'ts'">
+								<pre class="text-neutral-200"><code>{ `import { FlaguraClient } from '@flagura/sdk';
 
 // Instant local in-memory evaluation over persistent SSE stream
 const client = new FlaguraClient({
@@ -307,10 +152,9 @@ const { enabled, variant } = await client.evaluate('ai-smart-search', {
 });
 
 // Evaluated result: { enabled, variant }` }</code></pre>
-								</template>
-
-								<template x-if="sdkLanguage === 'python'">
-									<pre class="text-warn-300"><code>{ `from flagura import FlaguraClient, EvaluationContext
+							</template>
+							<template x-if="sdkLanguage === 'python'">
+								<pre class="text-neutral-200"><code>{ `from flagura import FlaguraClient, EvaluationContext
 
 # Fast local in-process evaluation with zero remote HTTP calls
 client = FlaguraClient("https://api.flagura.dev", api_key="flg_live_secret")
@@ -321,10 +165,9 @@ res = client.evaluate("ai-smart-search", EvaluationContext(
 ))
 
 print(res.enabled, res.variant)` }</code></pre>
-								</template>
-
-								<template x-if="sdkLanguage === 'rust'">
-									<pre class="text-danger-300"><code>{ `use flagura::{FlaguraClient, EvaluationContext};
+							</template>
+							<template x-if="sdkLanguage === 'rust'">
+								<pre class="text-neutral-200"><code>{ `use flagura::{FlaguraClient, EvaluationContext};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -338,371 +181,69 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     Ok(())
 }` }</code></pre>
-								</template>
-
-								<template x-if="sdkLanguage === 'curl'">
-									<pre class="text-accent-300"><code>{ `curl -X POST https://api.flagura.dev/api/v1/evaluate \
+							</template>
+							<template x-if="sdkLanguage === 'curl'">
+								<pre class="text-neutral-200"><code>{ `curl -X POST https://api.flagura.dev/api/v1/evaluate \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer flg_live_secret" \
   -d '{"flags":["ai-smart-search"],"context":{"user_id":"usr_alex_42","email":"alex@company.com"}}'` }</code></pre>
-								</template>
-							</div>
-						</div>
-					</div>
-				</section>
-
-				<!-- 2. ASYMMETRICAL BENTO FEATURE SHOWCASE -->
-				<section id="section-bento" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-					<div class="text-center max-w-3xl mx-auto space-y-4">
-						<div class="inline-flex items-center gap-2 px-3 py-1 rounded bg-accent-50 text-accent-700 border border-accent-200 text-xs font-medium">
-							<i data-lucide="layers" class="h-3.5 w-3.5"></i>
-							<span>CORE PRODUCT WEDGES &amp; ADVANTAGES</span>
-						</div>
-						<h2 class="text-3xl sm:text-5xl font-semibold text-neutral-900">
-							Built for clean codebases and operational peace of mind.
-						</h2>
-						<p class="text-neutral-600 text-sm sm:text-base font-sans leading-relaxed">
-							Why engineering organizations choose Flagura over legacy SaaS and complex multi-container stacks.
-						</p>
-					</div>
-
-					<!-- Asymmetric 6-Tile Bento Grid -->
-					<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-						
-						<!-- TILE 1: Zero Flag Debt & Active Hygiene (8 cols) -->
-						<div class="lg:col-span-8 panel p-7 sm:p-8 space-y-6 flex flex-col justify-between">
-							<div class="space-y-4">
-								<div class="flex items-center justify-between border-b border-neutral-100 pb-4">
-									<div class="flex items-center gap-3">
-										<div class="h-10 w-10 rounded-md bg-warn-50 flex items-center justify-center text-warn-600 border border-warn-200">
-											<i data-lucide="sparkles" class="h-5 w-5"></i>
-										</div>
-										<div>
-											<h3 class="text-lg font-semibold text-neutral-900">Zero Flag Debt &amp; Dead Flag Graveyard Cleanup</h3>
-											<p class="text-xs text-neutral-500">Automated detection of 100% rolled-out flags</p>
-										</div>
-									</div>
-									<span class="px-3 py-1 rounded bg-warn-50 border border-warn-200 text-warn-800 text-xs font-mono font-medium">
-										Active Code Hygiene
-									</span>
-								</div>
-
-								<p class="text-neutral-600 text-xs sm:text-sm leading-relaxed font-sans">
-									The silent killer of feature flagging is <strong>code rot</strong>: dead flags lingering in codebases for years because nobody knows if deleting them is safe. Flagura continuously audits flags, detects features at 100% rollout, tracks longevity, and guides teams to clean up dead code.
-								</p>
-							</div>
-
-							<!-- Flag Hygiene Interactive Mock Strip -->
-							<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-2.5 text-xs">
-								<div class="flex items-center justify-between">
-									<div class="flex items-center gap-2">
-										<span class="inline-block w-2 h-2 rounded-full bg-warn-500"></span>
-										<span class="font-medium text-neutral-900">ai-smart-search</span>
-										<span class="text-2xs bg-warn-100 text-warn-800 px-1.5 py-0.5 rounded font-medium">STALE (100% launched)</span>
-									</div>
-									<span class="text-neutral-500 text-2xs">Active for 48 days</span>
-								</div>
-								<div class="flex items-center justify-between text-2xs pt-1 border-t border-neutral-200/60">
-									<span class="text-neutral-600 font-sans">Action: Rollout is 100% complete across all environments.</span>
-									<span class="text-warn-700 font-medium">Safe to Deprecate</span>
-								</div>
-							</div>
-						</div>
-
-						<!-- TILE 2: 4-Eyes Dual Review Governance (4 cols) -->
-						<div class="lg:col-span-4 panel p-7 sm:p-8 space-y-5 flex flex-col justify-between">
-							<div class="space-y-3">
-								<div class="flex items-center gap-3 border-b border-neutral-100 pb-3">
-									<div class="h-9 w-9 rounded-md bg-accent-50 flex items-center justify-center text-accent-600 border border-accent-200">
-										<i data-lucide="shield-check" class="h-4.5 w-4.5"></i>
-									</div>
-									<div>
-										<h3 class="text-base font-semibold text-neutral-900">4-Eyes Governance</h3>
-										<p class="text-2xs text-neutral-500">PR-Style Release Approvals</p>
-									</div>
-								</div>
-
-								<p class="text-xs text-neutral-600 font-sans leading-relaxed">
-									Require senior peer review and two-person sign-off before dangerous flags or kill switches can be toggled in production environments.
-								</p>
-							</div>
-
-							<div class="p-3.5 rounded-md bg-accent-50/50 border border-accent-200 text-xs space-y-1.5">
-								<div class="flex items-center justify-between">
-									<span class="text-accent-800 font-medium">CR #108 Approval</span>
-									<span class="text-2xs bg-accent-100 text-accent-800 px-1.5 py-0.5 rounded font-medium">PENDING REVIEW</span>
-								</div>
-								<div class="text-2xs text-neutral-600 font-sans">Dual sign-off enforced</div>
-							</div>
-						</div>
-
-						<!-- TILE 3: Zero Customer PII Leakage (4 cols) -->
-						<div class="lg:col-span-4 panel p-6 sm:p-7 space-y-4">
-							<div class="flex items-center gap-3 border-b border-neutral-100 pb-3">
-								<div class="h-9 w-9 rounded-md bg-accent-50 flex items-center justify-center text-accent-600 border border-accent-200">
-									<i data-lucide="lock" class="h-4.5 w-4.5"></i>
-								</div>
-								<div>
-									<h3 class="text-base font-semibold text-neutral-900">Zero PII Leakage</h3>
-									<p class="text-2xs text-neutral-500">Air-Gapped &amp; Self-Hosted</p>
-								</div>
-							</div>
-							<p class="text-xs text-neutral-600 font-sans leading-relaxed">
-								Flagura sends compiled targeting schemas to your application. Customer emails, IP addresses, and user IDs never leave host process memory—no user PII leaves your infrastructure.
-							</p>
-							<div class="p-3 rounded-md bg-accent-50/50 border border-accent-200 text-xs space-y-1">
-								<div class="text-2xs text-accent-700 font-semibold">Data Sovereignty:</div>
-								<div class="text-accent-800 font-medium">Zero User Context Egress</div>
-							</div>
-						</div>
-
-						<!-- TILE 4: In-Memory Engine (4 cols) -->
-						<div class="lg:col-span-4 panel p-6 sm:p-7 space-y-4">
-							<div class="flex items-center gap-3 border-b border-neutral-100 pb-3">
-								<div class="h-9 w-9 rounded-md bg-ok-50 flex items-center justify-center text-ok-600 border border-ok-200">
-									<i data-lucide="zap" class="h-4.5 w-4.5"></i>
-								</div>
-								<div>
-									<h3 class="text-base font-semibold text-neutral-900">Local engine</h3>
-									<p class="text-2xs text-neutral-500">Zero Network Roundtrips</p>
-								</div>
-							</div>
-							<p class="text-xs text-neutral-600 font-sans leading-relaxed">
-								Evaluated in process with deterministic FNV-1a hashing. 0 heap allocations, 0 blocking HTTP calls, and zero single points of network failure on critical user paths.
-							</p>
-						</div>
-
-						<!-- TILE 5: Automated Circuit Breakers & Tripwires (4 cols) -->
-						<div class="lg:col-span-4 panel p-6 sm:p-7 space-y-4">
-							<div class="flex items-center gap-3 border-b border-neutral-100 pb-3">
-								<div class="h-9 w-9 rounded-md bg-danger-50 flex items-center justify-center text-danger-600 border border-danger-200">
-									<i data-lucide="flame" class="h-4.5 w-4.5"></i>
-								</div>
-								<div>
-									<h3 class="text-base font-semibold text-neutral-900">Auto-Tripwire Breaker</h3>
-									<p class="text-2xs text-neutral-500">P99 Error Budget Protection</p>
-								</div>
-							</div>
-							<p class="text-xs text-neutral-600 font-sans leading-relaxed">
-								Integrated health monitoring triggers automatic canary rollback within milliseconds if downstream HTTP error rates or crash exceptions spike during a release.
-							</p>
-							<div class="p-3 rounded-md bg-danger-50/50 border border-danger-200 text-xs space-y-1">
-								<div class="text-2xs text-danger-700 font-semibold">Circuit Threshold:</div>
-								<div class="text-danger-700 font-medium">&gt; 1.5% Error Rate = Auto Rollback</div>
-							</div>
-						</div>
-
-						<!-- TILE 6: Single Binary & No MAU Extortion (12 cols) -->
-						<div class="lg:col-span-12 panel p-7 sm:p-8 bg-neutral-900 text-neutral-100 border border-neutral-800 rounded-md space-y-4 font-mono code-scope">
-							<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-800 pb-4">
-								<div class="space-y-1">
-									<div class="flex items-center gap-2">
-										<span class="p-1.5 rounded bg-ok-500/20 text-ok-400 border border-ok-500/40">
-											<i data-lucide="server" class="h-4 w-4"></i>
-										</span>
-										<h3 class="text-base font-semibold text-surface">Predictable Infrastructure • No MAU Billing Penalties</h3>
-									</div>
-									<p class="text-xs text-neutral-400 font-sans">
-										Never get punished for user growth. Evaluate 10,000 requests or 10 billion requests at flat, predictable cost.
-									</p>
-								</div>
-								<div class="flex items-center gap-2">
-									<span class="px-2.5 py-1 rounded text-xs font-medium bg-ok-500/20 text-ok-400 border border-ok-500/40">
-										Single 15MB Binary
-									</span>
-									<span class="px-2.5 py-1 rounded text-xs font-medium bg-accent-500/20 text-accent-400 border border-accent-500/40">
-										Boots in 10ms
-									</span>
-								</div>
-							</div>
-
-							<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1 text-xs">
-								<div class="p-3.5 rounded-md bg-neutral-800/80 border border-neutral-700 space-y-1">
-									<div class="text-2xs text-neutral-400 font-semibold">Zero Container Soup</div>
-									<div class="text-neutral-200 font-sans text-2xs">No Redis, Node, or Celery microservice clusters required. Just one binary.</div>
-								</div>
-								<div class="p-3.5 rounded-md bg-neutral-800/80 border border-neutral-700 space-y-1">
-									<div class="text-2xs text-neutral-400 font-semibold">Self-Hosted Freedom</div>
-									<div class="text-neutral-200 font-sans text-2xs">Embedded SQLite for single-node or PostgreSQL for distributed HA clusters.</div>
-								</div>
-								<div class="p-3.5 rounded-md bg-neutral-800/80 border border-neutral-700 space-y-1">
-									<div class="text-2xs text-neutral-400 font-semibold">OpenFeature Native</div>
-									<div class="text-neutral-200 font-sans text-2xs">100% CNCF standard compliant across Go, TypeScript, Python, and Rust.</div>
-								</div>
-							</div>
-						</div>
-
-					</div>
-				</section>
-
-				<!-- 3. ARCHITECTURAL DATA BUS & STREAM PIPELINE -->
-				<section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-					<div class="text-center space-y-3">
-						<div class="inline-flex items-center gap-2 px-3 py-1 rounded bg-ok-50 text-ok-700 border border-ok-200 text-xs font-medium">
-							<i data-lucide="git-branch" class="h-3.5 w-3.5"></i>
-							<span>REAL-TIME DATA PROPAGATION</span>
-						</div>
-						<h2 class="text-2xl sm:text-4xl font-semibold text-neutral-900">
-							How updates travel to every edge node.
-						</h2>
-					</div>
-
-					<div class="panel p-6 sm:p-8 space-y-6">
-						<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-							<!-- Step 1 -->
-							<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-2">
-								<div class="flex items-center justify-between text-xs">
-									<span class="text-neutral-900 font-medium">1. Control Plane &amp; Store</span>
-									<span class="text-accent-600 font-medium">SQLite / PostgreSQL</span>
-								</div>
-								<p class="text-xs text-neutral-600 font-sans leading-relaxed">
-									Flags and rollout strategies are persisted in Embedded SQLite or PostgreSQL and signed cryptographically.
-								</p>
-							</div>
-
-							<!-- Step 2 -->
-							<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-2">
-								<div class="flex items-center justify-between text-xs">
-									<span class="text-neutral-900 font-medium">2. Monotonic SSE Stream</span>
-								</div>
-								<p class="text-xs text-neutral-600 font-sans leading-relaxed">
-									Changes are published across persistent Server-Sent Events (SSE) connections with auto-reconnect backoff.
-								</p>
-							</div>
-
-							<!-- Step 3 -->
-							<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-2">
-								<div class="flex items-center justify-between text-xs">
-									<span class="text-neutral-900 font-medium">3. Edge SDK Local Memory</span>
-								</div>
-								<p class="text-xs text-neutral-600 font-sans leading-relaxed">
-									Local SDK memory caches update atomically with RWMutex zero-allocation fast paths.
-								</p>
-							</div>
-						</div>
-					</div>
-				</section>
-
-				<!-- 4. IN-BROWSER BENCHMARK SIMULATOR -->
-				<section id="section-benchmark" class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-					<div class="panel p-6 sm:p-10 space-y-8 rounded-md">
-						<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-6">
-							<div class="space-y-1">
-								<div class="flex items-center gap-2">
-									<div class="w-8 h-8 rounded-md bg-accent-50 text-accent-600 border border-accent-200 flex items-center justify-center">
-										<i data-lucide="zap" class="h-4 w-4"></i>
-									</div>
-									<h2 class="text-xl sm:text-2xl font-semibold text-neutral-900">
-										In-Browser Real-Time Benchmark Runner
-									</h2>
-								</div>
-								<p class="text-xs text-neutral-500 font-sans">
-									Execute 100,000 deterministic flag evaluations directly in your browser JavaScript runtime.
-								</p>
-							</div>
-
-							<button 
-								@click="runBrowserBenchmark()"
-								:disabled="benchRunning || isRunningBenchmark"
-								class="px-5 py-3 rounded-md bg-accent-600 hover:bg-accent-700 disabled:opacity-60 text-surface font-medium text-xs transition-colors flex items-center gap-2 cursor-pointer shrink-0"
-							>
-								<span class="inline-flex" x-show="!benchRunning && !isRunningBenchmark"><i data-lucide="play" class="h-4 w-4 fill-white text-surface"></i></span>
-								<span class="inline-flex" x-show="benchRunning || isRunningBenchmark"><i data-lucide="loader-2" class="h-4 w-4 animate-spin text-surface"></i></span>
-								<span x-text="(benchRunning || isRunningBenchmark) ? 'Benchmarking...' : 'Run 100k Benchmark'">Run 100k Benchmark</span>
-							</button>
-						</div>
-
-						<!-- Benchmark Telemetry Board -->
-						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-							<div class="p-5 rounded-md bg-neutral-50 border border-neutral-200 space-y-1.5">
-								<div class="text-2xs text-neutral-500 font-semibold">Evaluations Run</div>
-								<div class="text-2xl font-semibold text-neutral-900" x-text="benchCount ? benchCount.toLocaleString() : '100,000'">100,000</div>
-							</div>
-							<div class="p-5 rounded-md bg-neutral-50 border border-neutral-200 space-y-1.5">
-								<div class="text-2xs text-neutral-500 font-semibold">Total Duration</div>
-								<div class="text-2xl font-semibold text-accent-600" x-text="benchDurationMs ? (benchDurationMs + ' ms') : 'Measuring...'">-- ms</div>
-							</div>
-							<div class="p-5 rounded-md bg-neutral-50 border border-neutral-200 space-y-1.5">
-								<div class="text-2xs text-neutral-500 font-semibold">Throughput Rate</div>
-								<div class="text-2xl font-semibold text-ok-600" x-text="benchOpsPerSec || 'Calculating...'">-- ops/sec</div>
-							</div>
-						</div>
-					</div>
-				</section>
-
-				<!-- 5. CLI INSTALL TERMINAL BANNER -->
-				<section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8" x-data="installCliComponent()">
-					<div class="panel p-6 sm:p-8 bg-neutral-900 text-neutral-100 border border-neutral-800 rounded-md space-y-4 font-mono code-scope">
-						<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-							<div class="flex items-center gap-2">
-								<span class="text-xs text-neutral-400 font-medium">Quick Install CLI</span>
-								<span class="text-2xs text-neutral-500">• macOS, Linux, Windows</span>
-							</div>
-							<div class="flex items-center gap-1.5 bg-neutral-800/80 p-1 rounded-md border border-neutral-700/60 text-xs">
-								<button 
-									@click="setTab('curl')"
-									class="px-2.5 py-1 rounded transition cursor-pointer font-medium"
-									:class="installTab === 'curl' ? 'bg-neutral-900 text-surface' : 'text-neutral-400 hover:text-surface'"
-								>curl</button>
-								<button 
-									@click="setTab('go')"
-									class="px-2.5 py-1 rounded transition cursor-pointer font-medium"
-									:class="installTab === 'go' ? 'bg-neutral-900 text-surface' : 'text-neutral-400 hover:text-surface'"
-								>go install</button>
-								<button 
-									@click="setTab('docker')"
-									class="px-2.5 py-1 rounded transition cursor-pointer font-medium"
-									:class="installTab === 'docker' ? 'bg-neutral-900 text-surface' : 'text-neutral-400 hover:text-surface'"
-								>docker</button>
-							</div>
-						</div>
-
-						<div class="p-4 rounded-md bg-black/50 border border-surface/10 flex items-center justify-between gap-4">
-							<template x-if="installTab === 'curl'">
-								<code class="text-xs text-ok-400 truncate select-all">
-									curl -sSL https://flagura.dev/install.sh | bash
-								</code>
 							</template>
-							<template x-if="installTab === 'go'">
-								<code class="text-xs text-accent-400 truncate select-all">
-									go install github.com/dhawalhost/flagura/cmd/cli@latest
-								</code>
-							</template>
-							<template x-if="installTab === 'docker'">
-								<code class="text-xs text-accent-400 truncate select-all">
-									docker run --rm -it ghcr.io/dhawalhost/flagura:latest flagura --help
-								</code>
-							</template>
-							<button 
-								@click="copyCommand"
-								class="px-3 py-1.5 rounded-md bg-neutral-700 hover:bg-neutral-600 text-neutral-100 text-xs font-medium transition shrink-0 cursor-pointer"
-							>
-								Copy
-							</button>
 						</div>
 					</div>
 				</section>
 
+				<section id="section-benchmark" class="max-w-[1320px] mx-auto px-4 sm:px-8 py-16 grid grid-cols-1 lg:grid-cols-12 gap-x-8 gap-y-8">
+					<div class="lg:col-span-5">
+						<h2 class="section-title">Measured, with the method shown.</h2>
+						<p class="mt-4 text-base text-neutral-600 max-w-md">Numbers from the benchmarks in the repository. Your hardware will differ, so run them yourself.</p>
+						<p class="mt-3 font-mono text-xs text-neutral-500 break-words">go test ./pkg/engine -run xxx -bench . -benchmem</p>
+					</div>
+					<div class="lg:col-span-7">
+						<dl class="border-b border-neutral-200">
+							@landingBench("Evaluation from memory store", "137 ns")
+							@landingBench("Percentage rollout", "144 ns")
+							@landingBench("Targeting rule match", "102 ns")
+							@landingBench("Regex rule", "226 ns")
+						</dl>
+						<p class="mt-2 text-xs text-neutral-500">Per operation on Apple silicon, 200,000 iterations</p>
+						<div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+							<p class="text-sm text-neutral-600"><span class="font-mono text-neutral-900" x-text="benchOpsPerSec || 'Not run yet'"></span> FNV-1a rounds in this browser tab.</p>
+							<button type="button" @click="runBrowserBenchmark()" :disabled="benchRunning || isRunningBenchmark" class="btn" x-text="(benchRunning || isRunningBenchmark) ? 'Running' : 'Run again'"></button>
+						</div>
+					</div>
+				</section>
 			</main>
 
-			<!-- Clean Light Footer -->
-			<footer class="border-t border-neutral-200 bg-surface py-12 px-4 sm:px-6 lg:px-8">
-				<div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-neutral-500">
-					<div class="flex items-center gap-3">
-						@LogoMark("h-7 w-7")
-						<span class="font-semibold text-neutral-900 text-sm">Flagura</span>
-						<span>•</span>
-						<span>OpenFeature Native Engine</span>
+			<section id="section-install" class="on-ink fold-top mt-8" x-data="installCliComponent()">
+				<div class="max-w-[1320px] mx-auto px-4 sm:px-8 pt-28 pb-16">
+					<h2 class="display !text-[clamp(44px,7vw,104px)] max-w-4xl">Run it on your own servers.</h2>
+					<p class="mt-6 text-lg text-neutral-700 max-w-2xl">MIT licensed. One Go binary, with SQLite built in or PostgreSQL for more nodes. OpenFeature providers for Go, TypeScript, Python and Rust.</p>
+					<div class="mt-8 max-w-3xl">
+						<div class="seg">
+							<button type="button" @click="setTab('curl')" :class="installTab === 'curl' ? 'seg-on' : ''">curl</button>
+							<button type="button" @click="setTab('go')" :class="installTab === 'go' ? 'seg-on' : ''">go install</button>
+							<button type="button" @click="setTab('docker')" :class="installTab === 'docker' ? 'seg-on' : ''">docker</button>
+						</div>
+						<div class="panel mt-2 p-3 flex items-center justify-between gap-3">
+							<template x-if="installTab === 'curl'"><code class="text-sm font-mono text-neutral-900 truncate select-all">curl -sSL https://flagura.dev/install.sh | bash</code></template>
+							<template x-if="installTab === 'go'"><code class="text-sm font-mono text-neutral-900 truncate select-all">go install github.com/dhawalhost/flagura/cmd/cli@latest</code></template>
+							<template x-if="installTab === 'docker'"><code class="text-sm font-mono text-neutral-900 truncate select-all">docker run --rm -it ghcr.io/dhawalhost/flagura:latest flagura --help</code></template>
+							<button type="button" @click="copyCommand" class="btn shrink-0">Copy</button>
+						</div>
 					</div>
-
-					<div class="flex items-center gap-6">
-						<a href="/dashboard" class="hover:text-neutral-900 transition">Console</a>
-						<a href="https://github.com/dhawalhost/flagura" target="_blank" class="hover:text-neutral-900 transition">GitHub</a>
-						<a href="https://github.com/dhawalhost/flagura/blob/main/docs/product/sdks-and-api.md" target="_blank" class="hover:text-neutral-900 transition">API Docs</a>
-					</div>
+					<footer class="mt-20 pt-5 border-t border-neutral-200 flex flex-wrap items-center justify-between gap-4 text-sm text-neutral-600">
+						<div class="flex items-center gap-2">
+							@LogoMark("h-6 w-6")
+							@LogoWordmark("h-[19px] translate-y-[3px]")
+						</div>
+						<div class="flex items-center gap-5">
+							<a href="/dashboard" class="hover:text-neutral-900 transition-colors">Console</a>
+							<a href="https://github.com/dhawalhost/flagura/blob/main/docs/product/sdks-and-api.md" target="_blank" rel="noopener" class="hover:text-neutral-900 transition-colors">Docs</a>
+							<a href="https://github.com/dhawalhost/flagura" target="_blank" rel="noopener" class="hover:text-neutral-900 transition-colors">GitHub</a>
+						</div>
+					</footer>
 				</div>
-			</footer>
-
+			</section>
 		</div>
 	}
 }

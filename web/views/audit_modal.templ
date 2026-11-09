@@ -9,18 +9,18 @@ templ AuditModal(auditLogs []domain.AuditLogEntry) {
 	<div class="space-y-5" x-show="activeView === 'audit'" x-cloak x-data="auditViewComponent()">
 		<!-- Top Header Card -->
 		<div class="page-head flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-			<p class="text-sm text-neutral-500">Hash-chained record of flag, rollout and kill-switch changes.</p>
+			<p class="text-sm text-neutral-500">Hash-chained record of flag, rollout and kill-switch changes</p>
 
 			<div class="flex flex-wrap items-center gap-2 self-end sm:self-auto">
 				<!-- Integrity Verification Status Badge -->
 				<template x-if="integrityResult && integrityResult.valid">
-					<span class="px-3 py-1.5 rounded-md bg-ok-50 text-ok-700 border border-ok-200 text-xs font-mono font-medium flex items-center gap-1.5">
+					<span class="px-3 py-1.5 rounded-md bg-ok-50 text-ok-700 border border-ok-200 text-xs font-mono font-medium flex items-center gap-2">
 						<i data-lucide="shield-check" class="h-3.5 w-3.5 text-ok-600"></i>
 						<span x-text="'Verified (' + integrityResult.total_verified + ' linked)'"></span>
 					</span>
 				</template>
 				<template x-if="integrityResult && !integrityResult.valid">
-					<span class="px-3 py-1.5 rounded-md bg-danger-50 text-danger-700 border border-danger-200 text-xs font-mono font-medium flex items-center gap-1.5">
+					<span class="px-3 py-1.5 rounded-md bg-danger-50 text-danger-700 border border-danger-200 text-xs font-mono font-medium flex items-center gap-2">
 						<i data-lucide="alert-triangle" class="h-3.5 w-3.5 text-danger-600"></i>
 						<span x-text="'Tamper: ' + (integrityResult.error_message || 'broken chain')"></span>
 					</span>
@@ -28,7 +28,7 @@ templ AuditModal(auditLogs []domain.AuditLogEntry) {
 
 				<button
 					@click="verifyIntegrity()"
-					class="px-3.5 py-2 rounded-md bg-ok-50 hover:bg-ok-100 border border-ok-200 text-ok-800 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+					class="btn"
 					:disabled="verifying"
 					title="Cryptographically verify SHA-256 hash chaining of audit logs"
 				>
@@ -38,7 +38,7 @@ templ AuditModal(auditLogs []domain.AuditLogEntry) {
 
 				<button
 					@click="exportLogs('csv')"
-					class="px-3 py-2 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+					class="btn"
 					title="Export audit logs as RFC 4180 CSV"
 				>
 					<i data-lucide="file-spreadsheet" class="h-3.5 w-3.5 text-neutral-500"></i>
@@ -46,7 +46,7 @@ templ AuditModal(auditLogs []domain.AuditLogEntry) {
 				</button>
 				<button
 					@click="exportLogs('json')"
-					class="px-3 py-2 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+					class="btn"
 					title="Export audit logs as JSON"
 				>
 					<i data-lucide="file-code" class="h-3.5 w-3.5 text-neutral-500"></i>
@@ -55,7 +55,7 @@ templ AuditModal(auditLogs []domain.AuditLogEntry) {
 
 				<button
 					@click="fetchLogs()"
-					class="px-3.5 py-2 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+					class="btn"
 					:disabled="loading"
 				>
 					<span class="inline-flex" :class="loading ? 'animate-spin' : ''"><i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i></span>
@@ -66,13 +66,14 @@ templ AuditModal(auditLogs []domain.AuditLogEntry) {
 
 		<!-- Logs Container -->
 		<section class="panel overflow-hidden">
-			<div class="flex items-center justify-between border-b border-neutral-200 px-4 py-2.5">
+			<div class="flex items-center justify-between border-b border-neutral-200 px-4 py-2">
 				<h3 class="text-sm text-neutral-900">Events</h3>
+				<input type="search" x-model="auditFilter" aria-label="Filter events" placeholder="Filter by flag, actor or action" class="field flex-1 max-w-xs mx-3"/>
 				<span class="text-xs text-neutral-500">{ fmt.Sprintf("%d recorded", len(auditLogs)) }</span>
 			</div>
 			<ul class="divide-y divide-neutral-100">
 				for _, log := range auditLogs {
-					<li class="px-4 py-2.5 space-y-1">
+					<li class="px-4 py-2 space-y-1" data-search={ log.FlagKey + " " + log.Actor + " " + log.Action } x-show="matchesAudit($el, auditFilter)">
 						<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
 							<div class="flex items-center gap-2 min-w-0">
 								<span class="font-mono text-sm text-neutral-900 truncate">{ log.FlagKey }</span>

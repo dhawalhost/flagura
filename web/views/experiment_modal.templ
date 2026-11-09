@@ -5,30 +5,31 @@ templ ExperimentModal() {
 		x-data="experimentModalComponent()"
 		@open-experiment-modal.window="openModal($event.detail.key)"
 		x-show="isOpen"
+		role="dialog"
+		aria-modal="true"
+		aria-label="Experiment results"
+		@keydown.escape.window="closeModal()"
 		x-cloak
 		class="fixed inset-0 z-50 overflow-y-auto bg-scrim/40 flex items-center justify-center p-4"
 	>
 		<div
 			@click.away="closeModal()"
-			class="bg-surface rounded-md max-w-3xl w-full border border-neutral-200 shadow-2xl overflow-hidden transition-colors max-h-[90vh] flex flex-col"
+			class="bg-surface rounded-xl max-w-3xl w-full border border-neutral-200 shadow-pop overflow-hidden transition-colors max-h-[90vh] flex flex-col"
 		>
 			<!-- Header -->
 			<div class="px-6 py-5 border-b border-neutral-100 bg-surface flex items-center justify-between">
 				<div class="flex items-center gap-3">
-					<div class="h-10 w-10 rounded-md bg-accent-50 border border-accent-200 flex items-center justify-center text-accent-700">
-						<i data-lucide="flask-conical" class="h-5 w-5"></i>
-					</div>
 					<div>
 						<div class="flex items-center gap-2">
-							<h3 class="font-semibold text-neutral-900 text-base">A/B Experiment Statistical Engine</h3>
-							<span class="px-2 py-0.5 rounded text-2xs font-mono font-medium bg-accent-50 text-accent-700 border border-accent-200" x-text="flagKey"></span>
+							<h3 class="font-semibold text-neutral-900 text-base">Experiment results</h3>
+							<span class="badge badge-accent font-mono" x-text="flagKey"></span>
 						</div>
-						<p class="text-xs text-neutral-500 font-sans">Frequentist Z-Score significance testing &amp; confidence interval distribution</p>
 					</div>
 				</div>
 
 				<button
 					@click="closeModal()"
+					aria-label="Close"
 					class="p-2 text-neutral-400 hover:text-neutral-700 rounded-md hover:bg-neutral-100 transition cursor-pointer"
 				>
 					<i data-lucide="x" class="h-5 w-5"></i>
@@ -43,33 +44,33 @@ templ ExperimentModal() {
 						<span class="font-medium text-neutral-700">Conversion Metric:</span>
 						<input
 							type="text"
-							x-model="metricName"
+							aria-label="Conversion metric" x-model="metricName"
 							@change="fetchReport()"
 							placeholder="e.g. checkout_completed"
-							class="bg-surface border border-neutral-200 rounded-md px-3 py-1.5 font-mono text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors w-48"
+							class="field font-mono w-48"
 						/>
 					</div>
 
 					<div class="flex items-center gap-2">
 						<button
 							@click="simulateConversion('treatment')"
-							class="px-3.5 py-1.5 rounded-md bg-neutral-900 hover:bg-neutral-700 text-surface font-medium text-xs transition cursor-pointer flex items-center gap-1.5"
+							class="btn btn-primary"
 						>
 							<i data-lucide="plus-circle" class="h-3.5 w-3.5 text-surface"></i>
-							<span>Simulate Treatment</span>
+							<span>Add test conversion: treatment</span>
 						</button>
 						<button
 							@click="simulateConversion('control')"
-							class="px-3.5 py-1.5 rounded-md bg-surface hover:bg-neutral-50 border border-neutral-200 text-neutral-700 font-semibold text-xs transition cursor-pointer flex items-center gap-1.5"
+							class="btn"
 						>
 							<i data-lucide="plus-circle" class="h-3.5 w-3.5 text-neutral-400"></i>
-							<span>Simulate Control</span>
+							<span>Add test conversion: control</span>
 						</button>
 					</div>
 				</div>
 
 				<!-- Statistical Sample Reliability Notice (REQ-D01) -->
-				<div class="p-3.5 rounded-md bg-accent-50/70 border border-accent-100 flex items-center gap-2.5 text-neutral-700">
+				<div class="p-4 rounded-md bg-accent-50/70 border border-accent-100 flex items-center gap-2 text-neutral-700">
 					<i data-lucide="shield-check" class="h-4 w-4 text-accent-600 shrink-0"></i>
 					<p class="text-2xs font-sans leading-tight">
 						<span class="font-medium text-accent-950">Independent Samples:</span>
@@ -94,10 +95,10 @@ templ ExperimentModal() {
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<template x-for="(stats, variant) in getVariantStats()" :key="variant">
 						<div class="p-5 rounded-md border transition-colors space-y-3 bg-surface" :class="isWinner(variant) ? 'border-ok-300 bg-ok-50/30' : 'border-neutral-200'">
-							<div class="flex items-center justify-between border-b border-neutral-100 pb-2.5">
+							<div class="flex items-center justify-between border-b border-neutral-100 pb-2">
 								<span class="font-mono font-medium text-neutral-900 text-sm" x-text="variant"></span>
 								<span
-									class="px-2 py-0.5 rounded text-2xs font-mono font-medium"
+									class="badge font-mono"
 									:class="getBadgeClass(variant)"
 									x-text="getBadgeText(variant)"
 								></span>
@@ -105,11 +106,11 @@ templ ExperimentModal() {
 
 							<div class="grid grid-cols-2 gap-2 text-neutral-500 text-xs">
 								<div>
-									<div class="text-2xs text-neutral-400 font-mono">CONVERSION RATE</div>
+									<div class="text-2xs text-neutral-400 font-mono">Conversion rate</div>
 									<div class="text-base font-semibold text-neutral-900 font-mono" x-text="(stats.conversion_rate * 100).toFixed(2) + '%'"></div>
 								</div>
 								<div>
-									<div class="text-2xs text-neutral-400 font-mono">EXPOSURES / CONVERSIONS</div>
+									<div class="text-2xs text-neutral-400 font-mono">Exposures / conversions</div>
 									<div class="font-medium text-neutral-700 font-mono" x-text="stats.exposures + ' / ' + stats.conversions"></div>
 								</div>
 							</div>
@@ -125,18 +126,18 @@ templ ExperimentModal() {
 				<!-- Statistical Comparison Table -->
 				<template x-if="hasComparisons()">
 					<div class="rounded-md border border-neutral-200 overflow-hidden bg-surface">
-						<div class="bg-neutral-50 px-4 py-2.5 font-medium text-neutral-700 border-b border-neutral-200">
+						<div class="bg-neutral-50 px-4 py-2 font-medium text-neutral-700 border-b border-neutral-200">
 							Two-Tailed Z-Test Significance vs. Control
 						</div>
 						<table class="w-full text-left">
-							<thead class="bg-neutral-50 text-2xs text-neutral-500 border-b border-neutral-200">
+							<thead class="border-b border-neutral-200 text-xs text-neutral-500">
 								<tr>
-									<th class="p-3">Treatment</th>
-									<th class="p-3">Relative Lift</th>
-									<th class="p-3">Z-Score</th>
-									<th class="p-3">P-Value</th>
-									<th class="p-3">Confidence</th>
-									<th class="p-3">Status</th>
+									<th class="p-3 font-normal">Treatment</th>
+									<th class="p-3 font-normal">Relative Lift</th>
+									<th class="p-3 font-normal">Z-Score</th>
+									<th class="p-3 font-normal">P-Value</th>
+									<th class="p-3 font-normal">Confidence</th>
+									<th class="p-3 font-normal">Status</th>
 								</tr>
 							</thead>
 							<tbody class="divide-y divide-neutral-100 font-mono">
@@ -149,8 +150,8 @@ templ ExperimentModal() {
 										<td class="p-3 font-medium text-accent-700" x-text="comp.confidence_pct.toFixed(1) + '%'"></td>
 										<td class="p-3">
 											<span
-												class="px-2 py-0.5 rounded text-2xs font-medium"
-												:class="comp.status === 'WINNING' ? 'bg-ok-100 text-ok-800' : (comp.status === 'LOSING' ? 'bg-danger-100 text-danger-800' : 'bg-neutral-100 text-neutral-700')"
+												class="badge"
+												:class="comp.status === 'Winning' ? 'bg-ok-100 text-ok-800' : (comp.status === 'Losing' ? 'bg-danger-100 text-danger-800' : 'bg-neutral-100 text-neutral-700')"
 												x-text="comp.status"
 											></span>
 										</td>
@@ -167,9 +168,9 @@ templ ExperimentModal() {
 				<span class="text-2xs text-neutral-500 font-mono">Statistical model: Two-proportion pooled Z-test (&alpha;=0.05)</span>
 				<button
 					@click="closeModal()"
-					class="px-4 py-2 rounded-md bg-neutral-200 hover:bg-neutral-300 text-neutral-800 font-medium text-xs cursor-pointer transition"
+					class="btn"
 				>
-					Close Analysis
+					Close
 				</button>
 			</div>
 		</div>

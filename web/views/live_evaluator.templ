@@ -28,7 +28,7 @@ templ evaluatorEnvTab(env string, label string) {
 templ LiveEvaluator(flags []domain.FeatureFlag) {
 	<div class="space-y-4" x-show="activeView === 'evaluator'" x-cloak x-data="liveEvaluatorComponent()">
 		<div class="page-head flex flex-wrap items-center justify-between gap-3">
-			<p class="text-sm text-neutral-500">Evaluate flags against a user context and see which rules matched.</p>
+			<p class="text-sm text-neutral-500">Evaluate flags against a user context and see which rules matched</p>
 			<div class="flex items-center gap-2">
 				<div class="seg">
 					@evaluatorEnvTab("production", "production")
@@ -45,8 +45,8 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 		<div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
 			<div class="lg:col-span-4 panel">
 				<div class="section p-4">
-					<label class="field-label">Flag</label>
-					<select x-model="selectedFlagKey" @change="evaluateNow()" class="field font-mono">
+					<label for="fld-live-evaluator-1" class="field-label">Flag</label>
+					<select id="fld-live-evaluator-1" x-model="selectedFlagKey" @change="evaluateNow()" class="field font-mono">
 						<option value="all">All flags ({ fmt.Sprintf("%d", len(flags)) })</option>
 						for _, f := range flags {
 							<option value={ f.Key }>{ f.Key }</option>
@@ -55,7 +55,7 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 				</div>
 				<div class="section p-4">
 					<label class="field-label">Preset</label>
-					<div class="flex flex-wrap gap-1.5">
+					<div class="flex flex-wrap gap-2">
 						for _, p := range evaluatorPersonas {
 							<button
 								type="button"
@@ -73,24 +73,24 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 				</div>
 				<div class="section p-4 grid grid-cols-2 gap-3">
 					<div class="col-span-2">
-						<label class="field-label">User ID</label>
-						<input type="text" x-model="context.user_id" @input.debounce.250ms="evaluateNow()" class="field font-mono" placeholder="usr_alex_42"/>
+						<label for="fld-live-evaluator-2" class="field-label">User ID</label>
+						<input id="fld-live-evaluator-2" type="text" x-model="context.user_id" @input.debounce.250ms="evaluateNow()" class="field font-mono" placeholder="usr_alex_42"/>
 					</div>
 					<div class="col-span-2">
-						<label class="field-label">Email</label>
-						<input type="email" x-model="context.email" @input.debounce.250ms="evaluateNow()" class="field font-mono" placeholder="alex@company.com"/>
+						<label for="fld-live-evaluator-3" class="field-label">Email</label>
+						<input id="fld-live-evaluator-3" type="email" x-model="context.email" @input.debounce.250ms="evaluateNow()" class="field font-mono" placeholder="alex@company.com"/>
 					</div>
 					<div>
-						<label class="field-label">Country</label>
-						<input type="text" x-model="context.country" @input.debounce.250ms="evaluateNow()" class="field font-mono" placeholder="US"/>
+						<label for="fld-live-evaluator-4" class="field-label">Country</label>
+						<input id="fld-live-evaluator-4" type="text" x-model="context.country" @input.debounce.250ms="evaluateNow()" class="field font-mono" placeholder="US"/>
 					</div>
 					<div>
-						<label class="field-label">Role</label>
-						<input type="text" x-model="context.role" @input.debounce.250ms="evaluateNow()" class="field font-mono" placeholder="admin"/>
+						<label for="fld-live-evaluator-5" class="field-label">Role</label>
+						<input id="fld-live-evaluator-5" type="text" x-model="context.role" @input.debounce.250ms="evaluateNow()" class="field font-mono" placeholder="admin"/>
 					</div>
 					<div class="col-span-2">
-						<label class="field-label">Plan</label>
-						<select x-model="context.tier" @change="evaluateNow()" class="field font-mono">
+						<label for="fld-live-evaluator-6" class="field-label">Plan</label>
+						<select id="fld-live-evaluator-6" x-model="context.tier" @change="evaluateNow()" class="field font-mono">
 							<option value="enterprise">enterprise</option>
 							<option value="pro">pro</option>
 							<option value="free">free</option>
@@ -132,7 +132,7 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 						</dl>
 						<template x-if="evalResults[selectedFlagKey].bucket_threshold !== undefined">
 							<div class="section p-4">
-								<div class="flex justify-between text-xs mb-1.5">
+								<div class="flex justify-between text-xs mb-2">
 									<span class="text-neutral-600">Hash position</span>
 									<span class="font-mono text-neutral-900" x-text="evalResults[selectedFlagKey].bucket_val + ' against ' + evalResults[selectedFlagKey].bucket_threshold + (evalResults[selectedFlagKey].bucket_val < evalResults[selectedFlagKey].bucket_threshold ? ', included' : ', excluded')"></span>
 								</div>
@@ -163,7 +163,7 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 
 				<template x-if="selectedFlagKey === 'all'">
 					<section class="panel overflow-hidden">
-						<div class="px-4 py-2.5 border-b border-neutral-200 flex justify-between">
+						<div class="px-4 py-2 border-b border-neutral-200 flex justify-between">
 							<h3 class="text-sm text-neutral-900">Results</h3>
 							<span class="text-xs text-neutral-500" x-text="getEvalResultsCount() + ' flags'"></span>
 						</div>
@@ -186,11 +186,13 @@ templ LiveEvaluator(flags []domain.FeatureFlag) {
 						<span class="text-xs text-neutral-200">cURL</span>
 						<div class="flex items-center gap-3">
 							<button type="button" @click.stop="copyCurl()" class="text-xs text-neutral-200 hover:underline cursor-pointer" x-text="copiedCurl ? 'Copied' : 'Copy'"></button>
-							<span class="text-xs text-neutral-400" x-text="openCurl ? 'Hide' : 'Show'"></span>
+							<span class="text-xs text-neutral-300" x-text="openCurl ? 'Hide' : 'Show'"></span>
 						</div>
 					</div>
 					<pre x-show="openCurl" class="overflow-x-auto text-neutral-200 pt-2 text-xs font-mono leading-relaxed" x-text="getCurlCommand()"></pre>
 				</section>
+
+				<p class="text-xs text-neutral-500">Curious how fast evaluation is on this server? <button type="button" @click="navigateTo('benchmark')" class="text-accent-600 hover:underline cursor-pointer">Run a benchmark</button></p>
 			</div>
 		</div>
 	</div>

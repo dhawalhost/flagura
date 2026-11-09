@@ -1,4 +1,4 @@
-# 🚨 Incident Response & Emergency Operations Runbook
+# Incident Response & Emergency Operations Runbook
 
 This runbook outlines immediate remediation procedures for operational emergencies, feature regressions, database disruptions, and latency degradation in Flagura.
 
@@ -8,7 +8,7 @@ This runbook outlines immediate remediation procedures for operational emergenci
 
 If a newly launched feature causes production exceptions, API degradation, or security concerns, disable it immediately with zero code deployment.
 
-### Method A: Web Console (Fastest — 1 Click)
+### Method A: Web Console (Fastest: 1 Click)
 1. Navigate to `https://flagura.yourdomain.com/dashboard`.
 2. Find the problematic flag in the list (or search by key).
 3. Toggle the **Kill-Switch switch** to `OFF` for `Production`.
@@ -74,7 +74,7 @@ pg_isready -d "$DATABASE_URL"
 
 ## 3. High Evaluation Latency Troubleshooting (P1)
 
-Flagura evaluation runs in **< 80 nanoseconds in-memory** and **< 1–4 milliseconds over local HTTP**. If latencies exceed 15ms, follow this troubleshooting tree:
+Flagura evaluation runs in **< 80 nanoseconds in-memory** and **< 1-4 milliseconds over local HTTP**. If latencies exceed 15ms, follow this troubleshooting tree:
 
 ### Step 1: Diagnose Where the Latency Occurs
 - Run the built-in benchmark endpoint to verify the in-memory engine:

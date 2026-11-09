@@ -1,10 +1,10 @@
-# 🔒 Security Architecture & Threat Model
+# Security Architecture & Threat Model
 
 This document outlines Flagura's security model, cryptographic guarantees, threat mitigations (STRIDE analysis), and defensive engineering practices.
 
 ---
 
-## 🛡️ STRIDE Threat Model & Mitigations
+## STRIDE Threat Model & Mitigations
 
 | Threat Category (STRIDE) | Attack Vector | Architectural Mitigation in Flagura |
 | :--- | :--- | :--- |
@@ -17,7 +17,7 @@ This document outlines Flagura's security model, cryptographic guarantees, threa
 
 ---
 
-## 🔐 Cryptographic & Security Primitives
+## Cryptographic & Security Primitives
 
 ### 1. Password Hashing (Bcrypt)
 - Algorithm: `bcrypt` (Blowfish-based adaptive hashing).
@@ -56,7 +56,7 @@ http.SetCookie(w, &http.Cookie{
 
 ---
 
-## 🌐 HTTP Security Headers Baseline
+## HTTP Security Headers Baseline
 
 Every request handled by Flagura (standalone server or Vercel Edge) is passed through `SecurityHeadersMiddleware`:
 
@@ -70,7 +70,7 @@ Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: camera=(), microphone=(), geolocation=()
 ```
 
-### ⚖️ CSP Architecture & Security Rationale
+### CSP Architecture & Security Rationale
 
 * **Zero `unsafe-*` Directives in `script-src`**:
   * Flagura enforces a strict Content Security Policy with **zero** `unsafe-inline` and **zero** `unsafe-eval` directives in `script-src`.
@@ -87,7 +87,7 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 
 ---
 
-## 🔍 Automated CI Security Pipeline
+## Automated CI Security Pipeline
 
 1. **`govulncheck ./...`**: Runs before every commit and in GitHub Actions CI to identify known CVEs in Go dependencies.
 2. **`gosec ./...`**: Performs AST-based Static Application Security Testing (SAST) for code-level security issues.

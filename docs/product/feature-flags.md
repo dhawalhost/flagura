@@ -1,14 +1,14 @@
-# 🚩 Feature Flags Deep Dive
+# Feature Flags Deep Dive
 
 Feature flags in Flagura allow engineering teams to separate code deployment from feature release. This enables trunk-based development, dark launching, gradual percentage rollouts, and multi-variant experimentation.
 
 ---
 
-## 🏷️ Flag Types & Strategies
+## Flag Types & Strategies
 
 Flagura supports 3 foundational flag strategies:
 
-### 1. 🔘 Boolean Flags (Simple Toggles)
+### 1. Boolean Flags (Simple Toggles)
 Binary switches that are either `true` (Enabled / Treatment) or `false` (Disabled / Control).
 
 - **Best for**: Feature releases, maintenance banners, circuit breakers, experimental code paths.
@@ -29,7 +29,7 @@ Binary switches that are either `true` (Enabled / Treatment) or `false` (Disable
 
 ---
 
-### 2. 📊 Percentage Rollouts (Canary Releases)
+### 2. Percentage Rollouts (Canary Releases)
 Gradual exposure of a feature to a specific proportion of your user base (e.g. 5%, 25%, 50%, 100%).
 
 - **Best for**: Canary deployments, load testing backend capacity, mitigating blast radius of breaking changes.
@@ -51,7 +51,7 @@ Gradual exposure of a feature to a specific proportion of your user base (e.g. 5
 
 ---
 
-### 3. 🎨 Multivariate Flags (A/B/n Experiments)
+### 3. Multivariate Flags (A/B/n Experiments)
 Flags that serve multiple variations (strings, numbers, JSON objects) with configurable weights.
 
 - **Best for**: UI redesigns, pricing tier experiments, algorithm parameter tuning.
@@ -76,7 +76,7 @@ Flags that serve multiple variations (strings, numbers, JSON objects) with confi
 
 ---
 
-## 🔄 Flag Lifecycle Best Practices
+## Flag Lifecycle Best Practices
 
 1. **Create in Development**: Test feature flags with custom contexts in the local or development environment.
 2. **Promote to Staging**: Enable for internal team members using targeting rules (e.g. `@company.com` email filter).

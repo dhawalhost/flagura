@@ -50,6 +50,478 @@ window.openHygieneModal = function (data) {
 // 2. Alpine.js Component Registrations
 // ==========================================
 
+function confirmAction(options) {
+  return new Promise((resolve) => {
+    window.FlaguraApp.askToConfirm({
+      ...options,
+      run: () => resolve(true),
+      onCancel: () => resolve(false),
+    });
+  });
+}
+
+function installDialogFocus() {
+  const selector =
+    'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]):not(.native-select),textarea:not([disabled])';
+  const visible = (el) => el.offsetWidth > 0 && el.offsetHeight > 0;
+  const stack = [];
+  const top = () => (stack.length ? stack[stack.length - 1].dialog : null);
+  const fieldsIn = (dialog) =>
+    Array.from(dialog.querySelectorAll(selector)).filter(visible);
+  const sync = () => {
+    while (stack.length && !visible(top())) {
+      const closed = stack.pop();
+      if (closed.returnTo && closed.returnTo.focus) closed.returnTo.focus();
+    }
+    document.querySelectorAll('[role="dialog"]').forEach((dialog) => {
+      if (!visible(dialog) || stack.some((entry) => entry.dialog === dialog)) {
+        return;
+      }
+      stack.push({ dialog, returnTo: document.activeElement });
+      requestAnimationFrame(() => {
+        const fields = fieldsIn(dialog);
+        const first =
+          fields.find((f) => ["INPUT", "SELECT", "TEXTAREA"].includes(f.tagName)) ||
+          fields[0];
+        if (first) first.focus();
+      });
+    });
+  };
+  new MutationObserver(sync).observe(document.body, {
+    attributes: true,
+    attributeFilter: ["style"],
+    subtree: true,
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab" || !top()) return;
+    const fields = fieldsIn(top());
+    if (!fields.length) return;
+    const first = fields[0];
+    const last = fields[fields.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+}
+
+// Each native select stays in the DOM as the source of truth for x-model and
+// forms. A button and a shared listbox replace only what the browser draws.
+function installCustomSelects() {
+  const triggers = new WeakMap();
+  const pending = new Set();
+  let nextId = 0;
+  let current = null;
+  let options = [];
+  let activeIndex = -1;
+  let typed = "";
+  let typedAt = 0;
+
+  const pop = document.createElement("div");
+  pop.className = "select-pop";
+  pop.id = "select-pop";
+  pop.setAttribute("role", "listbox");
+  pop.hidden = true;
+  document.body.appendChild(pop);
+
+  const flush = () => {
+    pending.forEach(paint);
+    pending.clear();
+  };
+  const schedule = (select) => {
+    if (!select || !triggers.has(select)) return;
+    if (!pending.size) queueMicrotask(flush);
+    pending.add(select);
+  };
+
+  // Alpine writes option.selected directly, and no DOM event reports that.
+  const watch = (proto, name, owner) => {
+    const native = Object.getOwnPropertyDescriptor(proto, name);
+    Object.defineProperty(proto, name, {
+      ...native,
+      set(value) {
+        native.set.call(this, value);
+        schedule(owner(this));
+      },
+    });
+  };
+  watch(HTMLOptionElement.prototype, "selected", (option) => option.closest("select"));
+  watch(HTMLSelectElement.prototype, "value", (select) => select);
+  watch(HTMLSelectElement.prototype, "selectedIndex", (select) => select);
+
+  function paint(select) {
+    const trigger = triggers.get(select);
+    if (!trigger) return;
+    const option = select.options[select.selectedIndex];
+    trigger.querySelector(".select-value").textContent = option
+      ? option.textContent.trim()
+      : "";
+    trigger.disabled = select.disabled;
+  }
+
+  function enhance(select) {
+    if (triggers.has(select) || select.multiple) return;
+    if (!select.id) select.id = "select-" + ++nextId;
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.id = select.id + "-button";
+    trigger.className = select.className + " select-trigger";
+    trigger.setAttribute("role", "combobox");
+    trigger.setAttribute("aria-haspopup", "listbox");
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.setAttribute("aria-controls", pop.id);
+    const label = select.getAttribute("aria-label");
+    if (label) trigger.setAttribute("aria-label", label);
+    Array.from(select.labels || []).forEach((el) => {
+      el.htmlFor = trigger.id;
+    });
+    const value = document.createElement("span");
+    value.className = "select-value";
+    trigger.appendChild(value);
+
+    select.classList.add("native-select");
+    select.tabIndex = -1;
+    select.setAttribute("aria-hidden", "true");
+    select.after(trigger);
+    triggers.set(select, trigger);
+
+    trigger.addEventListener("click", () => {
+      if (current === select) close();
+      else open(select);
+    });
+    trigger.addEventListener("keydown", (event) => onKey(event, select));
+    paint(select);
+  }
+
+  function setActive(index) {
+    activeIndex = index;
+    Array.from(pop.children).forEach((row, i) => {
+      row.classList.toggle("is-active", i === index);
+    });
+    const row = pop.children[index];
+    if (row && current) {
+      triggers.get(current).setAttribute("aria-activedescendant", row.id);
+      row.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function place() {
+    if (!current) return;
+    const box = triggers.get(current).getBoundingClientRect();
+    pop.style.minWidth = box.width + "px";
+    pop.style.maxWidth = Math.max(box.width, 360) + "px";
+    const height = pop.offsetHeight;
+    const below = window.innerHeight - box.bottom;
+    const up = below < height + 8 && box.top > below;
+    pop.style.top = (up ? box.top - height - 4 : box.bottom + 4) + "px";
+    const width = pop.offsetWidth;
+    pop.style.left =
+      Math.max(8, Math.min(box.left, window.innerWidth - width - 8)) + "px";
+  }
+
+  function open(select) {
+    if (select.disabled) return;
+    close();
+    current = select;
+    options = Array.from(select.options).filter(
+      (option) => !option.hidden && option.style.display !== "none",
+    );
+    pop.textContent = "";
+    options.forEach((option, index) => {
+      const row = document.createElement("div");
+      row.id = "select-option-" + index;
+      row.className = "select-option";
+      row.setAttribute("role", "option");
+      row.setAttribute("aria-selected", String(option.selected));
+      if (option.disabled) row.setAttribute("aria-disabled", "true");
+      row.textContent = option.textContent.trim();
+      if (select.classList.contains("font-mono")) row.classList.add("font-mono");
+      row.addEventListener("mousemove", () => {
+        if (activeIndex !== index) setActive(index);
+      });
+      row.addEventListener("click", () => choose(index));
+      pop.appendChild(row);
+    });
+    pop.hidden = false;
+    triggers.get(select).setAttribute("aria-expanded", "true");
+    place();
+    setActive(Math.max(0, options.findIndex((option) => option.selected)));
+  }
+
+  function close() {
+    if (!current) return;
+    const trigger = triggers.get(current);
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.removeAttribute("aria-activedescendant");
+    pop.hidden = true;
+    current = null;
+  }
+
+  function choose(index) {
+    const option = options[index];
+    const select = current;
+    if (!option || option.disabled || !select) return;
+    const changed = select.value !== option.value;
+    close();
+    if (changed) {
+      select.value = option.value;
+      select.dispatchEvent(new Event("input", { bubbles: true }));
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    triggers.get(select).focus();
+  }
+
+  function move(step) {
+    let index = activeIndex;
+    for (let i = 0; i < options.length; i++) {
+      index += step;
+      if (index < 0 || index >= options.length) return;
+      if (!options[index].disabled) {
+        setActive(index);
+        return;
+      }
+    }
+  }
+
+  function typeAhead(key) {
+    const now = Date.now();
+    typed = now - typedAt > 600 ? key : typed + key;
+    typedAt = now;
+    const match = options.findIndex((option) =>
+      option.textContent.trim().toLowerCase().startsWith(typed),
+    );
+    if (match !== -1) setActive(match);
+  }
+
+  function onKey(event, select) {
+    const isOpen = current === select;
+    const key = event.key;
+    if (!isOpen) {
+      if (["ArrowDown", "ArrowUp", "Enter", " "].includes(key)) {
+        event.preventDefault();
+        event.stopPropagation();
+        open(select);
+      } else if (key.length === 1) {
+        event.stopPropagation();
+      }
+      return;
+    }
+    if (key === "Tab") {
+      close();
+      return;
+    }
+    event.stopPropagation();
+    if (key === "Escape") {
+      event.preventDefault();
+      close();
+    } else if (key === "ArrowDown") {
+      event.preventDefault();
+      move(1);
+    } else if (key === "ArrowUp") {
+      event.preventDefault();
+      move(-1);
+    } else if (key === "Home") {
+      event.preventDefault();
+      setActive(0);
+    } else if (key === "End") {
+      event.preventDefault();
+      setActive(options.length - 1);
+    } else if (key === "Enter" || key === " ") {
+      event.preventDefault();
+      choose(activeIndex);
+    } else if (key.length === 1) {
+      typeAhead(key.toLowerCase());
+    }
+  }
+
+  // Modals close on outside clicks at document level; the list is not outside.
+  pop.addEventListener("click", (event) => event.stopPropagation());
+  pop.addEventListener("mousedown", (event) => event.preventDefault());
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (!current || pop.contains(event.target)) return;
+      if (!triggers.get(current).contains(event.target)) close();
+    },
+    true,
+  );
+  window.addEventListener(
+    "scroll",
+    (event) => {
+      if (current && event.target !== pop) place();
+    },
+    true,
+  );
+  window.addEventListener("resize", place);
+
+  const scan = (root) => {
+    if (root.nodeType !== 1) return;
+    if (root.tagName === "SELECT") enhance(root);
+    else root.querySelectorAll("select").forEach(enhance);
+  };
+  scan(document.body);
+  new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (pop.contains(mutation.target)) return;
+      if (mutation.type === "attributes") {
+        if (mutation.target.tagName === "SELECT") schedule(mutation.target);
+        return;
+      }
+      if (mutation.target.closest) schedule(mutation.target.closest("select"));
+      mutation.addedNodes.forEach(scan);
+    });
+  }).observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["disabled"],
+  });
+}
+
+// Paints slider fill through --pct, including values set by x-model.
+function installRangeFill() {
+  const native = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  );
+  const paint = (input) => {
+    const min = Number(input.min) || 0;
+    const max = input.max === "" ? 100 : Number(input.max);
+    const pct = ((Number(native.get.call(input)) - min) / (max - min)) * 100;
+    input.style.setProperty("--pct", pct + "%");
+  };
+  const enhance = (input) => {
+    if (input.dataset.fill) return;
+    input.dataset.fill = "1";
+    Object.defineProperty(input, "value", {
+      configurable: true,
+      get: () => native.get.call(input),
+      set: (value) => {
+        native.set.call(input, value);
+        paint(input);
+      },
+    });
+    input.addEventListener("input", () => paint(input));
+    paint(input);
+  };
+  const selector = 'input[type="range"]';
+  document.querySelectorAll(selector).forEach(enhance);
+  new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType !== 1) return;
+        if (node.matches(selector)) enhance(node);
+        node.querySelectorAll(selector).forEach(enhance);
+      });
+    });
+  }).observe(document.body, { childList: true, subtree: true });
+}
+
+function installValidationMessages() {
+  const clear = (field) => {
+    const message = field.__errorMessage;
+    if (message) message.remove();
+    field.__errorMessage = null;
+    field.removeAttribute("aria-invalid");
+  };
+  let focused = false;
+  document.addEventListener(
+    "invalid",
+    (event) => {
+      event.preventDefault();
+      const field = event.target;
+      clear(field);
+      const message = document.createElement("p");
+      message.className = "field-error";
+      message.id = (field.id || field.name || "field") + "-error";
+      message.textContent = field.validationMessage;
+      const trigger = field.classList.contains("native-select")
+        ? field.nextElementSibling
+        : null;
+      const anchor =
+        field.closest(".relative") && field.parentElement.classList.contains("relative")
+          ? field.parentElement
+          : trigger || field;
+      anchor.after(message);
+      field.__errorMessage = message;
+      field.setAttribute("aria-invalid", "true");
+      field.setAttribute("aria-describedby", message.id);
+      if (!focused) {
+        focused = true;
+        (trigger || field).focus();
+        setTimeout(() => (focused = false), 0);
+      }
+    },
+    true,
+  );
+  ["input", "change"].forEach((name) => {
+    document.addEventListener(name, (event) => clear(event.target), true);
+  });
+}
+
+function installTooltips() {
+  const tip = document.createElement("div");
+  tip.className = "tip";
+  tip.setAttribute("role", "tooltip");
+  tip.hidden = true;
+  document.body.appendChild(tip);
+  let owner = null;
+  let timer = 0;
+
+  const hide = () => {
+    clearTimeout(timer);
+    tip.hidden = true;
+    if (owner) {
+      owner.setAttribute("title", owner.dataset.tip);
+      owner = null;
+    }
+  };
+  const show = (el) => {
+    if (owner === el) return;
+    hide();
+    const text = el.getAttribute("title");
+    if (!text) return;
+    owner = el;
+    el.dataset.tip = text;
+    el.removeAttribute("title");
+    if (!el.getAttribute("aria-label") && !el.textContent.trim()) {
+      el.setAttribute("aria-label", text);
+    }
+    timer = setTimeout(() => {
+      tip.textContent = text;
+      tip.hidden = false;
+      const box = el.getBoundingClientRect();
+      const height = tip.offsetHeight;
+      const width = tip.offsetWidth;
+      const top = box.top - height - 6;
+      tip.style.top = (top < 8 ? box.bottom + 6 : top) + "px";
+      tip.style.left =
+        Math.max(
+          8,
+          Math.min(
+            box.left + box.width / 2 - width / 2,
+            window.innerWidth - width - 8,
+          ),
+        ) + "px";
+    }, 300);
+  };
+  document.addEventListener("mouseover", (event) => {
+    const el = event.target.closest && event.target.closest("[title]");
+    if (el) show(el);
+    else if (owner && !owner.contains(event.target)) hide();
+  });
+  document.addEventListener("focusin", (event) => {
+    if (event.target.matches && event.target.matches("[title]:focus-visible")) {
+      show(event.target);
+    }
+  });
+  document.addEventListener("focusout", hide);
+  document.addEventListener("click", hide, true);
+}
+
 function chartToken(name, alpha) {
   const value = getComputedStyle(document.documentElement)
     .getPropertyValue(name)
@@ -157,10 +629,6 @@ document.addEventListener("alpine:init", () => {
       setTab(tab) {
         this.currentTab = tab;
       },
-      handleTabClick(el) {
-        const tab = el.dataset.tab;
-        if (tab) this.setTab(tab);
-      },
     };
   }
   Alpine.data("tabComponent", tabComponent);
@@ -189,11 +657,12 @@ document.addEventListener("alpine:init", () => {
   Alpine.data("installCliComponent", installCliComponent);
   window.installCliComponent = installCliComponent;
 
-  // Feature Flag Table Row Component (Zero-Eval CSP Compliant)
+  // Feature flag table row
   function flagRowComponent() {
     return {
       key: "",
       envs: {},
+      pending: {},
       copied: false,
       init() {
         if (this.$el) {
@@ -222,26 +691,26 @@ document.addEventListener("alpine:init", () => {
           this.envs.production.enabled
         );
       },
+      rolloutOf(env) {
+        const config = this.envs && this.envs[env];
+        if (!config || !config.enabled) return 0;
+        return config.strategy === "percentage" ? config.percentage || 0 : 100;
+      },
       get prodPct() {
-        return this.envs &&
-          this.envs.production &&
-          this.envs.production.percentage !== undefined
-          ? this.envs.production.percentage
-          : 0;
+        return this.rolloutOf("production");
       },
       get devPct() {
-        return this.envs &&
-          this.envs.development &&
-          this.envs.development.percentage !== undefined
-          ? this.envs.development.percentage
-          : 0;
+        return this.rolloutOf("development");
       },
       get stgPct() {
-        return this.envs &&
-          this.envs.staging &&
-          this.envs.staging.percentage !== undefined
-          ? this.envs.staging.percentage
-          : 0;
+        return this.rolloutOf("staging");
+      },
+      get envOn() {
+        const config = this.envs && this.envs[this.currentEnv];
+        return !!(config && config.enabled);
+      },
+      get envPct() {
+        return this.rolloutOf(this.currentEnv);
       },
       copyKey() {
         const flagKey = this.key || (this.$el && this.$el.dataset.key);
@@ -250,7 +719,43 @@ document.addEventListener("alpine:init", () => {
         this.copied = true;
         setTimeout(() => (this.copied = false), 1500);
       },
-      async toggleEnv(env) {
+      requestToggle(env) {
+        if (env !== "production" || !window.FlaguraApp) {
+          this.toggleEnv(env);
+          return;
+        }
+        const turningOn = !(this.envs[env] && this.envs[env].enabled);
+        const config = this.envs[env] || {};
+        const reach =
+          config.strategy === "percentage" ? (config.percentage || 0) + "%" : "100%";
+        window.FlaguraApp.askToConfirm({
+          title:
+            (turningOn ? "Turn on " : "Turn off ") + this.key + " in production?",
+          body: turningOn
+            ? "This reaches " + reach + " of production users right away."
+            : "Everyone currently getting this feature (" +
+              reach +
+              " of production users) loses it right away.",
+          action: turningOn ? "Turn on" : "Turn off",
+          run: () => this.toggleEnv(env),
+        });
+      },
+      toggleCurrent() {
+        this.requestToggle(this.currentEnv);
+      },
+      isBusy(env) {
+        return !!this.pending[env];
+      },
+      async toggleEnv(env, isUndo) {
+        if (this.pending[env]) return;
+        this.pending = { ...this.pending, [env]: true };
+        try {
+          await this.applyToggle(env, isUndo);
+        } finally {
+          this.pending = { ...this.pending, [env]: false };
+        }
+      },
+      async applyToggle(env, isUndo) {
         const flagKey = this.key || (this.$el && this.$el.dataset.key);
         if (!this.envs[env]) this.envs[env] = {};
         const prev = !!this.envs[env].enabled;
@@ -262,7 +767,14 @@ document.addEventListener("alpine:init", () => {
           window.FlaguraApp &&
           typeof window.FlaguraApp.toggleFlagEnvStatus === "function"
         ) {
-          ok = await window.FlaguraApp.toggleFlagEnvStatus(flagKey, env, next);
+          ok = await window.FlaguraApp.toggleFlagEnvStatus(
+            flagKey,
+            env,
+            next,
+            env === "production" && !isUndo
+              ? () => this.toggleEnv(env, true)
+              : null,
+          );
         } else {
           try {
             const res = await fetch("/api/v1/flags/" + flagKey + "/toggle", {
@@ -316,7 +828,7 @@ document.addEventListener("alpine:init", () => {
         this.toggleEnv("staging");
       },
       toggleProd() {
-        this.toggleEnv("production");
+        this.requestToggle("production");
       },
       openHygiene(el) {
         const target = el || this.$el;
@@ -467,7 +979,7 @@ document.addEventListener("alpine:init", () => {
           if (!res.ok)
             throw new Error(data.error || "Failed to create project");
 
-          this.successMessage = "Project created successfully!";
+          this.successMessage = "Project created ";
           setTimeout(() => {
             window.location.reload();
           }, 600);
@@ -498,7 +1010,7 @@ document.addEventListener("alpine:init", () => {
           if (!res.ok)
             throw new Error(data.error || "Failed to create organization");
 
-          this.successMessage = "Workspace created successfully!";
+          this.successMessage = "Workspace created ";
           setTimeout(() => {
             window.location.reload();
           }, 600);
@@ -530,7 +1042,7 @@ document.addEventListener("alpine:init", () => {
             throw new Error(data.error || "Failed to create invitation");
 
           this.inviteUrl = window.location.origin + data.invite_url;
-          this.successMessage = "Invitation link created successfully!";
+          this.successMessage = "Invitation link created ";
           this.submitting = false;
         } catch (err) {
           this.errorMessage = err.message || "Network error";
@@ -558,11 +1070,6 @@ document.addEventListener("alpine:init", () => {
       reviewComments: "",
       submitting: false,
       toastMsg: "",
-      selectCR(cr) {
-        this.selectedCR = cr;
-        this.reviewAction = "";
-        this.reviewComments = "";
-      },
       close() {
         this.open = false;
       },
@@ -576,7 +1083,7 @@ document.addEventListener("alpine:init", () => {
       },
       async submitReview(crId, approved) {
         if (!this.reviewComments && !approved) {
-          alert("Please provide rejection comments.");
+          showToast("Add a comment explaining the rejection.", "error");
           return;
         }
         this.submitting = true;
@@ -600,10 +1107,10 @@ document.addEventListener("alpine:init", () => {
             }
             window.location.reload();
           } else {
-            alert(data.error || "Failed to process change request review");
+            showToast(data.error || "Could not submit the review", "error");
           }
         } catch (e) {
-          alert("Network error submitting review");
+          showToast("Network error submitting review", "error");
         } finally {
           this.submitting = false;
         }
@@ -663,7 +1170,7 @@ document.addEventListener("alpine:init", () => {
         logs: "audit",
         trail: "audit",
         sdk: "sdk",
-        apikeys: "sdk",
+        apikeys: "apikeys",
         quickstart: "sdk",
         profile: "profile",
         settings: "profile",
@@ -695,35 +1202,6 @@ document.addEventListener("alpine:init", () => {
       } catch (e) {}
       applyChartTheme();
     },
-    selectedWallpaper:
-      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=2560&q=85",
-    wallpapers: [
-      {
-        id: "slate-waves",
-        name: "Sober Slate Waves",
-        url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=2560&q=85",
-      },
-      {
-        id: "modern-architecture",
-        name: "Architectural Monolith",
-        url: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=2560&q=85",
-      },
-      {
-        id: "nordic-mist",
-        name: "Nordic Mist Horizon",
-        url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2560&q=85",
-      },
-      {
-        id: "charcoal-dunes",
-        name: "Charcoal Minimal Curves",
-        url: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=2560&q=85",
-      },
-      {
-        id: "warm-stone",
-        name: "Warm Stone Dunes",
-        url: "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=2560&q=85",
-      },
-    ],
     currentUser: {
       id: "dev-1",
       name: "Dhawal (Developer)",
@@ -768,13 +1246,51 @@ document.addEventListener("alpine:init", () => {
       this.isMobileSidebarOpen = false;
       window.dispatchEvent(new CustomEvent("open-governance-modal"));
     },
-    focusSearch(inputEl) {
+    focusSearch(event, inputEl) {
+      const target = event.target;
       if (
-        document.activeElement &&
-        document.activeElement.tagName !== "INPUT"
+        target &&
+        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
+          target.isContentEditable ||
+          target.getAttribute("role") === "combobox")
       ) {
-        if (inputEl && typeof inputEl.focus === "function") inputEl.focus();
+        return;
       }
+      event.preventDefault();
+      if (inputEl && typeof inputEl.focus === "function") inputEl.focus();
+    },
+    onGlobalSearch() {
+      if (this.activeView !== "flags") this.navigateTo("flags");
+      window.dispatchEvent(
+        new CustomEvent("flagura-search", { detail: this.searchQuery }),
+      );
+    },
+    confirmOpen: false,
+    confirmTitle: "",
+    confirmBody: "",
+    confirmAction: "",
+    confirmRun: null,
+    confirmCancel: null,
+    askToConfirm(options) {
+      this.confirmTitle = options.title;
+      this.confirmBody = options.body;
+      this.confirmAction = options.action;
+      this.confirmRun = options.run;
+      this.confirmCancel = options.onCancel || null;
+      this.confirmOpen = true;
+    },
+    cancelToggle() {
+      const cancel = this.confirmCancel;
+      this.confirmOpen = false;
+      this.confirmRun = null;
+      this.confirmCancel = null;
+      if (cancel) cancel();
+    },
+    confirmToggleNow() {
+      const run = this.confirmRun;
+      this.confirmCancel = null;
+      this.cancelToggle();
+      if (run) run();
     },
     switchEnv(env) {
       this.currentEnv = env;
@@ -794,7 +1310,7 @@ document.addEventListener("alpine:init", () => {
       const title = cfg.title || "";
       let toastType = cfg.type || "info";
 
-      // Intelligent type inferencing if type was generic info
+      // Infer a toast type from the message when none was given
       if (toastType === "info") {
         const lower = message.toLowerCase();
         if (lower.startsWith("copied")) {
@@ -935,14 +1451,15 @@ document.addEventListener("alpine:init", () => {
     getViewTitle() {
       const titles = {
         overview: "Overview",
-        flags: "Flags & Rollouts",
-        analytics: "Analytics & Telemetry",
-        evaluator: "Live Evaluator",
-        benchmark: "Latency Benchmark",
-        audit: "Audit Trail",
-        sdk: "SDK Integration",
+        flags: "Flags",
+        analytics: "Analytics",
+        evaluator: "Evaluator",
+        benchmark: "Benchmark",
+        audit: "Audit trail",
+        sdk: "SDKs",
+        apikeys: "API keys",
         editor: "Flag Editor",
-        profile: "Profile Settings",
+        profile: "Settings",
       };
       return titles[this.activeView] || "Console";
     },
@@ -993,7 +1510,7 @@ document.addEventListener("alpine:init", () => {
       this.activeView = "evaluator";
       this.syncUrl("evaluator");
     },
-    async toggleFlagEnvStatus(key, env, isEnabled) {
+    async toggleFlagEnvStatus(key, env, isEnabled, undo) {
       try {
         const res = await fetch("/api/v1/flags/" + key + "/toggle", {
           method: "PATCH",
@@ -1008,13 +1525,15 @@ document.addEventListener("alpine:init", () => {
           }),
         });
         if (res.ok) {
+          const message = key + " is " + (isEnabled ? "on" : "off") + " in " + env;
           this.showToast(
-            "Flag " +
-              key +
-              " [" +
-              env +
-              "] " +
-              (isEnabled ? "ENABLED" : "DISABLED"),
+            undo
+              ? {
+                  message,
+                  type: "success",
+                  action: { label: "Undo", onClick: undo },
+                }
+              : { message, type: "success" },
           );
           return true;
         } else {
@@ -1035,50 +1554,14 @@ document.addEventListener("alpine:init", () => {
         return false;
       }
     },
-    async toggleFlagStatus(key, isEnabled) {
-      try {
-        const res = await fetch("/api/v1/flags/" + key + "/toggle", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({
-            environment: this.currentEnv,
-            enabled: isEnabled,
-            actor: this.currentUser
-              ? this.currentUser.email
-              : "admin@flagura.dev",
-          }),
-        });
-        if (res.ok) {
-          this.showToast(
-            "Flag " +
-              key +
-              " " +
-              (isEnabled ? "ENABLED" : "DISABLED (Kill-Switch)"),
-          );
-        }
-      } catch (e) {
-        this.showToast("Toggle failed", "error");
-      }
-    },
-    updateRollout(key, pct) {
-      fetch("/api/v1/flags/" + key + "/rollout", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({
-          environment: this.currentEnv,
-          percentage: Number(pct),
-          actor: this.currentUser
-            ? this.currentUser.email
-            : "admin@flagura.dev",
-        }),
-      }).then(() => {
-        this.showToast("Rollout for " + key + " set to " + pct + "%");
-      });
-    },
     async deleteFlagRow(key) {
-      if (confirm("Permanently remove feature flag " + key + "?")) {
+      if (
+        await confirmAction({
+          title: "Delete " + key + "?",
+          body: "This permanently removes the flag from every environment.",
+          action: "Delete flag",
+        })
+      ) {
         try {
           const res = await fetch("/api/v1/flags/" + key, {
             method: "DELETE",
@@ -1219,13 +1702,30 @@ document.addEventListener("alpine:init", () => {
     },
   }));
 
-  // Flag Matrix Enterprise Component
+  // Flag matrix view
   Alpine.data("flagMatrixEnterpriseComponent", () => ({
     searchQuery: "",
     envFilter: "all",
     selectedTag: "all",
     healthFilter: "all",
     selectedFlags: [],
+    noMatches: false,
+    init() {
+      window.addEventListener("flagura-search", (event) => {
+        this.searchQuery = event.detail || "";
+      });
+      ["searchQuery", "envFilter", "selectedTag", "healthFilter"].forEach(
+        (field) => this.$watch(field, () => this.checkMatches()),
+      );
+    },
+    checkMatches() {
+      this.$nextTick(() => {
+        const rows = document.querySelectorAll('[id^="flag-row-"]');
+        this.noMatches =
+          rows.length > 0 &&
+          Array.from(rows).every((row) => row.style.display === "none");
+      });
+    },
     toggleSelectAll(checked) {
       if (checked) {
         const rows = document.querySelectorAll('[id^="flag-row-"]');
@@ -1265,7 +1765,21 @@ document.addEventListener("alpine:init", () => {
         showToast(msg, type);
       }
     },
-    async bulkToggleEnv(env, enabled) {
+    bulkToggleEnv(env, enabled) {
+      const count = this.selectedFlags.length;
+      const run = () => this.applyBulkToggle(env, enabled);
+      if (env !== "production" || !window.FlaguraApp) {
+        run();
+        return;
+      }
+      window.FlaguraApp.askToConfirm({
+        title: (enabled ? "Turn on " : "Turn off ") + count + " flags in production?",
+        body: "This changes production traffic right away.",
+        action: enabled ? "Turn on" : "Turn off",
+        run,
+      });
+    },
+    async applyBulkToggle(env, enabled) {
       for (const key of this.selectedFlags) {
         await this.toggleFlagEnvStatus(key, env, enabled);
       }
@@ -1276,11 +1790,11 @@ document.addEventListener("alpine:init", () => {
     },
     async bulkDelete() {
       if (
-        confirm(
-          "Permanently delete " +
-            this.selectedFlags.length +
-            " selected flags?",
-        )
+        await confirmAction({
+          title: "Delete " + this.selectedFlags.length + " flags?",
+          body: "This permanently removes them from every environment.",
+          action: "Delete flags",
+        })
       ) {
         for (const key of this.selectedFlags) {
           await fetch("/api/v1/flags/" + key, {
@@ -1333,40 +1847,6 @@ document.addEventListener("alpine:init", () => {
       );
     },
   }));
-
-  // Bento Enterprise Dashboard Component
-  // Flag Matrix View Component
-  Alpine.data("flagMatrixViewComponent", () => ({
-    statusFilter: "all",
-    selectedTag: "all",
-    searchQuery: "",
-    matchesFilter(key, name, tags, isEnabled, rulesCount, strategy) {
-      // Status filter
-      if (this.statusFilter === "enabled" && !isEnabled) return false;
-      if (this.statusFilter === "disabled" && isEnabled) return false;
-      if (
-        this.statusFilter === "rollout" &&
-        (!isEnabled || strategy !== "percentage")
-      )
-        return false;
-      if (this.statusFilter === "rules" && (!isEnabled || rulesCount === 0))
-        return false;
-
-      // Tag filter
-      if (this.selectedTag !== "all" && !tags.includes(this.selectedTag))
-        return false;
-
-      // Search query
-      const q = (this.searchQuery || "").toLowerCase().trim();
-      if (!q) return true;
-      return (
-        key.toLowerCase().includes(q) ||
-        name.toLowerCase().includes(q) ||
-        tags.toLowerCase().includes(q)
-      );
-    },
-  }));
-
   // Live Evaluator View Component
   Alpine.data("liveEvaluatorComponent", () => ({
     selectedFlagKey: "all",
@@ -1714,6 +2194,11 @@ document.addEventListener("alpine:init", () => {
 
   // Audit View Component
   Alpine.data("auditViewComponent", () => ({
+    auditFilter: "",
+    matchesAudit(el, filter) {
+      const needle = (filter || "").trim().toLowerCase();
+      return !needle || el.dataset.search.toLowerCase().includes(needle);
+    },
     loading: false,
     verifying: false,
     integrityResult: null,
@@ -1779,9 +2264,49 @@ document.addEventListener("alpine:init", () => {
 
   // SDK View Component
   Alpine.data("sdkViewComponent", () => ({
-    sdkTab: "apikeys",
+    sdkTab: "go",
     openfeatureLang: "go",
     copied: false,
+    getSdkSnippet() {
+      if (this.sdkTab === "openfeature") {
+        if (this.openfeatureLang === "go") {
+          return `package main\n\nimport (\n    "context"\n    "fmt"\n    flagura "github.com/dhawalhost/flagura/sdks/go"\n    flaguraOF "github.com/dhawalhost/flagura/sdks/go/openfeature"\n    of "github.com/open-feature/go-sdk/openfeature"\n)\n\nfunc main() {\n    // 1. Initialize Flagura in-process evaluation client\n    client := flagura.NewClient("${window.location.origin}", "flg_live_your_api_key",\n        flagura.WithLocalEvaluation(true),\n    )\n    defer client.Close()\n\n    // 2. Register Flagura as the OpenFeature global provider\n    of.SetProvider(flaguraOF.NewProvider(client))\n    ofClient := of.NewClient("backend-service")\n\n    // 3. Evaluate using standard OpenFeature APIs\n    ctx := of.NewEvaluationContext("usr_dhawal_01", map[string]interface{}{\n        "email": "dhawal@flagura.dev",\n        "tier":  "enterprise",\n    })\n    enabled, _ := ofClient.BooleanValue(context.Background(), "ai-smart-search", false, ctx)\n    fmt.Printf("OpenFeature enabled: %v\\n", enabled)\n}`;
+        } else if (this.openfeatureLang === "ts") {
+          return `import { FlaguraClient } from '@flagura/sdk';\nimport { FlaguraOpenFeatureProvider } from '@flagura/sdk/openfeature';\nimport { OpenFeature } from '@openfeature/server-sdk';\n\n// 1. Initialize Flagura Client\nconst client = new FlaguraClient({\n  endpoint: '${window.location.origin}',\n  apiKey: 'flg_live_your_api_key'\n});\n\n// 2. Bind Flagura as the OpenFeature Provider\nawait OpenFeature.setProviderAndWait(new FlaguraOpenFeatureProvider(client));\nconst ofClient = OpenFeature.getClient('billing-service');\n\n// 3. Evaluate with standard OpenFeature context\nconst enabled = await ofClient.getBooleanValue('ai-smart-search', false, {\n  targetingKey: 'usr_dhawal_01',\n  email: 'dhawal@flagura.dev',\n  tier: 'enterprise'\n});\n// Feature is active: enabled`;
+        } else if (this.openfeatureLang === "python") {
+          return `from openfeature import api\nfrom openfeature.evaluation_context import EvaluationContext\nfrom flagura import FlaguraClient\nfrom flagura.openfeature_provider import FlaguraOpenFeatureProvider\n\n# 1. Initialize client & register OpenFeature provider\nclient = FlaguraClient("${window.location.origin}", api_key="flg_live_your_api_key")\napi.set_provider(FlaguraOpenFeatureProvider(client=client))\nof_client = api.get_client("api-service")\n\n# 2. Evaluate with OpenFeature standard API\ncontext = EvaluationContext(targeting_key="usr_dhawal_01", attributes={"email": "dhawal@flagura.dev", "tier": "enterprise"})\nenabled = of_client.get_boolean_value("ai-smart-search", False, context)\nprint("OpenFeature enabled:", enabled)\nclient.close()`;
+        }
+      }
+      if (this.sdkTab === "go") {
+        return `package main\n\nimport (\n    "context"\n    "fmt"\n    flagura "github.com/dhawalhost/flagura/sdks/go"\n)\n\nfunc main() {\n    // Project scope and environment are automatically resolved from your API key\n    client := flagura.NewClient("${window.location.origin}", "flg_live_your_api_key",\n        flagura.WithLocalEvaluation(true),\n    )\n    defer client.Close()\n\n    res, _ := client.Evaluate(context.Background(), "ai-smart-search", flagura.Context{\n        UserID: "usr_dhawal_01",\n        Email:  "dhawal@flagura.dev",\n    })\n    fmt.Printf("Enabled: %v | Latency: %v ns\\n", res.Enabled, res.EvaluationLatencyNs)\n}`;
+      } else if (this.sdkTab === "ts") {
+        return `import { FlaguraClient } from '@flagura/sdk';\n\n// Project scope is automatically resolved from your API key\nconst client = new FlaguraClient({\n  endpoint: '${window.location.origin}',\n  apiKey: 'flg_live_your_api_key'\n});\nconst { enabled, variant } = await client.evaluate('ai-smart-search', {\n  user_id: 'usr_dhawal_01',\n  email: 'dhawal@flagura.dev',\n});\n// Flag resolved: enabled=\${enabled}, variant=\${variant}`;
+      } else if (this.sdkTab === "python") {
+        return `from flagura import FlaguraClient, EvaluationContext\n\n# Project scope is automatically resolved from your API key\nclient = FlaguraClient("${window.location.origin}", api_key="flg_live_your_api_key")\nres = client.evaluate("ai-smart-search", EvaluationContext(user_id="usr_dhawal_01", email="dhawal@flagura.dev"))\nprint(res.enabled, res.variant)`;
+      } else if (this.sdkTab === "rust") {
+        return `use flagura::{FlaguraClient, EvaluationContext};\n\n#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n    // Project scope is automatically resolved from your API key\n    let client = FlaguraClient::new("${window.location.origin}")\n        .with_api_key("flg_live_your_api_key");\n    let ctx = EvaluationContext::new("usr_alex_42").with_email("alex@company.com");\n\n    if client.is_enabled("ai-smart-search", &ctx).await {\n        println!("AI Smart Search is active!");\n    }\n    Ok(())\n}`;
+      } else if (this.sdkTab === "cli") {
+        const selfHostEnv =
+          window.location.origin !== "https://flagura.dev"
+            ? `export FLAGURA_ENDPOINT="${window.location.origin}"\n`
+            : "";
+        return `# Install or run Flagura Developer CLI\n${selfHostEnv}export FLAGURA_API_KEY="flg_live_your_api_key"\nflagura api-key list\nflagura list\nflagura rollout ai-smart-search 50% --env=production`;
+      }
+      return `curl -X POST ${window.location.origin}/api/v1/evaluate \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer flg_live_your_api_key" \\\n  -d '{"flags":["ai-smart-search"],"context":{"user_id":"usr_dhawal_01","email":"dhawal@flagura.dev"}}'`;
+    },
+    createKey() {
+      this.navigateTo("apikeys");
+      window.dispatchEvent(new CustomEvent("open-api-key-modal"));
+    },
+    copySnippet() {
+      navigator.clipboard.writeText(this.getSdkSnippet());
+      this.copied = true;
+      setTimeout(() => (this.copied = false), 2000);
+    },
+  }));
+
+  // API Keys View Component
+  Alpine.data("apiKeysComponent", () => ({
     apiKeys: [],
     showKeyModal: false,
     keyForm: { name: "", role: "developer", environment: "production" },
@@ -1829,19 +2354,21 @@ document.addEventListener("alpine:init", () => {
           this.fetchAPIKeys();
         } else {
           const err = await res.text();
-          alert("Failed to generate key: " + err);
+          this.showToast("Could not create key: " + err, "error");
         }
       } catch (e) {
-        alert("Error generating key: " + e.message);
+        this.showToast("Could not create key: " + e.message, "error");
       }
     },
-    async revokeAPIKey(id) {
-      if (
-        !confirm(
-          "Are you sure you want to revoke this API key? This action is immediate and cannot be undone.",
-        )
-      )
-        return;
+    revokeAPIKey(id) {
+      window.FlaguraApp.askToConfirm({
+        title: "Revoke this API key?",
+        body: "Anything using it loses access right away. This cannot be undone.",
+        action: "Revoke key",
+        run: () => this.confirmRevoke(id),
+      });
+    },
+    async confirmRevoke(id) {
       try {
         const res = await fetch("/api/v1/api-keys/" + id, {
           method: "DELETE",
@@ -1849,9 +2376,12 @@ document.addEventListener("alpine:init", () => {
         });
         if (res.ok) {
           this.fetchAPIKeys();
+          this.showToast("API key revoked", "success");
+        } else {
+          this.showToast("Could not revoke key", "error");
         }
       } catch (e) {
-        alert("Error revoking key: " + e.message);
+        this.showToast("Could not revoke key: " + e.message, "error");
       }
     },
     copyKeyToken() {
@@ -1860,42 +2390,19 @@ document.addEventListener("alpine:init", () => {
       this.keyCopied = true;
       setTimeout(() => (this.keyCopied = false), 2000);
     },
-    getSdkSnippet() {
-      if (this.sdkTab === "openfeature") {
-        if (this.openfeatureLang === "go") {
-          return `package main\n\nimport (\n    "context"\n    "fmt"\n    flagura "github.com/dhawalhost/flagura/sdks/go"\n    flaguraOF "github.com/dhawalhost/flagura/sdks/go/openfeature"\n    of "github.com/open-feature/go-sdk/openfeature"\n)\n\nfunc main() {\n    // 1. Initialize Flagura in-process evaluation client\n    client := flagura.NewClient("${window.location.origin}", "flg_live_your_api_key",\n        flagura.WithLocalEvaluation(true),\n    )\n    defer client.Close()\n\n    // 2. Register Flagura as the OpenFeature global provider\n    of.SetProvider(flaguraOF.NewProvider(client))\n    ofClient := of.NewClient("backend-service")\n\n    // 3. Evaluate using standard OpenFeature APIs\n    ctx := of.NewEvaluationContext("usr_dhawal_01", map[string]interface{}{\n        "email": "dhawal@flagura.dev",\n        "tier":  "enterprise",\n    })\n    enabled, _ := ofClient.BooleanValue(context.Background(), "ai-smart-search", false, ctx)\n    fmt.Printf("OpenFeature enabled: %v\\n", enabled)\n}`;
-        } else if (this.openfeatureLang === "ts") {
-          return `import { FlaguraClient } from '@flagura/sdk';\nimport { FlaguraOpenFeatureProvider } from '@flagura/sdk/openfeature';\nimport { OpenFeature } from '@openfeature/server-sdk';\n\n// 1. Initialize Flagura Client\nconst client = new FlaguraClient({\n  endpoint: '${window.location.origin}',\n  apiKey: 'flg_live_your_api_key'\n});\n\n// 2. Bind Flagura as the OpenFeature Provider\nawait OpenFeature.setProviderAndWait(new FlaguraOpenFeatureProvider(client));\nconst ofClient = OpenFeature.getClient('billing-service');\n\n// 3. Evaluate with standard OpenFeature context\nconst enabled = await ofClient.getBooleanValue('ai-smart-search', false, {\n  targetingKey: 'usr_dhawal_01',\n  email: 'dhawal@flagura.dev',\n  tier: 'enterprise'\n});\n// Feature is active: enabled`;
-        } else if (this.openfeatureLang === "python") {
-          return `from openfeature import api\nfrom openfeature.evaluation_context import EvaluationContext\nfrom flagura import FlaguraClient\nfrom flagura.openfeature_provider import FlaguraOpenFeatureProvider\n\n# 1. Initialize client & register OpenFeature provider\nclient = FlaguraClient("${window.location.origin}", api_key="flg_live_your_api_key")\napi.set_provider(FlaguraOpenFeatureProvider(client=client))\nof_client = api.get_client("api-service")\n\n# 2. Evaluate with OpenFeature standard API\ncontext = EvaluationContext(targeting_key="usr_dhawal_01", attributes={"email": "dhawal@flagura.dev", "tier": "enterprise"})\nenabled = of_client.get_boolean_value("ai-smart-search", False, context)\nprint("OpenFeature enabled:", enabled)\nclient.close()`;
-        }
-      }
-      if (this.sdkTab === "go") {
-        return `package main\n\nimport (\n    "context"\n    "fmt"\n    flagura "github.com/dhawalhost/flagura/sdks/go"\n)\n\nfunc main() {\n    // Project scope and environment are automatically resolved from your API key\n    client := flagura.NewClient("${window.location.origin}", "flg_live_your_api_key",\n        flagura.WithLocalEvaluation(true),\n    )\n    defer client.Close()\n\n    res, _ := client.Evaluate(context.Background(), "ai-smart-search", flagura.Context{\n        UserID: "usr_dhawal_01",\n        Email:  "dhawal@flagura.dev",\n    })\n    fmt.Printf("Enabled: %v | Latency: %v ns\\n", res.Enabled, res.EvaluationLatencyNs)\n}`;
-      } else if (this.sdkTab === "ts") {
-        return `import { FlaguraClient } from '@flagura/sdk';\n\n// Project scope is automatically resolved from your API key\nconst client = new FlaguraClient({\n  endpoint: '${window.location.origin}',\n  apiKey: 'flg_live_your_api_key'\n});\nconst { enabled, variant } = await client.evaluate('ai-smart-search', {\n  user_id: 'usr_dhawal_01',\n  email: 'dhawal@flagura.dev',\n});\n// Flag resolved: enabled=\${enabled}, variant=\${variant}`;
-      } else if (this.sdkTab === "python") {
-        return `from flagura import FlaguraClient, EvaluationContext\n\n# Project scope is automatically resolved from your API key\nclient = FlaguraClient("${window.location.origin}", api_key="flg_live_your_api_key")\nres = client.evaluate("ai-smart-search", EvaluationContext(user_id="usr_dhawal_01", email="dhawal@flagura.dev"))\nprint(res.enabled, res.variant)`;
-      } else if (this.sdkTab === "rust") {
-        return `use flagura::{FlaguraClient, EvaluationContext};\n\n#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n    // Project scope is automatically resolved from your API key\n    let client = FlaguraClient::new("${window.location.origin}")\n        .with_api_key("flg_live_your_api_key");\n    let ctx = EvaluationContext::new("usr_alex_42").with_email("alex@company.com");\n\n    if client.is_enabled("ai-smart-search", &ctx).await {\n        println!("AI Smart Search is active!");\n    }\n    Ok(())\n}`;
-      } else if (this.sdkTab === "cli") {
-        const selfHostEnv =
-          window.location.origin !== "https://flagura.dev"
-            ? `export FLAGURA_ENDPOINT="${window.location.origin}"\n`
-            : "";
-        return `# Install or run Flagura Developer CLI\n${selfHostEnv}export FLAGURA_API_KEY="flg_live_your_api_key"\nflagura api-key list\nflagura list\nflagura rollout ai-smart-search 50% --env=production`;
-      }
-      return `curl -X POST ${window.location.origin}/api/v1/evaluate \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer flg_live_your_api_key" \\\n  -d '{"flags":["ai-smart-search"],"context":{"user_id":"usr_dhawal_01","email":"dhawal@flagura.dev"}}'`;
-    },
-    copySnippet() {
-      navigator.clipboard.writeText(this.getSdkSnippet());
-      this.copied = true;
-      setTimeout(() => (this.copied = false), 2000);
-    },
   }));
 
   // Flag Editor View Component
   Alpine.data("flagEditorComponent", () => ({
+    get editorPct() {
+      const config = this.form.environments[this.envTab];
+      if (!config.enabled) return 0;
+      return config.strategy === "percentage" ? Number(config.percentage) || 0 : 100;
+    },
+    toggleEnabled() {
+      const config = this.form.environments[this.envTab];
+      config.enabled = !config.enabled;
+    },
     isEditing: false,
     envTab: "production",
     saving: false,
@@ -2042,9 +2549,11 @@ document.addEventListener("alpine:init", () => {
     },
     async promoteEnvironment(from, to) {
       if (
-        !confirm(
-          `Are you sure you want to promote ${from} rules directly to ${to}? This will overwrite ${to} configuration.`,
-        )
+        !(await confirmAction({
+          title: `Promote ${from} to ${to}?`,
+          body: `This replaces the ${to} rules and rollout with those from ${from}.`,
+          action: "Promote",
+        }))
       )
         return;
       try {
@@ -2057,7 +2566,7 @@ document.addEventListener("alpine:init", () => {
         );
         if (res.ok) {
           this.showToast(
-            `Successfully promoted ${this.form.key} from ${from} to ${to}!`,
+            `Promoted ${this.form.key} from ${from} to ${to}`,
           );
           setTimeout(() => window.location.reload(), 700);
         } else {
@@ -2106,7 +2615,7 @@ document.addEventListener("alpine:init", () => {
           body: JSON.stringify(payload),
         });
         if (res.ok) {
-          this.showToast("Saved flag " + this.form.key + " successfully!");
+          this.showToast("Saved " + this.form.key);
           setTimeout(() => window.location.reload(), 600);
         } else {
           const err = await res.text();
@@ -2122,16 +2631,6 @@ document.addEventListener("alpine:init", () => {
 
   // Landing Page Component
   Alpine.data("landingPageComponent", () => ({
-    consoleMode: "switchboard",
-    testUserId: "usr_alex_42",
-    canaryPercent: 50,
-    computedHashHex: "",
-    computedBucket: 0,
-    isEvaluatedTrue: true,
-    heroUserId: "usr_alex_42",
-    heroRolloutPct: 50,
-    heroBucket: 0,
-    isHeroActive: true,
     sdkLanguage: "go",
     codeCopied: false,
     benchRunning: false,
@@ -2143,48 +2642,10 @@ document.addEventListener("alpine:init", () => {
     benchOpsPerSec: "",
     benchmarkThroughput: "",
     init() {
-      this.computeHashModulo();
       this.runBrowserBenchmark(true);
       this.$nextTick(() => {
         if (window.lucide) window.lucide.createIcons();
       });
-    },
-    scrollToSection(id) {
-      const el = document.getElementById(id);
-      if (el) el.scrollIntoView({ behavior: "smooth" });
-    },
-    computeHashModulo() {
-      const uid = (this.testUserId || "usr_alex_42").trim();
-      const res = getStickyBucketJs(uid, "ai-smart-search");
-      this.computedHashHex = "0x" + res.hashRaw.slice(0, 12).toUpperCase();
-      this.computedBucket = Math.floor(res.bucket);
-      this.isEvaluatedTrue = this.computedBucket < Number(this.canaryPercent);
-      this.heroUserId = uid;
-      this.heroRolloutPct = Number(this.canaryPercent);
-      this.heroBucket = this.computedBucket;
-      this.isHeroActive = this.isEvaluatedTrue;
-    },
-    updateHeroBucket() {
-      this.computeHashModulo();
-    },
-    selectTestUser(userId) {
-      this.testUserId = userId;
-      this.computeHashModulo();
-    },
-    randomizeUser() {
-      const users = [
-        "usr_alex_42",
-        "sarah@stripe.com",
-        "david_pro_99",
-        "emma_infra",
-        "enterprise_vip",
-        "dev_priya_01",
-        "cloud_node_88",
-      ];
-      const current = this.testUserId;
-      const pool = users.filter((u) => u !== current);
-      this.testUserId = pool[Math.floor(Math.random() * pool.length)];
-      this.computeHashModulo();
     },
     copySnippet() {
       let code = "";
@@ -2245,6 +2706,101 @@ document.addEventListener("alpine:init", () => {
     },
   }));
 
+  // Landing hero: a live rollout drawn with the logo's leaf.
+  Alpine.data("rolloutField", () => ({
+    rollout: 0,
+    killed: false,
+    userId: "usr_alex_42",
+    userBucket: 0,
+    userOn: false,
+    introFrame: 0,
+    buckets: [],
+    leaf: new Path2D("M183 82H123C99 82 90 98 85 116C82 125 80 133 78 140C87 130 99 124 115 124H131C159 124 177 108 183 82Z"),
+    init() {
+      for (let i = 0; i < 480; i++) {
+        this.buckets.push(getStickyBucketJs("user_" + i, "new-checkout").bucket);
+      }
+      this.computeUser();
+      new ResizeObserver(() => this.draw()).observe(this.$refs.field);
+      const reduced = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      if (reduced) {
+        this.setRollout(25);
+      } else {
+        this.playIntro();
+      }
+    },
+    playIntro() {
+      const started = performance.now();
+      const step = (now) => {
+        const t = Math.min(1, (now - started) / 1400);
+        this.setRollout(Math.round(25 * (1 - Math.pow(1 - t, 3))));
+        if (t < 1) this.introFrame = requestAnimationFrame(step);
+      };
+      this.introFrame = requestAnimationFrame(step);
+    },
+    setRollout(value) {
+      this.rollout = value;
+      this.computeUser();
+      this.draw();
+    },
+    onDrag() {
+      cancelAnimationFrame(this.introFrame);
+      this.killed = false;
+      this.computeUser();
+      this.draw();
+    },
+    onUser() {
+      this.computeUser();
+      this.draw();
+    },
+    toggleKill() {
+      cancelAnimationFrame(this.introFrame);
+      this.killed = !this.killed;
+      this.computeUser();
+      this.draw();
+    },
+    computeUser() {
+      const id = (this.userId || "anon").trim();
+      this.userBucket = getStickyBucketJs(id, "new-checkout").bucket;
+      this.userOn = !this.killed && this.userBucket < Number(this.rollout);
+    },
+    draw() {
+      const canvas = this.$refs.field;
+      const width = canvas.clientWidth;
+      if (!width) return;
+      const cols = width >= 900 ? 40 : width >= 560 ? 24 : 16;
+      const rows = width >= 900 ? 12 : 14;
+      const cell = width / cols;
+      const rowHeight = cell * 0.72;
+      const height = rows * rowHeight;
+      const ratio = window.devicePixelRatio || 1;
+      canvas.height = Math.round(height * ratio);
+      canvas.width = Math.round(width * ratio);
+      canvas.style.height = height + "px";
+      const ctx = canvas.getContext("2d");
+      const scale = (cell * 0.74) / 105;
+      const limit = this.killed ? -1 : Number(this.rollout);
+      for (let i = 0; i < cols * rows; i++) {
+        const lit = this.buckets[i] < limit;
+        ctx.setTransform(
+          ratio * scale,
+          0,
+          0,
+          ratio * scale,
+          ratio * ((i % cols) * cell + cell * 0.13 - 78 * scale),
+          ratio *
+            (Math.floor(i / cols) * rowHeight +
+              rowHeight * 0.5 -
+              111 * scale),
+        );
+        ctx.fillStyle = lit ? "#4EBED1" : "#2A2824";
+        ctx.fill(this.leaf);
+      }
+    },
+  }));
+
   // Auth Page Component
   Alpine.data("authPageComponent", () => ({
     mode: "signin",
@@ -2293,11 +2849,11 @@ document.addEventListener("alpine:init", () => {
     passwordStrengthClass: "",
 
     getTitleText() {
-      if (this.mode === "signup") return "Create Account";
-      if (this.mode === "forgot") return "Reset Password";
-      if (this.mode === "reset") return "Set Password";
-      if (this.mode === "sso") return "Enterprise SSO";
-      return "Sign In";
+      if (this.mode === "signup") return "Create account";
+      if (this.mode === "forgot") return "Reset password";
+      if (this.mode === "reset") return "Set password";
+      if (this.mode === "sso") return "Single sign-on";
+      return "Sign in";
     },
 
     getSubtitleText() {
@@ -2567,7 +3123,7 @@ document.addEventListener("alpine:init", () => {
           return;
         }
         this.successMessage =
-          "Password reset successfully! Redirecting to sign in...";
+          "Password reset  Redirecting to sign in...";
         setTimeout(() => {
           this.setMode("signin");
         }, 1500);
@@ -2813,7 +3369,13 @@ document.addEventListener("alpine:init", () => {
       setTimeout(() => (this.copiedDiff = false), 2000);
     },
     async deleteFlag(key) {
-      if (!confirm(`Permanently delete feature flag '${key}' from database?`))
+      if (
+        !(await confirmAction({
+          title: `Delete ${key}?`,
+          body: "This permanently removes the flag from every environment.",
+          action: "Delete flag",
+        }))
+      )
         return;
       try {
         const res = await fetch("/api/v1/flags/" + key, {
@@ -2824,10 +3386,10 @@ document.addEventListener("alpine:init", () => {
           this.closeModal();
           window.location.reload();
         } else {
-          alert("Failed to delete flag: " + (await res.text()));
+          showToast("Could not delete flag: " + (await res.text()), "error");
         }
       } catch (e) {
-        alert("Network error: " + e.message);
+        showToast("Network error: " + e.message, "error");
       }
     },
   }));
@@ -2930,8 +3492,8 @@ document.addEventListener("alpine:init", () => {
           }
           this.profile.name = this.form.name.trim();
           this.profile.avatarUrl = this.form.avatarUrl.trim();
-          this.showToast("Profile updated successfully!", "info");
-          this.profileMessage = "Profile updated successfully!";
+          this.showToast("Profile updated ", "info");
+          this.profileMessage = "Profile updated ";
         } catch (err) {
           this.profileMessage = err.message;
           this.showToast(err.message, "error");
@@ -2962,7 +3524,7 @@ document.addEventListener("alpine:init", () => {
           this.passwordForm.currentPassword = "";
           this.passwordForm.newPassword = "";
           this.passwordForm.confirmPassword = "";
-          this.showToast("Password updated successfully!", "info");
+          this.showToast("Password updated ", "info");
         } catch (err) {
           this.passwordError = err.message;
           this.showToast(err.message, "error");
@@ -2977,7 +3539,7 @@ document.addEventListener("alpine:init", () => {
         });
       },
 
-      // Enterprise SSO (OIDC) State & Methods
+      // SSO (OIDC) state and methods
       selectedOrgId: "",
       oidcConfig: null,
       oidcLoading: false,
@@ -2994,6 +3556,11 @@ document.addEventListener("alpine:init", () => {
       getOIDCCallbackUrl() {
         return window.location.origin + "/api/v1/auth/oidc/callback";
       },
+
+    openSSOTab() {
+      this.tab = "sso";
+      if (this.selectedOrgId) this.fetchOIDCConfig(this.selectedOrgId);
+    },
       async fetchOIDCConfig(orgId) {
         if (!orgId) return;
         this.selectedOrgId = orgId;
@@ -3085,7 +3652,7 @@ document.addEventListener("alpine:init", () => {
           this.oidcConfig = data;
           this.oidcForm.client_secret = "";
           this.showToast(
-            "SSO (OIDC) configuration saved successfully!",
+            "SSO (OIDC) configuration saved ",
             "info",
           );
         } catch (err) {
@@ -3097,9 +3664,11 @@ document.addEventListener("alpine:init", () => {
       async deleteOIDCConfig() {
         if (!this.selectedOrgId) return;
         if (
-          !confirm(
-            "Are you sure you want to disable and remove Single Sign-On for this organization? Members will no longer be able to log in via OIDC.",
-          )
+          !(await confirmAction({
+            title: "Remove Single Sign-On?",
+            body: "Members of this organization can no longer sign in through it.",
+            action: "Remove SSO",
+          }))
         ) {
           return;
         }
@@ -3155,6 +3724,12 @@ document.addEventListener("DOMContentLoaded", () => {
 document.addEventListener("alpine:initialized", () => {
   if (!window.lucide) return;
   window.lucide.createIcons();
+
+  installDialogFocus();
+  installCustomSelects();
+  installRangeFill();
+  installValidationMessages();
+  installTooltips();
 
   // Alpine templates add icons after load; hydrate them as they appear.
   let pending = false;
