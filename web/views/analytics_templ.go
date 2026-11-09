@@ -34,131 +34,144 @@ func AnalyticsDashboard(flags []domain.FeatureFlag) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-8\" x-show=\"activeView === 'analytics'\" x-cloak x-data=\"analyticsViewComponent()\"><!-- Page Header --><div class=\"glass-panel p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 shadow-xs\"><div><div class=\"flex items-center gap-3 mb-1.5\"><span class=\"p-2 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 shadow-2xs\"><i data-lucide=\"bar-chart-3\" class=\"h-5 w-5\"></i></span><h1 class=\"text-base font-bold tracking-tight text-slate-900 font-display\">Evaluation Analytics &amp; Telemetry</h1><span class=\"px-2.5 py-0.5 rounded-full text-xs font-mono font-bold uppercase border\" :class=\"{\n\t\t\t\t\t\t\t'text-emerald-700 bg-emerald-50 border-emerald-200': currentEnv === 'production',\n\t\t\t\t\t\t\t'text-amber-700 bg-amber-50 border-amber-200': currentEnv === 'staging',\n\t\t\t\t\t\t\t'text-sky-700 bg-sky-50 border-sky-200': currentEnv === 'development'\n\t\t\t\t\t\t}\" x-text=\"currentEnv\"></span></div><p class=\"text-xs text-slate-500 font-sans\">Real-time evaluation throughput, peak load patterns, and traffic distribution over the trailing 24 hours.</p></div><!-- Global actions --><div class=\"flex items-center gap-2.5 font-mono\"><button @click=\"navigateTo('flags')\" class=\"px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 shadow-2xs transition-all cursor-pointer flex items-center gap-1.5\"><i data-lucide=\"sliders\" class=\"h-3.5 w-3.5 text-slate-500\"></i> <span>Manage Flags</span></button> <button @click=\"navigateTo('evaluator')\" class=\"px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1.5 hover:scale-[1.02]\"><i data-lucide=\"zap\" class=\"h-3.5 w-3.5 text-white\"></i> <span>Live Sandbox</span></button></div></div><!-- KPI Metric Summary Cards --><div class=\"grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5\"><!-- Total 24h Volume --><div class=\"glass-panel p-6 space-y-2.5 bg-white border border-slate-200 shadow-xs\"><div class=\"flex items-center justify-between text-xs font-medium text-slate-500 font-mono\"><span class=\"uppercase text-xs font-bold\">24h Evaluations</span> <i data-lucide=\"activity\" class=\"h-4 w-4 text-indigo-600\"></i></div><div class=\"flex items-baseline gap-2\"><span class=\"text-3xl font-extrabold font-mono tracking-tight text-slate-900\">2.8M</span> <span class=\"text-xs font-mono text-slate-400\">(2,841,920 reqs)</span></div><div class=\"flex items-center gap-1.5 text-xs font-mono\"><span class=\"font-bold text-emerald-700 inline-flex items-center\"><i data-lucide=\"trending-up\" class=\"h-3.5 w-3.5 mr-0.5 inline\"></i> +18.4%</span> <span class=\"text-slate-400\">vs previous 12h window</span></div></div><!-- Edge Decision Latency --><div class=\"glass-panel p-6 space-y-2.5 bg-white border border-slate-200 shadow-xs\"><div class=\"flex items-center justify-between text-xs font-medium text-slate-500 font-mono\"><span class=\"uppercase text-xs font-bold\">P99 Evaluation</span> <i data-lucide=\"clock\" class=\"h-4 w-4 text-emerald-600\"></i></div><div class=\"flex items-baseline gap-2\"><span class=\"text-3xl font-extrabold font-mono tracking-tight text-slate-900\">~85<span class=\"text-sm font-normal text-slate-400\">ns</span></span> <span class=\"px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-50 border border-emerald-200 text-emerald-700\">In-Memory</span></div><div class=\"text-xs font-mono text-slate-500 font-sans\">Local thread cache &amp; zero network hops</div></div><!-- Edge Cache Hit Rate --><div class=\"glass-panel p-6 space-y-2.5 bg-white border border-slate-200 shadow-xs\"><div class=\"flex items-center justify-between text-xs font-medium text-slate-500 font-mono\"><span class=\"uppercase text-xs font-bold\">Cache Hit Ratio</span> <i data-lucide=\"shield-check\" class=\"h-4 w-4 text-purple-600\"></i></div><div class=\"flex items-baseline gap-2\"><span class=\"text-3xl font-extrabold font-mono tracking-tight text-slate-900\">99.98%</span> <span class=\"text-xs font-mono text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded\">Optimal</span></div><div class=\"text-xs font-mono text-slate-500 font-sans\">Compiled state bitmasks with FNV-1a</div></div><!-- Active Canary Rollouts --><div class=\"glass-panel p-6 space-y-2.5 bg-white border border-slate-200 shadow-xs\"><div class=\"flex items-center justify-between text-xs font-medium text-slate-500 font-mono\"><span class=\"uppercase text-xs font-bold\">Canary Splits</span> <i data-lucide=\"sliders\" class=\"h-4 w-4 text-amber-600\"></i></div><div class=\"flex items-baseline gap-2\"><span class=\"text-3xl font-extrabold font-mono tracking-tight text-slate-900\">4</span> <span class=\"text-xs font-mono text-slate-400\">Sticky Rollouts</span></div><div class=\"text-xs font-mono text-slate-500 font-sans\">Dynamic traffic balancing active</div></div></div><!-- 24-Hour Evaluation Volume Hourly Chart --><div class=\"glass-panel p-6 sm:p-7 space-y-5 bg-white border border-slate-200 shadow-xs\"><div class=\"flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4\"><div><div class=\"text-xs font-bold text-slate-600 uppercase tracking-wider font-mono\">24-Hour Evaluation Throughput</div><div class=\"text-xs text-slate-500 mt-0.5 font-sans\">Hourly request distribution across edge POP nodes</div></div><div class=\"flex items-center gap-2\"><select x-model=\"selectedAnalyticsFlag\" @change=\"updateAnalyticsChart()\" class=\"bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-mono text-xs text-slate-900 focus:outline-none focus:border-indigo-500 transition-colors shadow-2xs\"><option value=\"all\">All Fleet Flags Aggregate</option> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-5\" x-show=\"activeView === 'analytics'\" x-cloak x-data=\"analyticsViewComponent()\"><!-- Page Header --><div class=\"page-head flex flex-col sm:flex-row sm:items-center justify-between gap-3\"><div><div class=\"flex items-center gap-3 mb-1.5\"><h1 class=\"text-base font-semibold text-neutral-900\">Analytics</h1><span class=\"px-2.5 py-0.5 rounded text-xs font-medium border\" :class=\"{\n\t\t\t\t\t\t\t'text-ok-700 bg-ok-50 border-ok-200': currentEnv === 'production',\n\t\t\t\t\t\t\t'text-warn-700 bg-warn-50 border-warn-200': currentEnv === 'staging',\n\t\t\t\t\t\t\t'text-accent-700 bg-accent-50 border-accent-200': currentEnv === 'development'\n\t\t\t\t\t\t}\" x-text=\"currentEnv\"></span></div><p class=\"text-xs text-neutral-500 font-sans\">Evaluation volume reported by connected SDKs over the last 24 hours.</p></div><!-- Global actions --><div class=\"flex items-center gap-2.5 font-mono\"><button @click=\"navigateTo('flags')\" class=\"px-3.5 py-2 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-xs font-semibold text-neutral-700 transition-colors cursor-pointer flex items-center gap-1.5\"><i data-lucide=\"sliders\" class=\"h-3.5 w-3.5 text-neutral-500\"></i> <span>Manage Flags</span></button> <button @click=\"navigateTo('evaluator')\" class=\"px-4 py-2 rounded-md bg-accent-600 hover:bg-accent-700 text-xs font-medium text-surface transition-colors cursor-pointer flex items-center gap-1.5\"><i data-lucide=\"zap\" class=\"h-3.5 w-3.5 text-surface\"></i> <span>Live Sandbox</span></button></div></div><div class=\"panel grid grid-cols-2 divide-x divide-neutral-200\"><div class=\"px-4 py-3\"><div class=\"text-xs text-neutral-500\">Evaluations, last 24h</div><div class=\"mt-0.5 text-2xl font-semibold font-mono text-neutral-900\" x-text=\"totalEvaluationsLabel\"></div></div><div class=\"px-4 py-3\"><div class=\"text-xs text-neutral-500\">Partial rollouts in production</div><div class=\"mt-0.5 text-2xl font-semibold font-mono text-neutral-900\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var2 string
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", summarizeEnvironments(flags)[0].Partial))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 58, Col: 134}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</div></div></div><!-- 24-Hour Evaluation Volume Hourly Chart --><div class=\"panel p-4 space-y-5\"><div class=\"flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-100 pb-4\"><div><div class=\"text-xs font-medium text-neutral-600\">Evaluations by hour</div><div class=\"text-xs text-neutral-500 mt-0.5 font-sans\">Two-hour buckets, last 24 hours</div></div><div class=\"flex items-center gap-2\"><select x-model=\"selectedAnalyticsFlag\" @change=\"updateAnalyticsChart()\" class=\"bg-neutral-50 border border-neutral-200 rounded-md px-3.5 py-2 font-mono text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors\"><option value=\"all\">All flags</option> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, f := range flags {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<option value=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var2 string
-			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 152, Col: 28}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<option value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
-			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(f.Key)
+			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 152, Col: 38}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 77, Col: 28}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " (")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(f.Name)
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(f.Key)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 152, Col: 50}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 77, Col: 38}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, ")</option>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</select></div></div><div class=\"h-64 w-full\"><canvas id=\"analyticsChartCanvas\"></canvas></div></div><!-- Per-Flag Performance Breakdown Table --><div class=\"glass-panel p-6 sm:p-7 space-y-5 bg-white border border-slate-200 shadow-xs\"><div class=\"flex items-center justify-between border-b border-slate-100 pb-4\"><span class=\"text-xs font-bold text-slate-600 uppercase tracking-wider font-mono\">Flag Performance &amp; 24h Metrics</span> <span class=\"text-xs font-mono text-slate-500\">Environment: <strong class=\"uppercase text-emerald-700\" x-text=\"currentEnv\"></strong></span></div><div class=\"overflow-x-auto\"><table class=\"w-full text-left text-xs font-mono\"><thead class=\"bg-slate-50 text-slate-500 text-[10px] uppercase border-b border-slate-200\"><tr><th class=\"px-4 py-3 font-bold\">Flag Key &amp; Name</th><th class=\"px-4 py-3 font-bold\">24h Evals</th><th class=\"px-4 py-3 font-bold\">Rollout</th><th class=\"px-4 py-3 font-bold\">Strategy</th><th class=\"px-4 py-3 font-bold\">P99 Latency</th><th class=\"px-4 py-3 text-right font-bold\">Actions</th></tr></thead> <tbody class=\"divide-y divide-slate-100\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		for _, f := range flags {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<tr class=\"hover:bg-slate-50 transition-colors\"><td class=\"px-4 py-3.5\"><div class=\"font-bold text-slate-900 font-mono\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " (")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(f.Key)
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(f.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 186, Col: 64}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 77, Col: 50}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div><div class=\"text-xs text-slate-500 mt-0.5 font-sans\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, ")</option>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</select></div></div><p class=\"text-sm text-neutral-500\" x-show=\"!hasData\">No evaluations reported yet. Connect an SDK with telemetry enabled to see volume here.</p><div class=\"h-64 w-full\" x-show=\"hasData\"><canvas id=\"analyticsChartCanvas\"></canvas></div></div><!-- Per-Flag Performance Breakdown Table --><div class=\"panel p-4 space-y-5\"><div class=\"flex items-center justify-between border-b border-neutral-100 pb-4\"><span class=\"text-xs font-medium text-neutral-600\">Flags</span> <span class=\"text-xs font-mono text-neutral-500\">Environment: <strong class=\"text-ok-700\" x-text=\"currentEnv\"></strong></span></div><div class=\"overflow-x-auto\"><table class=\"w-full text-left text-xs font-mono\"><thead class=\"bg-neutral-50 text-neutral-500 text-2xs border-b border-neutral-200\"><tr><th class=\"px-4 py-3 font-medium\">Key</th><th class=\"px-4 py-3 font-medium\">Rollout</th><th class=\"px-4 py-3 font-medium\">Strategy</th><th class=\"px-4 py-3 text-right font-medium\">Actions</th></tr></thead> <tbody class=\"divide-y divide-neutral-100\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		for _, f := range flags {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<tr class=\"hover:bg-neutral-50 transition-colors\"><td class=\"px-4 py-3.5\"><div class=\"font-medium text-neutral-900 font-mono\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var6 string
-			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(f.Name)
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(f.Key)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 187, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 110, Col: 68}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div></td><td class=\"px-4 py-3.5 text-indigo-600 font-bold font-mono\">482,100</td><td class=\"px-4 py-3.5 font-mono text-slate-800\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div><div class=\"text-xs text-neutral-500 mt-0.5 font-sans\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var7 string
-			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f%%", f.ProdPercentage()))
+			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(f.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 190, Col: 100}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 111, Col: 72}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</td><td class=\"px-4 py-3.5\"><span class=\"px-2 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold border border-purple-200 text-[10px] uppercase font-mono\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div></td><td class=\"px-4 py-3.5 font-mono text-neutral-800\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(f.ProdStrategy())
+			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f%%", f.ProdPercentage()))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 193, Col: 28}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 113, Col: 102}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</span></td><td class=\"px-4 py-3.5 text-emerald-700 font-bold font-mono\">~85 ns</td><td class=\"px-4 py-3.5 text-right\"><button data-key=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</td><td class=\"px-4 py-3.5\"><span class=\"px-2 py-0.5 rounded bg-accent-50 text-accent-700 font-semibold border border-accent-200 text-2xs\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var9 string
-			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
+			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(f.ProdStrategy())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 199, Col: 26}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 116, Col: 28}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" @click=\"openEvaluatorForFlag($el)\" class=\"text-indigo-600 hover:underline font-semibold flex items-center gap-1 justify-end ml-auto cursor-pointer font-sans\"><span>Test in Sandbox</span> <i data-lucide=\"arrow-right\" class=\"h-3.5 w-3.5\"></i></button></td></tr>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</span></td><td class=\"px-4 py-3.5 text-right\"><button data-key=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var10 string
+			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/analytics.templ`, Line: 121, Col: 26}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" @click=\"openEvaluatorForFlag($el)\" class=\"text-accent-600 hover:underline font-semibold flex items-center gap-1 justify-end ml-auto cursor-pointer font-sans\"><span>Test in Sandbox</span> <i data-lucide=\"arrow-right\" class=\"h-3.5 w-3.5\"></i></button></td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</tbody></table></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</tbody></table></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

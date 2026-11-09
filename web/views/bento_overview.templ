@@ -1,150 +1,122 @@
 package views
 
 import (
-	"github.com/dhawalhost/flagura/pkg/domain"
 	"fmt"
+	"github.com/dhawalhost/flagura/pkg/domain"
+	"time"
 )
 
+type envSummary struct {
+	Name    string
+	Enabled int
+	Partial int
+	Off     int
+}
+
+func isPartialRollout(cfg domain.EnvironmentConfig) bool {
+	return cfg.Enabled && cfg.Strategy == domain.StrategyPercentage && cfg.Percentage < 100
+}
+
+func summarizeEnvironments(flags []domain.FeatureFlag) []envSummary {
+	envs := []string{"production", "staging", "development"}
+	summaries := make([]envSummary, 0, len(envs))
+	for _, env := range envs {
+		summary := envSummary{Name: env}
+		for _, f := range flags {
+			cfg := f.EnvConfig(env)
+			switch {
+			case !cfg.Enabled:
+				summary.Off++
+			case isPartialRollout(cfg):
+				summary.Partial++
+				summary.Enabled++
+			default:
+				summary.Enabled++
+			}
+		}
+		summaries = append(summaries, summary)
+	}
+	return summaries
+}
+
+func changesInLastDay(audits []domain.AuditLogEntry) int {
+	cutoff := time.Now().Add(-24 * time.Hour)
+	count := 0
+	for _, a := range audits {
+		if a.Timestamp.After(cutoff) {
+			count++
+		}
+	}
+	return count
+}
+
+templ overviewMetric(label string, metric string, value int) {
+	<div class="px-4 py-3">
+		<div class="text-xs text-neutral-500">{ label }</div>
+		<div class="mt-0.5 text-2xl font-semibold font-mono text-neutral-900" data-metric={ metric }>{ fmt.Sprintf("%d", value) }</div>
+	</div>
+}
+
 templ BentoOverview(flags []domain.FeatureFlag, audits []domain.AuditLogEntry, driverName string) {
-	<div class="space-y-6" x-show="activeView === 'overview'" x-cloak x-data="bentoEnterpriseDashboardComponent()">
-
-		<!-- Top Overview KPI Metric Cards -->
-		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-			<!-- Total Flags Card -->
-			<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-2">
-				<div class="flex items-center justify-between text-slate-500 font-mono text-xs">
-					<span class="font-semibold uppercase tracking-wider text-[10px]">Total Feature Flags</span>
-					<div class="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
-						<i data-lucide="flag" class="w-4 h-4"></i>
-					</div>
-				</div>
-				<div class="flex items-baseline gap-2">
-					<span class="text-2xl font-extrabold text-slate-900 font-mono">{ fmt.Sprintf("%d", len(flags)) }</span>
-					<span class="text-xs text-slate-500 font-mono">managed flags</span>
-				</div>
-				<div class="text-[11px] text-slate-500 font-sans flex items-center gap-1.5 pt-1 border-t border-slate-100">
-					<span class="text-indigo-600 font-bold font-mono">100% Sync</span>
-					<span>across all environments</span>
-				</div>
+	{{ prod := summarizeEnvironments(flags)[0] }}
+	<div class="space-y-4" x-show="activeView === 'overview'" x-cloak>
+		<div class="panel grid grid-cols-2 lg:grid-cols-4 divide-x divide-neutral-200">
+			@overviewMetric("Flags", "total", len(flags))
+			@overviewMetric("On in production", "enabled", prod.Enabled)
+			<div class="border-t border-neutral-200 lg:border-t-0">
+				@overviewMetric("Partial rollouts", "partial", prod.Partial)
 			</div>
-
-			<!-- Production Active Card -->
-			<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-2">
-				<div class="flex items-center justify-between text-slate-500 font-mono text-xs">
-					<span class="font-semibold uppercase tracking-wider text-[10px]">Active in Production</span>
-					<div class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
-						<i data-lucide="check-circle-2" class="w-4 h-4"></i>
-					</div>
-				</div>
-				<div class="flex items-baseline gap-2">
-					<span class="text-2xl font-extrabold text-emerald-700 font-mono" x-text="activeProdCount"></span>
-					<span class="text-xs text-slate-500 font-mono">circuits live</span>
-				</div>
-				<div class="text-[11px] text-slate-500 font-sans flex items-center gap-1.5 pt-1 border-t border-slate-100">
-					<span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-					<span>Non-blocking evaluated</span>
-				</div>
-			</div>
-
-			<!-- Stale Flags Cleanup Card -->
-			<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-2">
-				<div class="flex items-center justify-between text-slate-500 font-mono text-xs">
-					<span class="font-semibold uppercase tracking-wider text-[10px]">Stale Flags (Cleanup)</span>
-					<div class="p-1.5 rounded-lg bg-amber-50 text-amber-600">
-						<i data-lucide="sparkles" class="w-4 h-4"></i>
-					</div>
-				</div>
-				<div class="flex items-baseline gap-2">
-					<span class="text-2xl font-extrabold text-amber-700 font-mono" x-text="staleCount"></span>
-					<span class="text-xs text-slate-500 font-mono">100% launched</span>
-				</div>
-				<div class="text-[11px] text-slate-500 font-sans flex items-center gap-1.5 pt-1 border-t border-slate-100">
-					<span class="text-amber-700 font-semibold">Action:</span>
-					<span>Ready to archive safely</span>
-				</div>
-			</div>
-
-			<!-- Evaluation Speed / Latency -->
-			<div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-2">
-				<div class="flex items-center justify-between text-slate-500 font-mono text-xs">
-					<span class="font-semibold uppercase tracking-wider text-[10px]">Avg In-Process Latency</span>
-					<div class="p-1.5 rounded-lg bg-sky-50 text-sky-600">
-						<i data-lucide="zap" class="w-4 h-4"></i>
-					</div>
-				</div>
-				<div class="flex items-baseline gap-2">
-					<span class="text-2xl font-extrabold text-slate-900 font-mono">85ns</span>
-					<span class="text-xs text-emerald-700 font-mono font-bold">0 bytes alloc</span>
-				</div>
-				<div class="text-[11px] text-slate-500 font-sans flex items-center gap-1.5 pt-1 border-t border-slate-100">
-					<span class="text-indigo-600 font-bold font-mono">FNV-1a</span>
-					<span>64-bit deterministic hash</span>
-				</div>
+			<div class="border-t border-neutral-200 lg:border-t-0">
+				@overviewMetric("Changes, last 24h", "changes", changesInLastDay(audits))
 			</div>
 		</div>
 
-		<!-- Main 2-Column Dashboard Layout -->
-		<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-			
-			<!-- Left 7 Cols: Quick Feature Flags Directory -->
-			<div class="lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col overflow-hidden">
-				<div class="p-4 border-b border-slate-100 flex items-center justify-between">
-					<div class="flex items-center gap-2">
-						<i data-lucide="layers" class="w-4 h-4 text-indigo-600"></i>
-						<h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 font-mono">Production Flags Matrix</h3>
-					</div>
-					<button 
-						@click="navigateTo('flags')" 
-						class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 font-mono flex items-center gap-1 cursor-pointer"
-					>
-						<span>View Full Matrix</span>
-						<i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-					</button>
+		<div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+			<section class="lg:col-span-8 panel flex flex-col overflow-hidden">
+				<div class="px-4 py-2.5 border-b border-neutral-200 flex items-center justify-between">
+					<h3 class="text-sm text-neutral-900">Production flags</h3>
+					<button @click="navigateTo('flags')" class="text-xs text-accent-600 hover:underline cursor-pointer">All flags</button>
 				</div>
-
-				<div class="overflow-x-auto flex-1">
-					<table class="w-full text-left text-xs">
-						<thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-mono text-[10px] uppercase">
+				<div class="overflow-x-auto">
+					<table class="w-full text-left text-sm">
+						<thead class="border-b border-neutral-200 text-xs text-neutral-500">
 							<tr>
-								<th class="py-2.5 px-4">Flag Key</th>
-								<th class="py-2.5 px-3">Production Status</th>
-								<th class="py-2.5 px-3">Type</th>
-								<th class="py-2.5 px-4 text-right">Quick Toggle</th>
+								<th class="py-2 px-4 font-normal">Key</th>
+								<th class="py-2 px-3 font-normal">State</th>
+								<th class="py-2 px-3 font-normal hidden sm:table-cell">Type</th>
+								<th class="py-2 px-4 font-normal text-right">Toggle</th>
 							</tr>
 						</thead>
-						<tbody class="divide-y divide-slate-100 font-mono">
+						<tbody class="divide-y divide-neutral-100">
 							for i, f := range flags {
 								if i < 7 {
 									<tr 
-										class="hover:bg-slate-50 transition-colors"
+										class="hover:bg-neutral-50 transition-colors"
 										x-data="flagRowComponent()"
 										data-key={ f.Key }
 										data-envs={ f.EnvironmentsJSON() }
 									>
-										<td class="py-3 px-4">
-											<div class="font-bold text-slate-900">{ f.Key }</div>
-											<div class="text-[11px] text-slate-500 font-sans truncate max-w-xs">{ f.Name }</div>
+										<td class="py-2 px-4">
+											<div class="font-mono text-neutral-900">{ f.Key }</div>
+											<div class="text-xs text-neutral-500 truncate max-w-[9rem] sm:max-w-xs">{ f.Name }</div>
 										</td>
-										<td class="py-3 px-3">
+										<td class="py-2 px-3 whitespace-nowrap">
 											<span 
-												class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border"
-												:class="isProd ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'"
-												x-text="isProd ? (prodPct < 100 ? 'Canary ' + prodPct + '%' : 'Enabled 100%') : 'Disabled'"
+												class="text-xs font-medium"
+												:class="isProd ? (prodPct < 100 ? 'text-warn-700' : 'text-ok-700') : 'text-neutral-500'"
+												x-text="isProd ? (prodPct < 100 ? 'On, ' + prodPct + '%' : 'On') : 'Off'"
 											></span>
 										</td>
-										<td class="py-3 px-3">
-											<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] uppercase font-bold border border-slate-200">
-												{ f.Type }
-											</span>
-										</td>
-										<td class="py-3 px-4 text-right">
+										<td class="py-2 px-3 hidden sm:table-cell font-mono text-xs text-neutral-500">{ f.Type }</td>
+										<td class="py-2 px-4 text-right">
 											<button
 												@click.stop="toggleProd"
-												class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
-												:class="isProd ? 'bg-emerald-600' : 'bg-slate-200'"
+												aria-label={ "Toggle " + f.Key + " in production" }
+												class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150"
+												:class="isProd ? 'bg-ok-600' : 'bg-neutral-300'"
 											>
 												<span 
-													class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+													class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-surface transition duration-150"
 													:class="isProd ? 'translate-x-3' : 'translate-x-0'"
 												></span>
 											</button>
@@ -154,81 +126,61 @@ templ BentoOverview(flags []domain.FeatureFlag, audits []domain.AuditLogEntry, d
 							}
 							if len(flags) == 0 {
 								<tr>
-									<td colspan="4" class="p-8 text-center text-slate-500 font-sans">
-										No flags created yet.
-									</td>
+									<td colspan="4" class="p-6 text-center text-neutral-500">No flags yet. Create one to get started.</td>
 								</tr>
 							}
 						</tbody>
 					</table>
 				</div>
-			</div>
+			</section>
 
-			<!-- Right 5 Cols: Audit Log Activity Stream -->
-			<div class="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col overflow-hidden">
-				<div class="p-4 border-b border-slate-100 flex items-center justify-between">
-					<div class="flex items-center gap-2">
-						<i data-lucide="shield-check" class="w-4 h-4 text-purple-600"></i>
-						<h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 font-mono">Recent Governance &amp; Audits</h3>
-					</div>
-					<button 
-						@click="navigateTo('audit')" 
-						class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 font-mono flex items-center gap-1 cursor-pointer"
-					>
-						<span>Full Log</span>
-						<i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-					</button>
+			<section class="lg:col-span-4 panel flex flex-col overflow-hidden">
+				<div class="px-4 py-2.5 border-b border-neutral-200 flex items-center justify-between">
+					<h3 class="text-sm text-neutral-900">Recent changes</h3>
+					<button @click="navigateTo('audit')" class="text-xs text-accent-600 hover:underline cursor-pointer">Audit trail</button>
 				</div>
-
-				<div class="p-4 space-y-3 flex-1 overflow-y-auto max-h-[380px] font-mono text-xs">
+				<ul class="divide-y divide-neutral-100 overflow-y-auto max-h-[380px]">
 					for i, a := range audits {
 						if i < 6 {
-							<div class="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1 hover:bg-slate-100/80 transition-colors">
-								<div class="flex items-center justify-between">
-									<span class="font-bold text-slate-900">{ a.FlagKey }</span>
-									<span class="text-[10px] text-slate-400">{ a.Timestamp.Format("15:04:05") }</span>
+							<li class="px-4 py-2">
+								<div class="flex items-center justify-between gap-2">
+									<span class="font-mono text-sm text-neutral-900 truncate">{ a.FlagKey }</span>
+									<span class="font-mono text-2xs text-neutral-400 shrink-0">{ a.Timestamp.Format("15:04:05") }</span>
 								</div>
-								<div class="flex items-center gap-2 text-[11px] text-slate-600 font-sans">
-									<span class="font-semibold text-indigo-600 font-mono">{ string(a.Action) }</span>
-									<span>by</span>
-									<span class="font-mono text-slate-700">{ a.Actor }</span>
+								<div class="text-xs text-neutral-500 truncate">
+									<span class="font-mono">{ string(a.Action) }</span> by { a.Actor }
 								</div>
-							</div>
+							</li>
 						}
 					}
 					if len(audits) == 0 {
-						<div class="py-10 text-center text-slate-400 font-sans">
-							No recent audit events recorded.
-						</div>
+						<li class="p-6 text-center text-neutral-500">No changes recorded yet.</li>
 					}
-				</div>
-			</div>
+				</ul>
+			</section>
 		</div>
 
-		<!-- Environments Status Strip -->
-		<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs font-mono text-xs">
-			<div class="flex flex-wrap items-center justify-between gap-4">
-				<div class="flex items-center gap-3">
-					<span class="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Sync Channels:</span>
-					<div class="flex items-center gap-2">
-						<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-[11px]">
-							<span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-							Development (Active)
-						</span>
-						<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[11px]">
-							<span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
-							Staging (Active)
-						</span>
-						<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-[11px]">
-							<span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-							Production (Active)
-						</span>
-					</div>
-				</div>
-				<div class="text-[11px] text-slate-500 font-sans">
-					Monotonic revision protocol • In-memory ring buffer
-				</div>
-			</div>
-		</div>
+		<section class="panel overflow-x-auto">
+			<table class="w-full text-left text-sm">
+				<thead class="border-b border-neutral-200 text-xs text-neutral-500">
+					<tr>
+						<th class="py-2 px-4 font-normal">Environment</th>
+						<th class="py-2 px-3 font-normal text-right">On</th>
+						<th class="py-2 px-3 font-normal text-right">Partial</th>
+						<th class="py-2 px-4 font-normal text-right">Off</th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-neutral-100 font-mono">
+					for _, env := range summarizeEnvironments(flags) {
+						<tr>
+							<td class="py-2 px-4 text-neutral-900">{ env.Name }</td>
+							<td class="py-2 px-3 text-right text-neutral-700">{ fmt.Sprintf("%d", env.Enabled) }</td>
+							<td class="py-2 px-3 text-right text-neutral-700">{ fmt.Sprintf("%d", env.Partial) }</td>
+							<td class="py-2 px-4 text-right text-neutral-700">{ fmt.Sprintf("%d", env.Off) }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</section>
 	</div>
 }

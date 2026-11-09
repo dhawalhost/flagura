@@ -34,7 +34,7 @@ func HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string)
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<header class=\"bg-white/95 backdrop-blur-md px-6 sm:px-8 py-3.5 border-b border-slate-200/90 sticky top-0 z-30 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4\"><!-- Left: View Title & Environment Pill --><div class=\"flex items-center gap-3\"><button @click=\"isMobileSidebarOpen = !isMobileSidebarOpen\" class=\"lg:hidden p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 cursor-pointer\"><i data-lucide=\"menu\" class=\"w-4 h-4\"></i></button><div class=\"flex items-center gap-2.5\"><h2 class=\"text-sm font-bold text-slate-900 font-display\" x-text=\"getViewTitle()\">Overview</h2><span class=\"text-slate-300 font-mono\">/</span><!-- Environment Selector Dropdown --><div class=\"relative\" x-data=\"dropdownComponent()\"><button @click=\"toggle()\" class=\"flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono font-bold transition border cursor-pointer\" :class=\"{\n\t\t\t\t\t\t\t'bg-emerald-50 text-emerald-700 border-emerald-200': currentEnv === 'production',\n\t\t\t\t\t\t\t'bg-amber-50 text-amber-700 border-amber-200': currentEnv === 'staging',\n\t\t\t\t\t\t\t'bg-sky-50 text-sky-700 border-sky-200': currentEnv === 'development'\n\t\t\t\t\t\t}\"><span class=\"w-1.5 h-1.5 rounded-full\" :class=\"{\n\t\t\t\t\t\t\t'bg-emerald-500 animate-pulse': currentEnv === 'production',\n\t\t\t\t\t\t\t'bg-amber-500': currentEnv === 'staging',\n\t\t\t\t\t\t\t'bg-sky-500': currentEnv === 'development'\n\t\t\t\t\t\t}\"></span> <span class=\"uppercase font-mono font-bold\" x-text=\"currentEnv\"></span> <i data-lucide=\"chevron-down\" class=\"w-3 h-3 opacity-60\"></i></button><div x-show=\"isOpen\" @click.outside=\"close()\" class=\"absolute left-0 mt-2 w-44 bg-white p-1.5 z-50 shadow-xl border border-slate-200 rounded-2xl space-y-1\" style=\"display: none;\" x-transition><button @click=\"selectEnv('production')\" class=\"w-full text-left px-3 py-2 rounded-xl text-xs font-mono flex items-center justify-between hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 cursor-pointer transition-colors\"><span>Production</span> <span class=\"w-2 h-2 rounded-full bg-emerald-500\"></span></button> <button @click=\"selectEnv('staging')\" class=\"w-full text-left px-3 py-2 rounded-xl text-xs font-mono flex items-center justify-between hover:bg-amber-50 hover:text-amber-700 text-slate-700 cursor-pointer transition-colors\"><span>Staging</span> <span class=\"w-2 h-2 rounded-full bg-amber-500\"></span></button> <button @click=\"selectEnv('development')\" class=\"w-full text-left px-3 py-2 rounded-xl text-xs font-mono flex items-center justify-between hover:bg-sky-50 hover:text-sky-700 text-slate-700 cursor-pointer transition-colors\"><span>Development</span> <span class=\"w-2 h-2 rounded-full bg-sky-500\"></span></button></div></div><!-- Live Real-Time SSE Indicator --><div class=\"hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-600\"><span class=\"w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping\"></span> <span class=\"text-emerald-700 font-semibold\">SSE LIVE</span> <span class=\"text-slate-400\">&lt;5ms</span></div></div></div><!-- Center: Fast Search --><div class=\"flex-1 max-w-md mx-auto w-full relative font-mono\"><i data-lucide=\"search\" class=\"w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2\"></i> <input type=\"text\" x-model=\"searchQuery\" placeholder=\"Search flags, tags, or keys... (Press / to focus)\" class=\"w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-9 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors\" @keydown.window.prevent.slash=\"focusSearch($el)\"> <kbd class=\"hidden sm:inline-block absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[9px] font-mono text-slate-400 bg-white border border-slate-200 rounded shadow-xs\">/</kbd></div><!-- Right: Action Bar --><div class=\"flex items-center justify-end gap-2.5 font-mono\"><!-- Latency Benchmark Quick Button --><button @click=\"navigateTo('benchmark')\" class=\"px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 border border-slate-200 transition shadow-xs cursor-pointer\" title=\"Run Live Latency Benchmark\"><i data-lucide=\"activity\" class=\"w-3.5 h-3.5 text-indigo-600\"></i> <span class=\"hidden sm:inline\">Benchmark</span></button><!-- Real Authenticated User Profile Menu --><div class=\"relative\" x-data=\"dropdownComponent()\"><button @click=\"toggle()\" class=\"flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 shadow-xs transition cursor-pointer\"><div class=\"w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<header class=\"bg-surface px-4 py-2 border-b border-neutral-200 sticky top-0 z-30 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 md:gap-4\"><!-- Left: View Title & Environment Pill --><div class=\"flex items-center gap-3\"><button @click=\"isMobileSidebarOpen = !isMobileSidebarOpen\" class=\"lg:hidden p-2 rounded-md bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border border-neutral-200 cursor-pointer\"><i data-lucide=\"menu\" class=\"w-4 h-4\"></i></button><div class=\"flex items-center gap-2.5\"><h2 class=\"text-sm font-semibold text-neutral-900\" x-text=\"getViewTitle()\">Overview</h2><span class=\"text-neutral-300 font-mono\">/</span><!-- Environment Selector Dropdown --><div class=\"relative\" x-data=\"dropdownComponent()\"><button @click=\"toggle()\" class=\"flex items-center gap-1.5 px-3 py-1.5 rounded text-2xs font-medium transition border cursor-pointer\" :class=\"{\n\t\t\t\t\t\t\t'bg-ok-50 text-ok-700 border-ok-200': currentEnv === 'production',\n\t\t\t\t\t\t\t'bg-warn-50 text-warn-700 border-warn-200': currentEnv === 'staging',\n\t\t\t\t\t\t\t'bg-accent-50 text-accent-700 border-accent-200': currentEnv === 'development'\n\t\t\t\t\t\t}\"><span class=\"w-1.5 h-1.5 rounded-full\" :class=\"{\n\t\t\t\t\t\t\t'bg-ok-500': currentEnv === 'production',\n\t\t\t\t\t\t\t'bg-warn-500': currentEnv === 'staging',\n\t\t\t\t\t\t\t'bg-accent-500': currentEnv === 'development'\n\t\t\t\t\t\t}\"></span> <span class=\"font-medium\" x-text=\"currentEnv\"></span> <i data-lucide=\"chevron-down\" class=\"w-3 h-3 opacity-60\"></i></button><div x-show=\"isOpen\" @click.outside=\"close()\" class=\"absolute left-0 mt-2 w-44 bg-surface p-1.5 z-50 shadow-pop border border-neutral-200 rounded-md space-y-1\" style=\"display: none;\" x-transition><button @click=\"selectEnv('production')\" class=\"w-full text-left px-3 py-2 rounded-md text-xs flex items-center justify-between hover:bg-ok-50 hover:text-ok-700 text-neutral-700 cursor-pointer transition-colors\"><span>Production</span> <span class=\"w-2 h-2 rounded-full bg-ok-500\"></span></button> <button @click=\"selectEnv('staging')\" class=\"w-full text-left px-3 py-2 rounded-md text-xs flex items-center justify-between hover:bg-warn-50 hover:text-warn-700 text-neutral-700 cursor-pointer transition-colors\"><span>Staging</span> <span class=\"w-2 h-2 rounded-full bg-warn-500\"></span></button> <button @click=\"selectEnv('development')\" class=\"w-full text-left px-3 py-2 rounded-md text-xs flex items-center justify-between hover:bg-accent-50 hover:text-accent-700 text-neutral-700 cursor-pointer transition-colors\"><span>Development</span> <span class=\"w-2 h-2 rounded-full bg-accent-500\"></span></button></div></div></div></div><!-- Center: Fast Search --><div class=\"flex-1 max-w-md mx-auto w-full relative font-mono\"><i data-lucide=\"search\" class=\"w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2\"></i> <input type=\"text\" x-model=\"searchQuery\" placeholder=\"Search flags\" class=\"w-full bg-neutral-50 border border-neutral-200 rounded-md pl-9 pr-9 py-2 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors\" @keydown.window.prevent.slash=\"focusSearch($el)\"> <kbd class=\"hidden sm:inline-block absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-2xs font-mono text-neutral-400 bg-surface border border-neutral-200 rounded\">/</kbd></div><!-- Right: Action Bar --><div class=\"flex items-center justify-end gap-2.5 font-mono\"><!-- Latency Benchmark Quick Button --><button @click=\"navigateTo('benchmark')\" class=\"px-3 py-1.5 rounded-md bg-surface hover:bg-neutral-50 text-neutral-700 text-xs font-semibold flex items-center gap-1.5 border border-neutral-200 transition cursor-pointer\" title=\"Run Live Latency Benchmark\"><i data-lucide=\"activity\" class=\"w-3.5 h-3.5\"></i> <span class=\"hidden sm:inline\">Benchmark</span></button><!-- Theme --><button type=\"button\" @click=\"toggleTheme()\" class=\"p-1.5 rounded-md bg-surface hover:bg-neutral-50 text-neutral-600 border border-neutral-200 transition-colors cursor-pointer\" aria-label=\"Switch colour theme\" title=\"Switch colour theme\"><span x-show=\"isDark\"><i data-lucide=\"sun\" class=\"w-3.5 h-3.5\"></i></span> <span x-show=\"!isDark\"><i data-lucide=\"moon\" class=\"w-3.5 h-3.5\"></i></span></button><!-- Real Authenticated User Profile Menu --><div class=\"relative\" x-data=\"dropdownComponent()\"><button @click=\"toggle()\" class=\"flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-md bg-surface hover:bg-neutral-50 border border-neutral-200 transition cursor-pointer\"><div class=\"w-6 h-6 rounded-full bg-accent-600 text-surface flex items-center justify-center text-2xs font-medium\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -46,7 +46,7 @@ func HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string)
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(string([]rune(user.Name)[0]))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/header.templ`, Line: 120, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/header.templ`, Line: 125, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -62,7 +62,7 @@ func HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string)
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div><span class=\"text-xs font-semibold text-slate-700 hidden sm:inline\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div><span class=\"text-xs font-medium text-neutral-700 hidden sm:inline\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -70,7 +70,7 @@ func HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string)
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(user.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/header.templ`, Line: 127, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/header.templ`, Line: 132, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -82,7 +82,7 @@ func HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string)
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</span> <i data-lucide=\"chevron-down\" class=\"w-3 h-3 text-slate-400\"></i></button><div x-show=\"isOpen\" @click.outside=\"close()\" class=\"absolute right-0 mt-2 w-64 bg-white p-3 z-50 shadow-xl border border-slate-200 rounded-2xl space-y-2\" style=\"display: none;\" x-transition><div class=\"p-2 border-b border-slate-100 mb-1 space-y-1\"><div class=\"text-xs font-bold text-slate-900\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</span> <i data-lucide=\"chevron-down\" class=\"w-3 h-3 text-neutral-400\"></i></button><div x-show=\"isOpen\" @click.outside=\"close()\" class=\"absolute right-0 mt-2 w-64 bg-surface p-3 z-50 shadow-pop border border-neutral-200 rounded-md space-y-2\" style=\"display: none;\" x-transition><div class=\"p-2 border-b border-neutral-100 mb-1 space-y-1\"><div class=\"text-xs font-medium text-neutral-900\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -90,7 +90,7 @@ func HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string)
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(user.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/header.templ`, Line: 145, Col: 19}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/header.templ`, Line: 150, Col: 19}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -102,7 +102,7 @@ func HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string)
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div><div class=\"text-[10px] font-mono text-slate-500 truncate\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div><div class=\"text-2xs font-mono text-neutral-500 truncate\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -110,7 +110,7 @@ func HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string)
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(user.Email)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/header.templ`, Line: 152, Col: 20}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/header.templ`, Line: 157, Col: 20}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -126,7 +126,7 @@ func HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var6 = []any{"inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-mono uppercase font-bold " + orgRoleClass(user)}
+		var templ_7745c5c3_Var6 = []any{"inline-block mt-1 px-2 py-0.5 rounded text-2xs font-mono uppercase font-medium " + orgRoleClass(user)}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var6...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -152,7 +152,7 @@ func HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string)
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs("Role: " + strings.ToUpper(user.EffectiveRole()[:1]) + strings.ToLower(user.EffectiveRole()[1:]))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/header.templ`, Line: 159, Col: 106}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/header.templ`, Line: 164, Col: 106}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -164,7 +164,7 @@ func HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string)
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</div></div><button @click=\"openProfile()\" class=\"w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 flex items-center gap-2 cursor-pointer transition font-sans font-medium\"><i data-lucide=\"user-cog\" class=\"w-3.5 h-3.5 text-indigo-600\"></i> <span>Profile Settings</span></button> <a href=\"/\" class=\"w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-50 text-slate-700 flex items-center gap-2 cursor-pointer transition font-sans\"><i data-lucide=\"external-link\" class=\"w-3.5 h-3.5 text-slate-400\"></i> <span>Landing Page</span></a><div class=\"border-t border-slate-100 my-1\"></div><!-- Real Logout Button --><button @click=\"logout()\" class=\"w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-red-50 text-red-600 flex items-center gap-2 cursor-pointer transition font-semibold font-sans\"><i data-lucide=\"log-out\" class=\"w-3.5 h-3.5 text-red-600\"></i> <span>Sign Out</span></button></div></div><!-- Create Flag Button --><button @click=\"openNewFlagEditor()\" class=\"px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-sm hover:shadow flex items-center gap-1.5 cursor-pointer hover:scale-[1.02]\"><i data-lucide=\"plus\" class=\"w-3.5 h-3.5 text-white\"></i> <span class=\"hidden sm:inline\">New Flag</span></button></div></header>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</div></div><button @click=\"openProfile()\" class=\"w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-accent-50 text-neutral-700 hover:text-accent-700 flex items-center gap-2 cursor-pointer transition font-sans font-medium\"><i data-lucide=\"user-cog\" class=\"w-3.5 h-3.5 text-accent-600\"></i> <span>Profile Settings</span></button> <a href=\"/\" class=\"w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-neutral-50 text-neutral-700 flex items-center gap-2 cursor-pointer transition font-sans\"><i data-lucide=\"external-link\" class=\"w-3.5 h-3.5 text-neutral-400\"></i> <span>Landing Page</span></a><div class=\"border-t border-neutral-100 my-1\"></div><!-- Real Logout Button --><button @click=\"logout()\" class=\"w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-danger-50 text-danger-600 flex items-center gap-2 cursor-pointer transition font-semibold font-sans\"><i data-lucide=\"log-out\" class=\"w-3.5 h-3.5 text-danger-600\"></i> <span>Sign Out</span></button></div></div><!-- Create Flag Button --><button @click=\"openNewFlagEditor()\" class=\"px-4 py-2 rounded-md bg-accent-600 hover:bg-accent-700 text-surface font-medium text-xs transition-colors flex items-center gap-1.5 cursor-pointer\"><i data-lucide=\"plus\" class=\"w-3.5 h-3.5 text-surface\"></i> <span class=\"hidden sm:inline\">New Flag</span></button></div></header>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -176,22 +176,22 @@ func HeaderBar(user *domain.User, flags []domain.FeatureFlag, currentEnv string)
 // org-scoped role. Owner/Admin get a distinct color to signal elevated access.
 func orgRoleClass(user *domain.User) string {
 	if user == nil {
-		return "bg-slate-50 text-slate-600 border border-slate-200"
+		return "bg-neutral-50 text-neutral-600 border border-neutral-200"
 	}
 	switch user.EffectiveRole() {
 	case "owner":
-		return "bg-purple-50 text-purple-700 border border-purple-200"
+		return "bg-accent-50 text-accent-700 border border-accent-200"
 	case "admin":
 		if user.Role == domain.RoleAdmin && user.ActiveMembership == nil {
-			return "bg-rose-50 text-rose-700 border border-rose-200"
+			return "bg-danger-50 text-danger-700 border border-danger-200"
 		}
-		return "bg-indigo-50 text-indigo-700 border border-indigo-200"
+		return "bg-accent-50 text-accent-700 border border-accent-200"
 	case "developer":
-		return "bg-sky-50 text-sky-700 border border-sky-200"
+		return "bg-accent-50 text-accent-700 border border-accent-200"
 	case "viewer":
-		return "bg-slate-50 text-slate-600 border border-slate-200"
+		return "bg-neutral-50 text-neutral-600 border border-neutral-200"
 	default:
-		return "bg-slate-50 text-slate-600 border border-slate-200"
+		return "bg-neutral-50 text-neutral-600 border border-neutral-200"
 	}
 }
 

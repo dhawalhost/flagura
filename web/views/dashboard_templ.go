@@ -52,7 +52,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"min-h-screen flex bg-[#FAFAFA] text-slate-900 relative\"><!-- Docked Left Sidebar -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"min-h-screen flex bg-canvas text-neutral-900 relative\"><!-- Docked Left Sidebar -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -68,7 +68,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<!-- Wide-Canvas Fluid Workspace --><main class=\"flex-1 p-5 sm:p-7 lg:p-8 max-w-[1680px] mx-auto w-full space-y-8\"><!-- VIEW 1: Overview Dashboard (Asymmetric Bento Cockpit) -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<!-- Wide-Canvas Fluid Workspace --><main class=\"flex-1 p-5 sm:p-7 lg:p-4 max-w-[1680px] mx-auto w-full space-y-5\"><!-- VIEW 1: Overview Dashboard (Asymmetric Bento Cockpit) -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

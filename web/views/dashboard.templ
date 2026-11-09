@@ -13,7 +13,7 @@ func resolveDashboardTitle(titles []string) string {
 
 templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, changeRequests []domain.ChangeRequest, driverName string, orgs []domain.Organization, projects []domain.Project, activeProjectID string, title ...string) {
 	@Layout(resolveDashboardTitle(title)) {
-		<div class="min-h-screen flex bg-[#FAFAFA] text-slate-900 relative">
+		<div class="min-h-screen flex bg-canvas text-neutral-900 relative">
 			<!-- Docked Left Sidebar -->
 			@Sidebar(user, flags, auditLogs, orgs, projects, activeProjectID)
 
@@ -23,7 +23,7 @@ templ Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domai
 				@HeaderBar(user, flags, "production")
 
 				<!-- Wide-Canvas Fluid Workspace -->
-				<main class="flex-1 p-5 sm:p-7 lg:p-8 max-w-[1680px] mx-auto w-full space-y-8">
+				<main class="flex-1 p-5 sm:p-7 lg:p-4 max-w-[1680px] mx-auto w-full space-y-5">
 					<!-- VIEW 1: Overview Dashboard (Asymmetric Bento Cockpit) -->
 					@BentoOverview(flags, auditLogs, driverName)
 

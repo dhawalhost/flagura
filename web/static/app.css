@@ -1,42 +1,124 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap');
-
 [x-cloak] {
   display: none !important;
 }
 
+/*
+ * Design tokens. Values are RGB triples so Tailwind opacity modifiers work.
+ * Each hue has five roles: tint (fills), line (borders), bright (on dark
+ * panels and dots), mark (solid fills, icons), text (coloured text).
+ */
 :root {
-  /* Stripe / Vercel Ultra-Clean Light Palette */
-  --bg-app: #FAFAFA;
-  --bg-surface: #FFFFFF;
-  --bg-surface-elevated: #FFFFFF;
-  --bg-card: #FFFFFF;
-  --bg-card-hover: #F8FAFC;
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Typography Colors */
-  --ink-primary: #0F172A;
-  --ink-secondary: #475569;
-  --ink-muted: #94A3B8;
+  --canvas: 247 246 243;
+  --surface: 255 255 255;
+  --scrim: 18 17 15;
 
-  /* Refined Accent Colors */
-  --accent-primary: #4F46E5;
-  --accent-emerald: #059669;
-  --accent-cyan: #0284C7;
-  --accent-crimson: #DC2626;
-  --accent-amber: #D97706;
-  --accent-violet: #7C3AED;
+  --n-50: 245 244 240;
+  --n-100: 236 234 229;
+  --n-200: 223 220 213;
+  --n-300: 200 196 187;
+  --n-400: 118 113 103;
+  --n-500: 99 94 85;
+  --n-600: 78 74 66;
+  --n-700: 59 56 49;
+  --n-800: 41 39 34;
+  --n-900: 28 26 23;
+  --n-950: 18 17 15;
 
-  /* Borders & Shadows */
-  --border-glass: #E2E8F0;
-  --border-glass-hover: #CBD5E1;
-  --border-glass-focus: #6366F1;
-  --shadow-subtle: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
-  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-elevated: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+  --accent-tint: 233 239 251;
+  --accent-line: 190 206 240;
+  --accent-bright: 120 156 235;
+  --accent-mark: 36 86 201;
+  --accent-text: 28 66 156;
+
+  --ok-tint: 228 243 233;
+  --ok-line: 176 219 192;
+  --ok-bright: 86 190 130;
+  --ok-mark: 22 128 72;
+  --ok-text: 17 101 57;
+
+  --warn-tint: 250 240 219;
+  --warn-line: 235 209 150;
+  --warn-bright: 232 178 70;
+  --warn-mark: 173 104 10;
+  --warn-text: 134 80 8;
+
+  --danger-tint: 251 232 229;
+  --danger-line: 241 195 188;
+  --danger-bright: 236 128 112;
+  --danger-mark: 190 48 34;
+  --danger-text: 150 36 26;
+
+  --shadow-pop: 0 8px 24px rgb(18 17 15 / 0.14);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --canvas: 18 17 15;
+  --surface: 26 25 22;
+  --scrim: 0 0 0;
+
+  --n-50: 33 31 28;
+  --n-100: 42 40 36;
+  --n-200: 56 53 48;
+  --n-300: 78 74 67;
+  --n-400: 150 145 135;
+  --n-500: 168 163 153;
+  --n-600: 190 185 175;
+  --n-700: 212 208 199;
+  --n-800: 230 227 220;
+  --n-900: 243 241 236;
+  --n-950: 250 249 246;
+
+  --accent-tint: 30 41 66;
+  --accent-line: 52 72 118;
+  --accent-bright: 130 163 240;
+  --accent-mark: 130 163 240;
+  --accent-text: 170 195 245;
+
+  --ok-tint: 22 52 36;
+  --ok-line: 38 88 60;
+  --ok-bright: 88 200 138;
+  --ok-mark: 88 200 138;
+  --ok-text: 140 222 174;
+
+  --warn-tint: 60 45 18;
+  --warn-line: 104 78 30;
+  --warn-bright: 235 184 86;
+  --warn-mark: 235 184 86;
+  --warn-text: 243 206 135;
+
+  --danger-tint: 66 30 26;
+  --danger-line: 116 52 44;
+  --danger-bright: 240 138 122;
+  --danger-mark: 240 138 122;
+  --danger-text: 247 178 166;
+
+  --shadow-pop: 0 8px 24px rgb(0 0 0 / 0.5);
+  color-scheme: dark;
+}
+
+/* Code panels are dark in both themes, so they keep the light-theme scale. */
+:root[data-theme="dark"] .code-scope {
+  --surface: 255 255 255;
+  --n-50: 245 244 240;
+  --n-100: 236 234 229;
+  --n-200: 223 220 213;
+  --n-300: 200 196 187;
+  --n-400: 150 145 135;
+  --n-500: 130 125 115;
+  --n-600: 78 74 66;
+  --n-700: 59 56 49;
+  --n-800: 41 39 34;
+  --n-900: 28 26 23;
+  --n-950: 18 17 15;
 }
 
 ::selection {
-  background: #E0E7FF;
-  color: #3730A3;
+  background: rgb(var(--accent-line));
+  color: rgb(var(--n-950));
 }
 
 * {
@@ -44,9 +126,10 @@
 }
 
 body {
-  background-color: var(--bg-app);
-  color: var(--ink-primary);
-  font-family: 'Geist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: rgb(var(--canvas));
+  color: rgb(var(--n-900));
+  font-family: var(--font-sans);
+  font-size: 13px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   margin: 0;
@@ -54,155 +137,97 @@ body {
   overflow-x: hidden;
 }
 
-h1, h2, h3, h4, .font-display {
-  font-family: 'Geist', -apple-system, sans-serif;
-  letter-spacing: -0.025em;
-  font-weight: 700;
+h1, h2, h3, h4 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+/* Doubled up so these beat Tailwind preflight and inherited font-mono. */
+body button, body th, body label, body select, body input::placeholder {
+  font-family: var(--font-sans);
 }
 
 code, pre, .font-mono, .mono {
-  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  font-family: var(--font-mono);
 }
 
-/* Crisp Clean Light Cards & Panels */
-.glass-panel {
-  background: var(--bg-card);
-  border: 1px solid var(--border-glass);
-  box-shadow: var(--shadow-card);
-  border-radius: 16px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+:focus-visible {
+  outline: 2px solid rgb(var(--accent-mark));
+  outline-offset: 1px;
 }
 
-.glass-panel:hover {
-  border-color: var(--border-glass-hover);
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
+.panel {
+  background: rgb(var(--surface));
+  border: 1px solid rgb(var(--n-200));
+  border-radius: 6px;
 }
 
-.glass-card {
-  background: #FFFFFF;
-  border: 1px solid var(--border-glass);
-  border-radius: 12px;
-  box-shadow: var(--shadow-subtle);
-  transition: all 0.2s ease;
+.panel.code-scope {
+  border-color: rgb(var(--n-800));
 }
 
-.glass-card:hover {
-  border-color: var(--border-glass-hover);
-  box-shadow: var(--shadow-card);
-  transform: translateY(-1px);
+.page-head {
+  border-bottom: 1px solid rgb(var(--n-200));
+  padding-bottom: 12px;
 }
 
-/* Subtle Glowing Border */
-.glow-border {
-  position: relative;
-}
-
-/* Refined Light Status Badges */
-.badge-emerald {
-  background: #ECFDF5;
-  color: #065F46;
-  border: 1px solid #A7F3D0;
-}
-
-.badge-cyan {
-  background: #F0F9FF;
-  color: #0369A1;
-  border: 1px solid #BAE6FD;
-}
-
-.badge-indigo {
-  background: #EEF2FF;
-  color: #3730A3;
-  border: 1px solid #C7D2FE;
-}
-
-.badge-amber {
-  background: #FFFBEB;
-  color: #92400E;
-  border: 1px solid #FDE68A;
-}
-
-.badge-crimson {
-  background: #FEF2F2;
-  color: #991B1B;
-  border: 1px solid #FECACA;
-}
-
-/* Clean Subtle Grid Pattern */
-.laser-grid {
-  background-size: 32px 32px;
-  background-image: 
-    linear-gradient(to right, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
-}
-
-.shimmer-text {
-  background: linear-gradient(90deg, #0F172A 0%, #4F46E5 35%, #0284C7 70%, #0F172A 100%);
-  background-size: 200% auto;
-  color: transparent;
-  -webkit-background-clip: text;
-  background-clip: text;
-  animation: shimmer 10s linear infinite;
-}
-
-/* Tactile Toggle Switch */
 .switch-track {
-  background: #E2E8F0;
-  border: 1px solid #CBD5E1;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  background: rgb(var(--n-300));
+  border: 1px solid rgb(var(--n-300));
+  transition: background-color 0.15s ease;
 }
 
 .switch-track.active {
-  background: #059669;
-  border-color: #047857;
-  box-shadow: 0 0 10px rgba(5, 150, 105, 0.25);
+  background: rgb(var(--ok-mark));
+  border-color: rgb(var(--ok-mark));
 }
 
 .switch-thumb {
-  background: #FFFFFF;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  background: rgb(var(--surface));
+  transition: transform 0.15s ease;
 }
 
-/* Clean Modern Scrollbar */
+.badge-emerald {
+  background: rgb(var(--ok-tint));
+  color: rgb(var(--ok-text));
+  border: 1px solid rgb(var(--ok-line));
+}
+
+.badge-cyan,
+.badge-indigo {
+  background: rgb(var(--accent-tint));
+  color: rgb(var(--accent-text));
+  border: 1px solid rgb(var(--accent-line));
+}
+
+.badge-amber {
+  background: rgb(var(--warn-tint));
+  color: rgb(var(--warn-text));
+  border: 1px solid rgb(var(--warn-line));
+}
+
+.badge-crimson {
+  background: rgb(var(--danger-tint));
+  color: rgb(var(--danger-text));
+  border: 1px solid rgb(var(--danger-line));
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #F1F5F9;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
-  border-radius: 9999px;
+  background: rgb(var(--n-300));
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
-}
-
-/* Keyframes */
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-4px); }
-}
-
-@keyframes pulse-slow {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-.animate-pulse-slow {
-  animation: pulse-slow 4s ease-in-out infinite;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

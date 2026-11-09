@@ -50,6 +50,30 @@ window.openHygieneModal = function (data) {
 // 2. Alpine.js Component Registrations
 // ==========================================
 
+function chartToken(name, alpha) {
+  const value = getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+  return alpha === undefined ? `rgb(${value})` : `rgb(${value} / ${alpha})`;
+}
+
+function applyChartTheme() {
+  if (!window.Chart) return;
+  Object.values(Chart.instances).forEach((chart) => {
+    Object.values(chart.options.scales || {}).forEach((scale) => {
+      scale.grid.color = chartToken("--n-100");
+      scale.ticks.color = chartToken("--n-500");
+    });
+    chart.data.datasets.forEach((dataset) => {
+      const solid = chart.config.type === "bar" ? 0.65 : 0.08;
+      dataset.borderColor = chartToken("--accent-mark");
+      dataset.backgroundColor = chartToken("--accent-mark", solid);
+      dataset.pointBackgroundColor = chartToken("--accent-mark");
+    });
+    chart.update();
+  });
+}
+
 document.addEventListener("alpine:init", () => {
   // ==========================================
   // Micro-Components for CSP Compliance
@@ -661,6 +685,16 @@ document.addEventListener("alpine:init", () => {
     previousView: "overview",
     searchQuery: "",
     isMobileSidebarOpen: false,
+    isDark: document.documentElement.getAttribute("data-theme") === "dark",
+    toggleTheme() {
+      this.isDark = !this.isDark;
+      const theme = this.isDark ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", theme);
+      try {
+        localStorage.setItem("flagura-theme", theme);
+      } catch (e) {}
+      applyChartTheme();
+    },
     selectedWallpaper:
       "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=2560&q=85",
     wallpapers: [
@@ -864,34 +898,31 @@ document.addEventListener("alpine:init", () => {
       }
       this.dismissToast(id);
     },
-    toastCardClasses(toast) {
+    toastIconClasses(toast) {
       switch (toast.type) {
         case "success":
-          return "bg-white/95 text-slate-900 border-emerald-200/90 shadow-emerald-500/10";
+          return "text-ok-600";
         case "error":
-          return "bg-white/95 text-slate-900 border-rose-200/90 shadow-rose-500/10";
+          return "text-danger-600";
         case "warning":
-          return "bg-white/95 text-slate-900 border-amber-200/90 shadow-amber-500/10";
-        case "copied":
-          return "bg-slate-900/95 text-slate-100 border-slate-700 shadow-slate-950/25";
-        case "info":
+          return "text-warn-600";
         default:
-          return "bg-white/95 text-slate-900 border-indigo-200/90 shadow-indigo-500/10";
+          return "text-neutral-500";
       }
     },
     toastProgressBarClasses(toast) {
       switch (toast.type) {
         case "success":
-          return "bg-emerald-500/80";
+          return "bg-ok-500";
         case "error":
-          return "bg-rose-500/80";
+          return "bg-danger-500";
         case "warning":
-          return "bg-amber-500/80";
+          return "bg-warn-500";
         case "copied":
-          return "bg-sky-400/80";
+          return "bg-neutral-400";
         case "info":
         default:
-          return "bg-indigo-500/80";
+          return "bg-accent-500";
       }
     },
     toastProgressStyle(toast) {
@@ -1304,21 +1335,6 @@ document.addEventListener("alpine:init", () => {
   }));
 
   // Bento Enterprise Dashboard Component
-  Alpine.data("bentoEnterpriseDashboardComponent", () => ({
-    activeProdCount: 0,
-    staleCount: 0,
-    init() {
-      this.$nextTick(() => {
-        const onToggles = document.querySelectorAll(".bg-emerald-600");
-        this.activeProdCount = Math.max(0, onToggles.length - 2);
-
-        // Dynamically count flags ready for cleanup
-        const staleBadges = document.querySelectorAll(".bg-amber-50");
-        this.staleCount = staleBadges.length;
-      });
-    },
-  }));
-
   // Flag Matrix View Component
   Alpine.data("flagMatrixViewComponent", () => ({
     statusFilter: "all",
@@ -1469,6 +1485,10 @@ document.addEventListener("alpine:init", () => {
     selectedAnalyticsFlag: "all",
     chart: null,
     totalEvaluations: 0,
+    hasData: false,
+    get totalEvaluationsLabel() {
+      return this.totalEvaluations.toLocaleString();
+    },
     init() {
       this.$nextTick(() => this.renderChart());
     },
@@ -1479,10 +1499,8 @@ document.addEventListener("alpine:init", () => {
       const ctx = document.getElementById("analyticsChartCanvas");
       if (!ctx) return;
 
-      let points = [
-        14200, 11500, 9800, 18400, 42100, 78900, 114000, 128500, 134200, 119000,
-        89400, 48200,
-      ];
+      let points = new Array(12).fill(0);
+      this.hasData = false;
       try {
         const res = await fetch(
           "/api/v1/telemetry/stats?flag=" +
@@ -1497,6 +1515,7 @@ document.addEventListener("alpine:init", () => {
               sampled.push((hourly[i] || 0) + (hourly[i + 1] || 0));
             }
             points = sampled;
+            this.hasData = true;
           }
           if (stats.total_evaluations !== undefined) {
             this.totalEvaluations = stats.total_evaluations;
@@ -1529,12 +1548,12 @@ document.addEventListener("alpine:init", () => {
             {
               label: "24h Evaluations Throughput",
               data: points,
-              borderColor: "#2563eb",
-              backgroundColor: "rgba(37, 99, 235, 0.08)",
+              borderColor: chartToken("--accent-mark"),
+              backgroundColor: chartToken("--accent-mark", 0.08),
               fill: true,
               tension: 0.35,
               borderWidth: 2.5,
-              pointBackgroundColor: "#2563eb",
+              pointBackgroundColor: chartToken("--accent-mark"),
               pointRadius: 3,
             },
           ],
@@ -1545,12 +1564,12 @@ document.addEventListener("alpine:init", () => {
           plugins: { legend: { display: false } },
           scales: {
             x: {
-              grid: { color: "rgba(0, 0, 0, 0.04)" },
-              ticks: { color: "#64748b", font: { size: 10 } },
+              grid: { color: chartToken("--n-100") },
+              ticks: { color: chartToken("--n-500"), font: { size: 11 } },
             },
             y: {
-              grid: { color: "rgba(0, 0, 0, 0.04)" },
-              ticks: { color: "#64748b", font: { size: 10 } },
+              grid: { color: chartToken("--n-100") },
+              ticks: { color: chartToken("--n-500"), font: { size: 11 } },
             },
           },
         },
@@ -1666,8 +1685,8 @@ document.addEventListener("alpine:init", () => {
           datasets: [
             {
               data: buckets,
-              backgroundColor: "rgba(37, 99, 235, 0.65)",
-              borderColor: "#2563eb",
+              backgroundColor: chartToken("--accent-mark", 0.65),
+              borderColor: chartToken("--accent-mark"),
               borderWidth: 1,
               borderRadius: 2,
             },
@@ -1680,8 +1699,8 @@ document.addEventListener("alpine:init", () => {
           scales: {
             x: { display: false },
             y: {
-              grid: { color: "rgba(0, 0, 0, 0.05)" },
-              ticks: { color: "#64748b", font: { size: 10 } },
+              grid: { color: chartToken("--n-100") },
+              ticks: { color: chartToken("--n-500"), font: { size: 11 } },
             },
           },
         },
@@ -1854,7 +1873,7 @@ document.addEventListener("alpine:init", () => {
       } else if (this.sdkTab === "python") {
         return `from flagura import FlaguraClient, EvaluationContext\n\n# Project scope is automatically resolved from your API key\nclient = FlaguraClient("${window.location.origin}", api_key="flg_live_your_api_key")\nres = client.evaluate("ai-smart-search", EvaluationContext(user_id="usr_dhawal_01", email="dhawal@flagura.dev"))\nprint(res.enabled, res.variant)`;
       } else if (this.sdkTab === "rust") {
-        return `use flagura::{FlaguraClient, EvaluationContext};\n\n#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n    // Project scope is automatically resolved from your API key\n    let client = FlaguraClient::new("${window.location.origin}")\n        .with_api_key("flg_live_your_api_key");\n    let ctx = EvaluationContext::new("usr_alex_42").with_email("alex@company.com");\n\n    if client.is_enabled("ai-smart-search", &ctx).await {\n        println!("✨ AI Smart Search is active!");\n    }\n    Ok(())\n}`;
+        return `use flagura::{FlaguraClient, EvaluationContext};\n\n#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n    // Project scope is automatically resolved from your API key\n    let client = FlaguraClient::new("${window.location.origin}")\n        .with_api_key("flg_live_your_api_key");\n    let ctx = EvaluationContext::new("usr_alex_42").with_email("alex@company.com");\n\n    if client.is_enabled("ai-smart-search", &ctx).await {\n        println!("AI Smart Search is active!");\n    }\n    Ok(())\n}`;
       } else if (this.sdkTab === "cli") {
         const selfHostEnv =
           window.location.origin !== "https://flagura.dev"
@@ -2176,7 +2195,7 @@ document.addEventListener("alpine:init", () => {
           'from flagura import FlaguraClient, EvaluationContext\n\nclient = FlaguraClient("https://api.flagura.dev", api_key="flg_live_secret")\nres = client.evaluate("ai-smart-search", EvaluationContext(user_id="usr_alex_42", email="alex@company.com"))\nprint(res.enabled, res.variant)';
       } else if (this.sdkLanguage === "rust") {
         code =
-          'use flagura::{FlaguraClient, EvaluationContext};\n\n#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n    let client = FlaguraClient::new("https://api.flagura.dev").with_api_key("flg_live_secret");\n    let ctx = EvaluationContext::new("usr_alex_42").with_email("alex@company.com");\n    if client.is_enabled("ai-smart-search", &ctx).await {\n        println!("✨ AI Smart Search is active!");\n    }\n    Ok(())\n}';
+          'use flagura::{FlaguraClient, EvaluationContext};\n\n#[tokio::main]\nasync fn main() -> Result<(), Box<dyn std::error::Error>> {\n    let client = FlaguraClient::new("https://api.flagura.dev").with_api_key("flg_live_secret");\n    let ctx = EvaluationContext::new("usr_alex_42").with_email("alex@company.com");\n    if client.is_enabled("ai-smart-search", &ctx).await {\n        println!("AI Smart Search is active!");\n    }\n    Ok(())\n}';
       } else {
         code =
           'curl -X POST https://api.flagura.dev/api/v1/evaluate -H "Content-Type: application/json" -H "Authorization: Bearer flg_live_secret" -d \'{"flags":["ai-smart-search"],"context":{"user_id":"usr_alex_42","email":"alex@company.com"}}\'';
@@ -2394,16 +2413,16 @@ document.addEventListener("alpine:init", () => {
       this.passwordStrengthPct = score;
       if (score < 60) {
         this.passwordStrengthText = "Weak";
-        this.passwordStrengthColor = "text-red-600";
-        this.passwordStrengthClass = "bg-red-500";
+        this.passwordStrengthColor = "text-danger-600";
+        this.passwordStrengthClass = "bg-danger-500";
       } else if (score < 100) {
         this.passwordStrengthText = "Moderate";
-        this.passwordStrengthColor = "text-amber-600";
-        this.passwordStrengthClass = "bg-amber-500";
+        this.passwordStrengthColor = "text-warn-600";
+        this.passwordStrengthClass = "bg-warn-500";
       } else {
         this.passwordStrengthText = "Strong (Meets Policy)";
-        this.passwordStrengthColor = "text-emerald-700";
-        this.passwordStrengthClass = "bg-emerald-600";
+        this.passwordStrengthColor = "text-ok-700";
+        this.passwordStrengthClass = "bg-ok-600";
       }
     },
 
@@ -2587,9 +2606,9 @@ document.addEventListener("alpine:init", () => {
       return Boolean(this.report && this.report.control_variant === variant);
     },
     getBadgeClass(variant) {
-      if (this.isControl(variant)) return "bg-slate-100 text-slate-700";
-      if (this.isWinner(variant)) return "bg-emerald-100 text-emerald-800";
-      return "bg-purple-100 text-purple-800";
+      if (this.isControl(variant)) return "bg-neutral-100 text-neutral-700";
+      if (this.isWinner(variant)) return "bg-ok-100 text-ok-800";
+      return "bg-accent-100 text-accent-800";
     },
     getBadgeText(variant) {
       if (this.isControl(variant)) return "CONTROL BASELINE";
@@ -2704,73 +2723,73 @@ document.addEventListener("alpine:init", () => {
       if (this.cleanupLang === "go") {
         if (this.flagStatus === "DEAD_FLAG") {
           return (
-            '<span class="text-red-400 font-bold">- if client.IsEnabled(ctx, "' +
+            '<span class="text-danger-400 font-medium">- if client.IsEnabled(ctx, "' +
             k +
             '", userCtx) {</span>\n' +
-            '<span class="text-red-400 font-bold">-     doFeatureWork()</span>\n' +
-            '<span class="text-red-400 font-bold">- } else {</span>\n' +
-            '<span class="text-emerald-400 font-bold">+ // Feature abandoned / dead code removed:</span>\n' +
-            '<span class="text-emerald-400 font-bold">+ doFallbackWork()</span>\n' +
-            '<span class="text-red-400 font-bold">-     doFallbackWork()</span>\n' +
-            '<span class="text-red-400 font-bold">- }</span>'
+            '<span class="text-danger-400 font-medium">-     doFeatureWork()</span>\n' +
+            '<span class="text-danger-400 font-medium">- } else {</span>\n' +
+            '<span class="text-ok-400 font-medium">+ // Feature abandoned / dead code removed:</span>\n' +
+            '<span class="text-ok-400 font-medium">+ doFallbackWork()</span>\n' +
+            '<span class="text-danger-400 font-medium">-     doFallbackWork()</span>\n' +
+            '<span class="text-danger-400 font-medium">- }</span>'
           );
         }
         return (
-          '<span class="text-red-400 font-bold">- if client.IsEnabled(ctx, "' +
+          '<span class="text-danger-400 font-medium">- if client.IsEnabled(ctx, "' +
           k +
           '", userCtx) {</span>\n' +
-          '<span class="text-red-400 font-bold">-     renderNewExperience()</span>\n' +
-          '<span class="text-red-400 font-bold">- } else {</span>\n' +
-          '<span class="text-red-400 font-bold">-     renderLegacyExperience()</span>\n' +
-          '<span class="text-red-400 font-bold">- }</span>\n' +
-          '<span class="text-emerald-400 font-bold">+ // 100% launched: permanent in-line code</span>\n' +
-          '<span class="text-emerald-400 font-bold">+ renderNewExperience()</span>'
+          '<span class="text-danger-400 font-medium">-     renderNewExperience()</span>\n' +
+          '<span class="text-danger-400 font-medium">- } else {</span>\n' +
+          '<span class="text-danger-400 font-medium">-     renderLegacyExperience()</span>\n' +
+          '<span class="text-danger-400 font-medium">- }</span>\n' +
+          '<span class="text-ok-400 font-medium">+ // 100% launched: permanent in-line code</span>\n' +
+          '<span class="text-ok-400 font-medium">+ renderNewExperience()</span>'
         );
       } else if (this.cleanupLang === "ts") {
         if (this.flagStatus === "DEAD_FLAG") {
           return (
-            '<span class="text-red-400 font-bold">- if (await client.evaluate("' +
+            '<span class="text-danger-400 font-medium">- if (await client.evaluate("' +
             k +
             '", user)) {</span>\n' +
-            '<span class="text-red-400 font-bold">-   executeFeature();</span>\n' +
-            '<span class="text-red-400 font-bold">- } else {</span>\n' +
-            '<span class="text-emerald-400 font-bold">+ executeFallback();</span>\n' +
-            '<span class="text-red-400 font-bold">-   executeFallback();</span>\n' +
-            '<span class="text-red-400 font-bold">- }</span>'
+            '<span class="text-danger-400 font-medium">-   executeFeature();</span>\n' +
+            '<span class="text-danger-400 font-medium">- } else {</span>\n' +
+            '<span class="text-ok-400 font-medium">+ executeFallback();</span>\n' +
+            '<span class="text-danger-400 font-medium">-   executeFallback();</span>\n' +
+            '<span class="text-danger-400 font-medium">- }</span>'
           );
         }
         return (
-          '<span class="text-red-400 font-bold">- if (await client.evaluate("' +
+          '<span class="text-danger-400 font-medium">- if (await client.evaluate("' +
           k +
           '", user)) {</span>\n' +
-          '<span class="text-red-400 font-bold">-   renderNewUI();</span>\n' +
-          '<span class="text-red-400 font-bold">- } else {</span>\n' +
-          '<span class="text-red-400 font-bold">-   renderLegacyUI();</span>\n' +
-          '<span class="text-red-400 font-bold">- }</span>\n' +
-          '<span class="text-emerald-400 font-bold">+ // Permanent mainline code:</span>\n' +
-          '<span class="text-emerald-400 font-bold">+ renderNewUI();</span>'
+          '<span class="text-danger-400 font-medium">-   renderNewUI();</span>\n' +
+          '<span class="text-danger-400 font-medium">- } else {</span>\n' +
+          '<span class="text-danger-400 font-medium">-   renderLegacyUI();</span>\n' +
+          '<span class="text-danger-400 font-medium">- }</span>\n' +
+          '<span class="text-ok-400 font-medium">+ // Permanent mainline code:</span>\n' +
+          '<span class="text-ok-400 font-medium">+ renderNewUI();</span>'
         );
       } else {
         if (this.flagStatus === "DEAD_FLAG") {
           return (
-            '<span class="text-red-400 font-bold">- if client.is_enabled("' +
+            '<span class="text-danger-400 font-medium">- if client.is_enabled("' +
             k +
             '", user):</span>\n' +
-            '<span class="text-red-400 font-bold">-     run_experimental_feature()</span>\n' +
-            '<span class="text-red-400 font-bold">- else:</span>\n' +
-            '<span class="text-emerald-400 font-bold">+ run_default_feature()</span>\n' +
-            '<span class="text-red-400 font-bold">-     run_default_feature()</span>'
+            '<span class="text-danger-400 font-medium">-     run_experimental_feature()</span>\n' +
+            '<span class="text-danger-400 font-medium">- else:</span>\n' +
+            '<span class="text-ok-400 font-medium">+ run_default_feature()</span>\n' +
+            '<span class="text-danger-400 font-medium">-     run_default_feature()</span>'
           );
         }
         return (
-          '<span class="text-red-400 font-bold">- if client.is_enabled("' +
+          '<span class="text-danger-400 font-medium">- if client.is_enabled("' +
           k +
           '", user):</span>\n' +
-          '<span class="text-red-400 font-bold">-     run_new_experience()</span>\n' +
-          '<span class="text-red-400 font-bold">- else:</span>\n' +
-          '<span class="text-red-400 font-bold">-     run_legacy_experience()</span>\n' +
-          '<span class="text-emerald-400 font-bold">+ # 100% launched: permanent mainline code</span>\n' +
-          '<span class="text-emerald-400 font-bold">+ run_new_experience()</span>'
+          '<span class="text-danger-400 font-medium">-     run_new_experience()</span>\n' +
+          '<span class="text-danger-400 font-medium">- else:</span>\n' +
+          '<span class="text-danger-400 font-medium">-     run_legacy_experience()</span>\n' +
+          '<span class="text-ok-400 font-medium">+ # 100% launched: permanent mainline code</span>\n' +
+          '<span class="text-ok-400 font-medium">+ run_new_experience()</span>'
         );
       }
     },
@@ -3127,149 +3146,6 @@ document.addEventListener("alpine:init", () => {
 document.addEventListener("DOMContentLoaded", () => {
   // Initialize Lucide Icons
   if (window.lucide) window.lucide.createIcons();
-
-  // Initialize Custom Cursor (if elements present)
-  const dot = document.getElementById("custom-cursor-dot");
-  const ring = document.getElementById("custom-cursor-ring");
-  if (dot && ring) {
-    let mouseX = -100,
-      mouseY = -100;
-    let ringX = -100,
-      ringY = -100;
-
-    window.addEventListener("mousemove", (e) => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-      dot.style.transform = `translate3d(${mouseX}px, ${mouseY}px, 0) translate(-50%, -50%)`;
-    });
-
-    const renderRing = () => {
-      ringX += (mouseX - ringX) * 0.15;
-      ringY += (mouseY - ringY) * 0.15;
-      ring.style.transform = `translate3d(${ringX}px, ${ringY}px, 0) translate(-50%, -50%)`;
-      requestAnimationFrame(renderRing);
-    };
-    renderRing();
-
-    document
-      .querySelectorAll(
-        'button, a, input, select, textarea, .clickable, [role="button"]',
-      )
-      .forEach((el) => {
-        el.addEventListener("mouseenter", () => {
-          ring.classList.add(
-            "scale-150",
-            "border-[#00F5A0]",
-            "bg-[#00F5A0]/10",
-          );
-        });
-        el.addEventListener("mouseleave", () => {
-          ring.classList.remove(
-            "scale-150",
-            "border-[#00F5A0]",
-            "bg-[#00F5A0]/10",
-          );
-        });
-      });
-  }
-
-  // Initialize Three.js particle canvas (if elements and library present)
-  const canvas = document.getElementById("three-bg-canvas");
-  if (canvas && window.THREE) {
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(
-      60,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000,
-    );
-    camera.position.z = 24;
-
-    const renderer = new THREE.WebGLRenderer({
-      canvas: canvas,
-      alpha: true,
-      antialias: true,
-    });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-    const particlesCount = 900;
-    const positions = new Float32Array(particlesCount * 3);
-    const colors = new Float32Array(particlesCount * 3);
-
-    const color1 = new THREE.Color("#00F5A0");
-    const color2 = new THREE.Color("#00D2FF");
-    const color3 = new THREE.Color("#8B5CF6");
-
-    for (let i = 0; i < particlesCount; i++) {
-      const i3 = i * 3;
-      const radius = 10 + Math.random() * 8;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(Math.random() * 2 - 1);
-
-      positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
-      positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-      positions[i3 + 2] = radius * Math.cos(phi);
-
-      const rand = Math.random();
-      let mixedColor;
-      if (rand < 0.45) {
-        mixedColor = color1.clone().lerp(color2, Math.random());
-      } else if (rand < 0.8) {
-        mixedColor = color2.clone().lerp(color3, Math.random());
-      } else {
-        mixedColor = color3.clone().lerp(color1, Math.random());
-      }
-      colors[i3] = mixedColor.r;
-      colors[i3 + 1] = mixedColor.g;
-      colors[i3 + 2] = mixedColor.b;
-    }
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-
-    const material = new THREE.PointsMaterial({
-      size: 0.16,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.8,
-      blending: THREE.AdditiveBlending,
-    });
-
-    const particlesMesh = new THREE.Points(geometry, material);
-    scene.add(particlesMesh);
-
-    let mouseTargetX = 0;
-    let mouseTargetY = 0;
-    window.addEventListener("mousemove", (event) => {
-      mouseTargetX = (event.clientX / window.innerWidth - 0.5) * 2;
-      mouseTargetY = -(event.clientY / window.innerHeight - 0.5) * 2;
-    });
-
-    let clock = new THREE.Clock();
-    const animate = () => {
-      requestAnimationFrame(animate);
-      const elapsedTime = clock.getElapsedTime();
-      particlesMesh.rotation.y = elapsedTime * 0.04;
-      particlesMesh.rotation.x = elapsedTime * 0.02;
-
-      particlesMesh.rotation.y +=
-        (mouseTargetX * 0.5 - particlesMesh.rotation.y) * 0.03;
-      particlesMesh.rotation.x +=
-        (-mouseTargetY * 0.5 - particlesMesh.rotation.x) * 0.03;
-
-      renderer.render(scene, camera);
-    };
-    animate();
-
-    window.addEventListener("resize", () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    });
-  }
 });
 
 document.addEventListener("alpine:initialized", () => {

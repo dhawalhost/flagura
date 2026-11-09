@@ -26,27 +26,24 @@ func resolveActiveOrgName(orgs []domain.Organization, projects []domain.Project,
 
 templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.AuditLogEntry, orgs []domain.Organization, projects []domain.Project, activeProjectID string) {
 	<aside 
-		class="w-64 fixed lg:sticky top-0 h-screen bg-white border-r border-slate-200/90 p-5 flex flex-col justify-between z-40 transition-transform duration-300 shadow-xs shrink-0"
+		class="w-56 fixed lg:sticky top-0 h-screen bg-surface border-r border-neutral-200 p-3 flex flex-col justify-between z-40 transition-transform duration-150 shrink-0"
 		:class="isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
 	>
 		<div class="space-y-5">
 			<!-- Logo & Flagura Brand -->
 			<div class="flex items-center justify-between px-1">
 				<a href="/" class="flex items-center gap-3 group">
-					<div class="relative h-8 w-8 rounded-xl overflow-hidden p-0.5 bg-gradient-to-br from-indigo-500 via-sky-500 to-emerald-500 group-hover:scale-105 transition-transform duration-300 shadow-sm">
-						<img src="/static/img/flagura-logo.png" alt="Flagura" class="h-full w-full rounded-[10px] object-cover" />
-					</div>
+					<img src="/static/img/flagura-logo.png" alt="" class="h-6 w-6 rounded"/>
 					<div class="flex flex-col">
-						<span class="font-display font-extrabold text-slate-900 text-base tracking-tight leading-none flex items-center gap-1.5">
+						<span class="font-semibold text-neutral-900 text-base leading-none flex items-center gap-1.5">
 							Flagura
-							<span class="text-[9px] font-mono text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200">v{ domain.CleanVersion() }</span>
+							<span class="text-2xs font-mono font-normal text-neutral-400">v{ domain.CleanVersion() }</span>
 						</span>
-						<span class="text-[9px] font-mono text-slate-400 font-semibold uppercase tracking-wider mt-1">Feature Console</span>
 					</div>
 				</a>
 				<button 
 					@click="isMobileSidebarOpen = false"
-					class="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700"
+					class="lg:hidden p-1.5 rounded text-neutral-400 hover:text-neutral-700"
 				>
 					<i data-lucide="x" class="w-4 h-4"></i>
 				</button>
@@ -56,17 +53,14 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 			<div class="relative" x-data="dropdownComponent()">
 				<button 
 					@click="toggle()"
-					class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left transition group cursor-pointer"
+					class="w-full flex items-center justify-between p-2.5 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-left transition group cursor-pointer"
 				>
 					<div class="flex items-center gap-2.5 min-w-0">
-						<div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center justify-center shrink-0">
-							<i data-lucide="layers" class="w-3.5 h-3.5"></i>
-						</div>
 						<div class="min-w-0">
-							<div class="text-[10px] font-mono font-semibold text-slate-500 uppercase tracking-wider truncate">
+							<div class="text-2xs font-semibold text-neutral-500 truncate">
 								{ resolveActiveOrgName(orgs, projects, activeProjectID) }
 							</div>
-							<div class="text-xs font-bold text-slate-900 font-display truncate">
+							<div class="text-xs font-medium text-neutral-900 truncate">
 								for _, p := range projects {
 									if p.ID == activeProjectID || (activeProjectID == "" && p.ID == "proj_default") {
 										{ p.Name }
@@ -75,20 +69,20 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 							</div>
 						</div>
 					</div>
-					<i data-lucide="chevrons-up-down" class="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 shrink-0"></i>
+					<i data-lucide="chevrons-up-down" class="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-600 shrink-0"></i>
 				</button>
 
 				<!-- Dropdown Menu -->
 				<div 
 					x-show="isOpen" 
 					@click.outside="close()" 
-					class="absolute left-0 mt-1.5 w-full bg-white p-2 z-50 shadow-xl border border-slate-200 rounded-2xl space-y-1"
+					class="absolute left-0 mt-1.5 w-full bg-surface p-2 z-50 shadow-pop border border-neutral-200 rounded-md space-y-1"
 					style="display: none;"
 					x-transition
 				>
 					<div class="max-h-56 overflow-y-auto space-y-1.5">
 						for _, org := range orgs {
-							<div class="px-2 pt-1 text-[10px] font-mono uppercase font-bold text-slate-400">
+							<div class="px-2 pt-1 text-2xs font-medium text-neutral-400">
 								{ org.Name }
 							</div>
 							for _, p := range projects {
@@ -96,33 +90,33 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 									<button 
 										data-project-id={ p.ID }
 										@click="selectProject($el)"
-										class="w-full text-left px-2.5 py-2 rounded-xl text-xs font-mono flex items-center justify-between hover:bg-slate-50 text-slate-700 hover:text-slate-900 cursor-pointer transition-colors"
+										class="w-full text-left px-2.5 py-2 rounded-md text-xs flex items-center justify-between hover:bg-neutral-50 text-neutral-700 hover:text-neutral-900 cursor-pointer transition-colors"
 									>
 										<div class="truncate">
-											<div class="font-semibold text-slate-900 truncate">{ p.Name }</div>
-											<div class="text-[10px] text-slate-400 font-mono truncate">{ p.Slug }</div>
+											<div class="font-semibold text-neutral-900 truncate">{ p.Name }</div>
+											<div class="text-2xs text-neutral-400 font-mono truncate">{ p.Slug }</div>
 										</div>
 										if p.ID == activeProjectID || (activeProjectID == "" && p.ID == "proj_default") {
-											<i data-lucide="check" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+											<i data-lucide="check" class="w-3.5 h-3.5 text-accent-600 shrink-0"></i>
 										}
 									</button>
 								}
 							}
 						}
 					</div>
-					<div class="border-t border-slate-100 pt-1.5 mt-1 space-y-0.5">
+					<div class="border-t border-neutral-100 pt-1.5 mt-1 space-y-0.5">
 						<button 
 							@click="openCreateProject()"
-							class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold text-indigo-600 hover:bg-indigo-50 flex items-center gap-1.5 cursor-pointer"
+							class="w-full text-left px-2.5 py-1.5 rounded text-xs font-semibold text-accent-600 hover:bg-accent-50 flex items-center gap-1.5 cursor-pointer"
 						>
 							<i data-lucide="plus" class="w-3.5 h-3.5"></i>
 							<span>Create Project Scope</span>
 						</button>
 						<button 
 							@click="openInvite()"
-							class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
+							class="w-full text-left px-2.5 py-1.5 rounded text-xs font-semibold text-neutral-600 hover:bg-neutral-50 flex items-center gap-1.5 cursor-pointer"
 						>
-							<i data-lucide="user-plus" class="w-3.5 h-3.5 text-slate-500"></i>
+							<i data-lucide="user-plus" class="w-3.5 h-3.5 text-neutral-500"></i>
 							<span>Invite Team Member</span>
 						</button>
 					</div>
@@ -130,177 +124,137 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 			</div>
 
 			<!-- Navigation Links -->
-			<nav class="space-y-1 font-mono">
+			<nav class="space-y-1">
 				<!-- 1: Overview -->
 				<button 
 					@click="navigateTo('overview')"
-					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
-					:class="activeView === 'overview' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
+					class="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer"
+					:class="activeView === 'overview' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'"
 				>
 					<div class="flex items-center gap-2.5">
 						<i data-lucide="layout-dashboard" class="w-4 h-4"></i>
 						<span class="font-sans font-medium">Overview</span>
 					</div>
-					<span 
-						class="text-[10px] px-2 py-0.5 rounded-full font-bold"
-						:class="activeView === 'overview' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'"
-					>Live</span>
+					
 				</button>
 
 				<!-- 2: Flags & Rollouts -->
 				<button 
 					@click="navigateTo('flags')"
-					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
-					:class="activeView === 'flags' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
+					class="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer"
+					:class="activeView === 'flags' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'"
 				>
 					<div class="flex items-center gap-2.5">
 						<i data-lucide="sliders" class="w-4 h-4"></i>
 						<span class="font-sans font-medium">Flags & Rollouts</span>
 					</div>
-					<span 
-						class="text-[10px] px-2 py-0.5 rounded-full font-bold"
-						:class="activeView === 'flags' ? 'bg-indigo-100 text-indigo-800' : 'bg-sky-50 text-sky-700 border border-sky-200'"
-					>{ fmt.Sprintf("%02d", len(flags)) }</span>
+					<span class="text-2xs font-mono text-neutral-400">{ fmt.Sprintf("%02d", len(flags)) }</span>
 				</button>
 
 				<!-- 3: Analytics & Telemetry -->
 				<button 
 					@click="navigateTo('analytics')"
-					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
-					:class="activeView === 'analytics' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
+					class="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer"
+					:class="activeView === 'analytics' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'"
 				>
 					<div class="flex items-center gap-2.5">
 						<i data-lucide="bar-chart-3" class="w-4 h-4"></i>
 						<span class="font-sans font-medium">Analytics & Telemetry</span>
 					</div>
-					<span 
-						class="text-[10px] px-2 py-0.5 rounded-full font-bold"
-						:class="activeView === 'analytics' ? 'bg-indigo-100 text-indigo-800' : 'bg-purple-50 text-purple-700 border border-purple-200'"
-					>24h</span>
+					
 				</button>
 
 				<!-- 4: Live Evaluator -->
 				<button 
 					@click="navigateTo('evaluator')"
-					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
-					:class="activeView === 'evaluator' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
+					class="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer"
+					:class="activeView === 'evaluator' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'"
 				>
 					<div class="flex items-center gap-2.5">
 						<i data-lucide="zap" class="w-4 h-4"></i>
 						<span class="font-sans font-medium">Live Evaluator</span>
 					</div>
-					<span 
-						class="text-[10px] px-2 py-0.5 rounded-full font-bold"
-						:class="activeView === 'evaluator' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'"
-					>Sandbox</span>
+					
 				</button>
 
 				<!-- 5: Latency Benchmark -->
 				<button 
 					@click="navigateTo('benchmark')"
-					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
-					:class="activeView === 'benchmark' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
+					class="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer"
+					:class="activeView === 'benchmark' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'"
 				>
 					<div class="flex items-center gap-2.5">
 						<i data-lucide="activity" class="w-4 h-4"></i>
 						<span class="font-sans font-medium">Latency Benchmark</span>
 					</div>
-					<span 
-						class="text-[10px] px-2 py-0.5 rounded-full font-bold"
-						:class="activeView === 'benchmark' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'"
-					>85ns</span>
+					
 				</button>
 
 				<!-- 6: Audit Trail -->
 				<button 
 					@click="navigateTo('audit')"
-					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
-					:class="activeView === 'audit' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
+					class="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer"
+					:class="activeView === 'audit' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'"
 				>
 					<div class="flex items-center gap-2.5">
 						<i data-lucide="file-text" class="w-4 h-4"></i>
 						<span class="font-sans font-medium">Audit Trail</span>
 					</div>
-					<span 
-						class="text-[10px] px-2 py-0.5 rounded-full font-bold"
-						:class="activeView === 'audit' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-600 border border-slate-200'"
-					>{ fmt.Sprintf("%d", len(auditLogs)) }</span>
+					<span class="text-2xs font-mono text-neutral-400">{ fmt.Sprintf("%d", len(auditLogs)) }</span>
 				</button>
 
 				<!-- 7: SDK Quickstart -->
 				<button 
 					@click="navigateTo('sdk')"
-					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
-					:class="activeView === 'sdk' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
+					class="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer"
+					:class="activeView === 'sdk' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'"
 				>
 					<div class="flex items-center gap-2.5">
 						<i data-lucide="code-2" class="w-4 h-4"></i>
 						<span class="font-sans font-medium">SDK Quickstart</span>
 					</div>
-					<span 
-						class="text-[10px] px-2 py-0.5 rounded-full font-bold"
-						:class="activeView === 'sdk' ? 'bg-indigo-100 text-indigo-800' : 'bg-sky-50 text-sky-700 border border-sky-200'"
-					>Polyglot</span>
+					
 				</button>
 
 				<!-- 8: 4-Eyes Change Approvals -->
 				<button 
 					@click="openGovernanceModal()"
-					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer text-purple-700 hover:bg-purple-50"
+					class="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
 				>
 					<div class="flex items-center gap-2.5">
-						<i data-lucide="shield-check" class="w-4 h-4 text-purple-600"></i>
+						<i data-lucide="shield-check" class="w-4 h-4"></i>
 						<span class="font-sans font-medium">Change Approvals</span>
 					</div>
-					<span 
-						class="text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-bold"
-					>4-Eyes</span>
+					
 				</button>
 
 				<!-- 9: Profile Settings -->
 				<button 
 					@click="navigateTo('profile')"
-					class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
-					:class="activeView === 'profile' ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/80 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'"
+					class="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-semibold transition cursor-pointer"
+					:class="activeView === 'profile' ? 'bg-neutral-100 text-neutral-900 font-medium' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'"
 				>
 					<div class="flex items-center gap-2.5">
 						<i data-lucide="user-cog" class="w-4 h-4"></i>
 						<span class="font-sans font-medium">Profile Settings</span>
 					</div>
-					<span 
-						class="text-[10px] px-2 py-0.5 rounded-full font-bold"
-						:class="activeView === 'profile' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-600 border border-slate-200'"
-					>Account</span>
+					
 				</button>
 			</nav>
 		</div>
 
-		<!-- Bottom Status -->
-		<div class="pt-4 border-t border-slate-200 font-mono">
-			<!-- Runtime Info Box -->
-			<div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
-				<div class="flex items-center justify-between">
-					<span class="text-[10px] text-slate-500 font-semibold uppercase">Engine Status</span>
-					<span class="flex items-center gap-1.5 text-[10px] text-emerald-700 font-bold">
-						<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-						FNV-1a 64-bit
-					</span>
-				</div>
-				<div class="text-[11px] text-slate-500 flex justify-between items-center">
-					<span>Session:</span>
-					<button 
-						@click="navigateTo('profile')"
-						class="text-slate-900 hover:text-indigo-600 font-bold truncate max-w-[110px] transition cursor-pointer text-left" 
-						title={ user.Email }
-					>
-						if user != nil && user.Name != "" {
-							{ user.Name }
-						} else {
-							Developer
-						}
-					</button>
-				</div>
-			</div>
+		<div class="pt-3 border-t border-neutral-200">
+			<button 
+				@click="navigateTo('profile')"
+				class="w-full text-left text-xs text-neutral-600 hover:text-neutral-900 truncate transition-colors cursor-pointer"
+				title={ user.Email }
+			>
+				if user != nil && user.Name != "" {
+					{ user.Name }
+				} else {
+					Developer
+				}
+			</button>
 		</div>
 	</aside>
 }
