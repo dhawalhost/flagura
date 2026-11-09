@@ -13,7 +13,19 @@ import (
 	"github.com/dhawalhost/flagura/pkg/domain"
 )
 
-func LiveEvaluator(flags []domain.FeatureFlag) templ.Component {
+type evaluatorPersona struct {
+	Label, UserID, Email, Country, Role, Tier string
+}
+
+var evaluatorPersonas = []evaluatorPersona{
+	{"Staff admin", "usr_dhawal_01", "dhawal@flagura.dev", "US", "admin", "enterprise"},
+	{"VIP", "usr_vip_enterprise_88", "cto@acme-corp.com", "US", "user", "enterprise"},
+	{"QA", "usr_qa_lead_44", "qa.lead@company.com", "CA", "qa_engineer", "pro"},
+	{"Beta tester", "usr_uk_beta_09", "emma@london-tech.co.uk", "GB", "beta_tester", "free"},
+	{"Standard user", "usr_anon_3948", "standard.user@gmail.com", "DE", "user", "free"},
+}
+
+func evaluatorEnvTab(env string, label string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -34,69 +46,241 @@ func LiveEvaluator(flags []domain.FeatureFlag) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-6\" x-show=\"activeView === 'evaluator'\" x-cloak x-data=\"liveEvaluatorComponent()\"><!-- Top Bar: Title & Primary Controls --><div class=\"page-head flex flex-col sm:flex-row sm:items-center justify-between gap-3\"><div class=\"flex items-center gap-3.5\"><div><div class=\"flex items-center gap-2\"><h2 class=\"text-base font-semibold text-neutral-900\">Evaluator</h2></div><p class=\"text-xs text-neutral-500 mt-0.5 font-sans\">Evaluate a flag against a user context and see which rules matched.</p></div></div><!-- Environment & Action Buttons --><div class=\"flex items-center gap-3 font-mono\"><div class=\"flex items-center gap-1.5 bg-neutral-100 p-1 rounded-md border border-neutral-200\"><button type=\"button\" @click=\"setEnvAndEvaluate('production')\" class=\"px-3 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer\" :class=\"currentEnv === 'production' ? 'bg-accent-600 text-surface' : 'text-neutral-600 hover:text-neutral-900'\">PROD</button> <button type=\"button\" @click=\"setEnvAndEvaluate('staging')\" class=\"px-3 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer\" :class=\"currentEnv === 'staging' ? 'bg-accent-600 text-surface' : 'text-neutral-600 hover:text-neutral-900'\">STAGING</button> <button type=\"button\" @click=\"setEnvAndEvaluate('development')\" class=\"px-3 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer\" :class=\"currentEnv === 'development' ? 'bg-accent-600 text-surface' : 'text-neutral-600 hover:text-neutral-900'\">DEV</button></div><button type=\"button\" @click=\"evaluateNow()\" class=\"px-4 py-2 rounded-md bg-accent-600 hover:bg-accent-700 text-surface font-medium text-xs transition-colors flex items-center gap-2 cursor-pointer\"><i data-lucide=\"refresh-cw\" class=\"h-3.5 w-3.5 text-surface\" :class=\"evaluating ? 'animate-spin' : ''\"></i> <span>Evaluate</span></button></div></div><!-- Quick Personas Bar --><div class=\"flex flex-wrap items-center gap-2 p-3 bg-surface rounded-md border border-neutral-200 font-mono\"><span class=\"text-2xs font-medium text-neutral-500 px-2\">Quick Personas:</span> <button type=\"button\" data-uid=\"usr_dhawal_01\" data-email=\"dhawal@flagura.dev\" data-country=\"US\" data-role=\"admin\" data-tier=\"enterprise\" @click=\"applyPreset($el)\" class=\"inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition cursor-pointer border\" :class=\"context.user_id === 'usr_dhawal_01' ? 'bg-accent-50 text-accent-700 border-accent-200 font-medium' : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-200'\"><i data-lucide=\"wrench\" class=\"h-3.5 w-3.5\"></i> <span>Staff Admin (US)</span></button> <button type=\"button\" data-uid=\"usr_vip_enterprise_88\" data-email=\"cto@acme-corp.com\" data-country=\"US\" data-role=\"user\" data-tier=\"enterprise\" @click=\"applyPreset($el)\" class=\"inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition cursor-pointer border\" :class=\"context.user_id === 'usr_vip_enterprise_88' ? 'bg-accent-50 text-accent-700 border-accent-200 font-medium' : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-200'\"><i data-lucide=\"crown\" class=\"h-3.5 w-3.5\"></i> <span>VIP Tier</span></button> <button type=\"button\" data-uid=\"usr_qa_lead_44\" data-email=\"qa.lead@company.com\" data-country=\"CA\" data-role=\"qa_engineer\" data-tier=\"pro\" @click=\"applyPreset($el)\" class=\"inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition cursor-pointer border\" :class=\"context.user_id === 'usr_qa_lead_44' ? 'bg-accent-50 text-accent-700 border-accent-200 font-medium' : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-200'\"><i data-lucide=\"flask-conical\" class=\"h-3.5 w-3.5\"></i> <span>QA Engineer (CA)</span></button> <button type=\"button\" data-uid=\"usr_uk_beta_09\" data-email=\"emma@london-tech.co.uk\" data-country=\"GB\" data-role=\"beta_tester\" data-tier=\"free\" @click=\"applyPreset($el)\" class=\"inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition cursor-pointer border\" :class=\"context.user_id === 'usr_uk_beta_09' ? 'bg-accent-50 text-accent-700 border-accent-200 font-medium' : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-200'\"><i data-lucide=\"globe\" class=\"h-3.5 w-3.5\"></i> <span>EU Beta Tester</span></button> <button type=\"button\" data-uid=\"usr_anon_3948\" data-email=\"standard.user@gmail.com\" data-country=\"DE\" data-role=\"user\" data-tier=\"free\" @click=\"applyPreset($el)\" class=\"inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition cursor-pointer border\" :class=\"context.user_id === 'usr_anon_3948' ? 'bg-accent-50 text-accent-700 border-accent-200 font-medium' : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-200'\"><i data-lucide=\"user\" class=\"h-3.5 w-3.5\"></i> <span>Standard User</span></button></div><!-- Main Two-Column Layout --><div class=\"grid grid-cols-1 lg:grid-cols-12 gap-4 items-start\"><!-- Left Column: Context Configuration (5 cols) --><div class=\"lg:col-span-5 panel p-4 space-y-5\"><!-- Flag Selector --><div><label class=\"text-xs font-medium text-neutral-700 mb-1.5 block\">Select Target Flag</label><div class=\"relative\"><select x-model=\"selectedFlagKey\" @change=\"evaluateNow()\" class=\"w-full bg-neutral-50 border border-neutral-200 rounded-md px-3.5 py-2.5 font-mono text-xs font-medium text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors pr-8\"><option value=\"all\">All flags (")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<button type=\"button\" @click=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
-		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", len(flags)))
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue("setEnvAndEvaluate('" + env + "')")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 151, Col: 69}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 23, Col: 45}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, ")</option> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" :class=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var3 string
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue("currentEnv === '" + env + "' ? 'seg-on' : ''")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 24, Col: 57}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var4 string
+		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(label)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 25, Col: 9}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</button>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func LiveEvaluator(flags []domain.FeatureFlag) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var5 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var5 == nil {
+			templ_7745c5c3_Var5 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"space-y-4\" x-show=\"activeView === 'evaluator'\" x-cloak x-data=\"liveEvaluatorComponent()\"><div class=\"page-head flex flex-wrap items-center justify-between gap-3\"><p class=\"text-sm text-neutral-500\">Evaluate flags against a user context and see which rules matched.</p><div class=\"flex items-center gap-2\"><div class=\"seg\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = evaluatorEnvTab("production", "production").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = evaluatorEnvTab("staging", "staging").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = evaluatorEnvTab("development", "development").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div><button type=\"button\" @click=\"evaluateNow()\" class=\"btn btn-primary\"><span class=\"inline-flex\" :class=\"evaluating ? 'animate-spin' : ''\"><i data-lucide=\"refresh-cw\" class=\"h-3.5 w-3.5\"></i></span> <span>Evaluate</span></button></div></div><div class=\"grid grid-cols-1 lg:grid-cols-12 gap-4 items-start\"><div class=\"lg:col-span-4 panel\"><div class=\"section p-4\"><label class=\"field-label\">Flag</label> <select x-model=\"selectedFlagKey\" @change=\"evaluateNow()\" class=\"field font-mono\"><option value=\"all\">All flags (")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var6 string
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", len(flags)))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 50, Col: 68}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, ")</option> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, f := range flags {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<option value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<option value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var3 string
-			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
+			var templ_7745c5c3_Var7 string
+			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 153, Col: 29}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 52, Col: 28}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\">")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(f.Key)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 153, Col: 39}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " (")
+			var templ_7745c5c3_Var8 string
+			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(f.Key)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 52, Col: 38}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(f.Type)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 153, Col: 51}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, ")</option>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</option>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</select></div></div><!-- Identity Attributes Card --><div class=\"space-y-4 pt-3 border-t border-neutral-100 font-mono\"><div><div class=\"flex items-center justify-between text-xs mb-1.5\"><label class=\"font-medium text-neutral-700\">User ID</label> <span class=\"text-2xs font-mono font-medium text-accent-700 bg-accent-50 px-2 py-0.5 rounded-md border border-accent-200\" x-text=\"'FNV-1a: ' + currentBucket + '%'\"></span></div><input type=\"text\" x-model=\"context.user_id\" @input.debounce.250ms=\"evaluateNow()\" class=\"w-full bg-neutral-50 border border-neutral-200 rounded-md px-3.5 py-2.5 font-mono text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors\" placeholder=\"e.g. usr_alex_42\"></div><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"text-xs font-semibold text-neutral-700 mb-1 block\">Email</label> <input type=\"email\" x-model=\"context.email\" @input.debounce.250ms=\"evaluateNow()\" class=\"w-full bg-neutral-50 border border-neutral-200 rounded-md px-3.5 py-2 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors font-mono\" placeholder=\"alex@company.com\"></div><div><label class=\"text-xs font-semibold text-neutral-700 mb-1 block\">Country Code</label> <input type=\"text\" x-model=\"context.country\" @input.debounce.250ms=\"evaluateNow()\" class=\"w-full bg-neutral-50 border border-neutral-200 rounded-md px-3.5 py-2 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors\" placeholder=\"US, CA, GB...\"></div></div><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"text-xs font-semibold text-neutral-700 mb-1 block\">Role</label> <input type=\"text\" x-model=\"context.role\" @input.debounce.250ms=\"evaluateNow()\" class=\"w-full bg-neutral-50 border border-neutral-200 rounded-md px-3.5 py-2 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors font-mono\" placeholder=\"admin, user...\"></div><div><label class=\"text-xs font-semibold text-neutral-700 mb-1 block\">Plan Tier</label> <select x-model=\"context.tier\" @change=\"evaluateNow()\" class=\"w-full bg-neutral-50 border border-neutral-200 rounded-md px-3.5 py-2 text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors font-mono\"><option value=\"enterprise\">enterprise</option> <option value=\"pro\">pro</option> <option value=\"free\">free</option> <option value=\"internal\">internal</option></select></div></div></div><!-- Collapsible Advanced JSON Attributes --><div class=\"pt-3 border-t border-neutral-100\"><button type=\"button\" @click=\"showAdvanced = !showAdvanced\" class=\"flex items-center justify-between w-full text-xs font-semibold text-neutral-600 hover:text-neutral-900 cursor-pointer\"><span class=\"flex items-center gap-1.5\"><i data-lucide=\"sliders\" class=\"h-3.5 w-3.5 text-accent-600\"></i> <span>Custom JSON Attributes</span></span> <span class=\"text-2xs text-accent-600\" x-text=\"showAdvanced ? 'Hide' : 'Expand'\"></span></button><div x-show=\"showAdvanced\" class=\"pt-2.5 space-y-2\"><textarea rows=\"3\" x-model=\"customJson\" @input.debounce.300ms=\"evaluateNow()\" class=\"w-full bg-neutral-50 border border-neutral-200 rounded-md p-3 text-xs font-mono text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition-colors leading-relaxed\" placeholder='{ \"app_version\": \"2.4.0\", \"beta\": true }'></textarea></div></div></div><!-- Right Column: Evaluation Verdict & Results (7 cols) --><div class=\"lg:col-span-7 space-y-4 font-mono\"><!-- Single Flag Hero Result (When a specific flag is chosen) --><template x-if=\"selectedFlagKey !== 'all' && evalResults[selectedFlagKey]\"><div class=\"space-y-4\"><!-- Hero Verdict Banner --><div class=\"p-4 rounded-md border transition-colors space-y-4\" :class=\"evalResults[selectedFlagKey].enabled ? 'bg-ok-50/40 border-ok-200' : 'bg-danger-50/40 border-danger-200'\"><div class=\"flex items-start justify-between gap-4\"><div><div class=\"flex items-center gap-2\"><span class=\"text-xs text-neutral-500 font-medium\">Result</span></div><h3 class=\"text-2xl font-semibold text-neutral-900 mt-1\" x-text=\"selectedFlagKey\"></h3></div><!-- Status Badge --><div class=\"px-4 py-2 rounded-md text-sm font-semibold flex items-center gap-2\" :class=\"evalResults[selectedFlagKey].enabled ? 'bg-ok-600 text-surface' : 'bg-danger-600 text-surface'\"><i data-lucide=\"check-circle\" class=\"h-4 w-4\" x-show=\"evalResults[selectedFlagKey].enabled\"></i> <i data-lucide=\"x-circle\" class=\"h-4 w-4\" x-show=\"!evalResults[selectedFlagKey].enabled\"></i> <span x-text=\"evalResults[selectedFlagKey].enabled ? 'ENABLED' : 'DISABLED'\"></span></div></div><!-- Decision Rationale Pill --><div class=\"p-3.5 rounded-md bg-surface border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2\"><div class=\"flex items-center gap-2\"><span class=\"text-xs font-medium text-neutral-500\">MATCH REASON:</span> <span class=\"text-xs font-medium text-neutral-900\" x-text=\"evalResults[selectedFlagKey].reason\"></span></div><div class=\"flex items-center gap-2 text-xs\"><span class=\"text-neutral-500\">RESOLVED VARIANT:</span> <span class=\"font-medium text-accent-700 bg-accent-50 px-2 py-0.5 rounded border border-accent-200\" x-text=\"evalResults[selectedFlagKey].variant || 'default'\"></span></div></div><!-- Sticky Hash Bucketing Progress Visualizer --><div class=\"p-4 rounded-md bg-surface border border-neutral-200 space-y-2\"><div class=\"flex items-center justify-between text-xs\"><span class=\"text-neutral-600\">User Sticky Hash Position:</span> <span class=\"font-medium text-neutral-900\" x-text=\"'Bucket #' + currentBucket + '%' + (currentBucket <= (evalResults[selectedFlagKey].bucket || 50) ? ' (Included in Rollout)' : ' (Excluded)')\"></span></div><div class=\"relative h-2.5 w-full rounded-full bg-neutral-200 overflow-hidden\"><div class=\"absolute top-0 bottom-0 left-0 bg-accent-600 rounded-full transition-colors duration-150\" :style=\"'width: ' + (evalResults[selectedFlagKey].bucket || 50) + '%'\"></div><div class=\"absolute top-0 bottom-0 w-3 bg-ok-500 border-2 border-surface rounded-full transition-colors duration-150\" :style=\"'left: ' + clampBucket(currentBucket) + '%'\"></div></div><div class=\"flex justify-between text-2xs text-neutral-500\"><span>0%</span> <span x-text=\"'Rollout Gate: ' + (evalResults[selectedFlagKey].bucket || 50) + '%'\"></span> <span>100%</span></div></div></div><!-- Visual Step-by-Step Rule Pipeline Execution Trace --><template x-if=\"evalTraces[selectedFlagKey] && evalTraces[selectedFlagKey].steps && evalTraces[selectedFlagKey].steps.length > 0\"><div class=\"panel p-5 space-y-3\"><div class=\"flex items-center justify-between border-b border-neutral-100 pb-2.5\"><div class=\"flex items-center gap-2\"><i data-lucide=\"git-commit\" class=\"h-4 w-4 text-accent-600\"></i> <span class=\"text-xs font-medium text-neutral-900\">Rule Execution Pipeline</span></div><span class=\"text-2xs text-neutral-500\" x-text=\"evalTraces[selectedFlagKey].steps.length + ' evaluation steps'\"></span></div><div class=\"space-y-2\"><template x-for=\"step in evalTraces[selectedFlagKey].steps\" :key=\"step.step_index\"><div class=\"flex items-start gap-3 p-2.5 rounded-md border text-xs transition-colors\" :class=\"step.passed ? 'bg-ok-50/50 border-ok-200' : 'bg-neutral-50 border-neutral-200'\"><span class=\"inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-2xs font-medium mt-0.5\" :class=\"step.passed ? 'bg-ok-600 text-surface' : 'bg-neutral-300 text-neutral-600'\"><span x-text=\"step.passed ? '✓' : '✗'\"></span></span><div class=\"flex-1 min-w-0\"><div class=\"flex items-center justify-between\"><span class=\"font-medium text-neutral-900\" x-text=\"step.name\"></span> <span class=\"text-2xs font-medium px-1.5 py-0.5 rounded\" :class=\"step.passed ? 'bg-ok-100 text-ok-800' : 'bg-neutral-200 text-neutral-600'\" x-text=\"step.passed ? 'PASSED' : 'SKIPPED'\"></span></div><div class=\"text-2xs text-neutral-500 mt-0.5\" x-text=\"step.detail\"></div></div></div></template></div></div></template></div></template><!-- All Flags Mode (Compact & Clean List) --><template x-if=\"selectedFlagKey === 'all'\"><div class=\"panel p-5 space-y-4\"><div class=\"flex items-center justify-between border-b border-neutral-100 pb-3\"><div class=\"flex items-center gap-2\"><span class=\"text-xs font-medium text-neutral-900\">Batch Evaluation Matrix</span> <span class=\"text-2xs font-medium bg-accent-50 text-accent-700 px-2 py-0.5 rounded border border-accent-200\" x-text=\"getEvalResultsCount() + ' flags'\"></span></div><span class=\"text-xs text-ok-700 font-medium\">&lt; 0.05ms batch total</span></div><div class=\"space-y-2.5 max-h-[550px] overflow-y-auto pr-1\"><template x-for=\"(res, key) in evalResults\" :key=\"key\"><div @click=\"selectFlagAndEvaluate(key)\" class=\"p-4 rounded-md border transition-colors cursor-pointer flex items-center justify-between gap-4 bg-surface border-neutral-200 hover:border-accent-300\"><div class=\"min-w-0 space-y-1\"><div class=\"flex items-center gap-2\"><span class=\"text-xs font-medium text-neutral-900 truncate\" x-text=\"key\"></span> <span class=\"text-2xs px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 font-medium\" x-text=\"res.variant || 'default'\"></span></div><p class=\"text-2xs text-neutral-500 truncate\" x-text=\"res.reason\"></p></div><div class=\"shrink-0 flex items-center gap-3\"><span class=\"px-3 py-1 rounded-md text-2xs font-medium flex items-center gap-1.5\" :class=\"res.enabled ? 'bg-ok-50 border border-ok-200 text-ok-700' : 'bg-danger-50 border border-danger-200 text-danger-700'\"><span class=\"h-1.5 w-1.5 rounded-full\" :class=\"res.enabled ? 'bg-ok-500' : 'bg-danger-500'\"></span> <span x-text=\"res.enabled ? 'ENABLED' : 'DISABLED'\"></span></span> <i data-lucide=\"chevron-right\" class=\"h-4 w-4 text-neutral-400\"></i></div></div></template></div></div></template><!-- Compact cURL / API Code Drawer --><div class=\"p-4 bg-neutral-900 text-neutral-100 rounded-md border border-neutral-800 space-y-2 code-scope\"><div class=\"flex items-center justify-between cursor-pointer\" @click=\"openCurl = !openCurl\"><div class=\"flex items-center gap-2 text-xs font-medium text-neutral-200 font-mono\"><i data-lucide=\"terminal\" class=\"h-4 w-4 text-accent-400\"></i> <span>cURL API Command</span></div><div class=\"flex items-center gap-2\"><button type=\"button\" @click.stop=\"copyCurl()\" class=\"px-2.5 py-1 rounded bg-neutral-700 hover:bg-neutral-600 text-neutral-200 text-2xs font-semibold transition cursor-pointer flex items-center gap-1 border border-surface/10\"><i data-lucide=\"copy\" class=\"h-3 w-3\"></i> <span x-text=\"copiedCurl ? 'Copied!' : 'Copy'\"></span></button> <span class=\"text-2xs text-accent-400 font-mono\" x-text=\"openCurl ? 'Collapse' : 'Expand'\"></span></div></div><pre x-show=\"openCurl\" class=\"overflow-x-auto rounded-md bg-black/60 text-ok-400 p-3.5 text-xs font-mono leading-relaxed mt-2 border border-surface/10\" x-text=\"getCurlCommand()\"></pre></div></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</select></div><div class=\"section p-4\"><label class=\"field-label\">Preset</label><div class=\"flex flex-wrap gap-1.5\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		for _, p := range evaluatorPersonas {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<button type=\"button\" data-uid=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var9 string
+			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.UserID)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 62, Col: 27}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" data-email=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var10 string
+			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Email)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 63, Col: 28}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\" data-country=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var11 string
+			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Country)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 64, Col: 32}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" data-role=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var12 string
+			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Role)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 65, Col: 26}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" data-tier=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var13 string
+			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Tier)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 66, Col: 26}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" @click=\"applyPreset($el)\" class=\"btn\" :class=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var14 string
+			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue("context.user_id === '" + p.UserID + "' ? 'border-accent-500 text-accent-700' : ''")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 69, Col: 100}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var15 string
+			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(p.Label)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/live_evaluator.templ`, Line: 70, Col: 17}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</button>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div></div><div class=\"section p-4 grid grid-cols-2 gap-3\"><div class=\"col-span-2\"><label class=\"field-label\">User ID</label> <input type=\"text\" x-model=\"context.user_id\" @input.debounce.250ms=\"evaluateNow()\" class=\"field font-mono\" placeholder=\"usr_alex_42\"></div><div class=\"col-span-2\"><label class=\"field-label\">Email</label> <input type=\"email\" x-model=\"context.email\" @input.debounce.250ms=\"evaluateNow()\" class=\"field font-mono\" placeholder=\"alex@company.com\"></div><div><label class=\"field-label\">Country</label> <input type=\"text\" x-model=\"context.country\" @input.debounce.250ms=\"evaluateNow()\" class=\"field font-mono\" placeholder=\"US\"></div><div><label class=\"field-label\">Role</label> <input type=\"text\" x-model=\"context.role\" @input.debounce.250ms=\"evaluateNow()\" class=\"field font-mono\" placeholder=\"admin\"></div><div class=\"col-span-2\"><label class=\"field-label\">Plan</label> <select x-model=\"context.tier\" @change=\"evaluateNow()\" class=\"field font-mono\"><option value=\"enterprise\">enterprise</option> <option value=\"pro\">pro</option> <option value=\"free\">free</option> <option value=\"internal\">internal</option></select></div></div><div class=\"section p-4\"><button type=\"button\" @click=\"showAdvanced = !showAdvanced\" class=\"flex justify-between w-full text-xs text-neutral-600 hover:text-neutral-900 cursor-pointer\"><span>Custom JSON attributes</span> <span class=\"text-accent-600\" x-text=\"showAdvanced ? 'Hide' : 'Show'\"></span></button><div x-show=\"showAdvanced\" class=\"pt-2\"><textarea rows=\"3\" x-model=\"customJson\" @input.debounce.300ms=\"evaluateNow()\" class=\"field font-mono\" placeholder='{ \"app_version\": \"2.4.0\" }'></textarea></div></div></div><div class=\"lg:col-span-8 space-y-4\"><template x-if=\"selectedFlagKey !== 'all' && evalResults[selectedFlagKey]\"><section class=\"panel\"><div class=\"section p-4 flex items-center justify-between gap-3\"><h3 class=\"font-mono text-lg font-medium text-neutral-900 truncate\" x-text=\"selectedFlagKey\"></h3><span class=\"text-sm font-semibold shrink-0\" :class=\"evalResults[selectedFlagKey].enabled ? 'text-ok-700' : 'text-neutral-500'\" x-text=\"evalResults[selectedFlagKey].enabled ? 'On' : 'Off'\"></span></div><dl class=\"section divide-y divide-neutral-100 text-sm\"><div class=\"flex justify-between gap-3 px-4 py-2\"><dt class=\"text-neutral-600\">Reason</dt><dd class=\"font-mono text-neutral-900 truncate\" x-text=\"evalResults[selectedFlagKey].reason\"></dd></div><div class=\"flex justify-between gap-3 px-4 py-2\"><dt class=\"text-neutral-600\">Variant</dt><dd class=\"font-mono text-neutral-900\" x-text=\"evalResults[selectedFlagKey].variant || 'default'\"></dd></div></dl><template x-if=\"evalResults[selectedFlagKey].bucket_threshold !== undefined\"><div class=\"section p-4\"><div class=\"flex justify-between text-xs mb-1.5\"><span class=\"text-neutral-600\">Hash position</span> <span class=\"font-mono text-neutral-900\" x-text=\"evalResults[selectedFlagKey].bucket_val + ' against ' + evalResults[selectedFlagKey].bucket_threshold + (evalResults[selectedFlagKey].bucket_val < evalResults[selectedFlagKey].bucket_threshold ? ', included' : ', excluded')\"></span></div><div class=\"relative h-2 w-full rounded-sm bg-neutral-100\"><div class=\"absolute inset-y-0 left-0 rounded-sm bg-accent-500\" :style=\"'width: ' + evalResults[selectedFlagKey].bucket_threshold + '%'\"></div><div class=\"absolute -inset-y-0.5 w-0.5 bg-neutral-900\" :style=\"'left: ' + clampBucket(evalResults[selectedFlagKey].bucket_val) + '%'\"></div></div></div></template><template x-if=\"evalTraces[selectedFlagKey] && evalTraces[selectedFlagKey].steps && evalTraces[selectedFlagKey].steps.length > 0\"><div class=\"section\"><h4 class=\"px-4 pt-3 pb-1 text-xs text-neutral-500\">Rule trace</h4><ol class=\"divide-y divide-neutral-100\"><template x-for=\"step in evalTraces[selectedFlagKey].steps\" :key=\"step.step_index\"><li class=\"px-4 py-2\"><div class=\"flex justify-between gap-3 text-sm\"><span class=\"text-neutral-900\" x-text=\"step.name\"></span> <span class=\"text-xs shrink-0\" :class=\"step.passed ? 'text-ok-700' : 'text-neutral-500'\" x-text=\"step.passed ? 'Passed' : 'Skipped'\"></span></div><div class=\"text-xs text-neutral-500\" x-text=\"step.detail\"></div></li></template></ol></div></template></section></template><template x-if=\"selectedFlagKey === 'all'\"><section class=\"panel overflow-hidden\"><div class=\"px-4 py-2.5 border-b border-neutral-200 flex justify-between\"><h3 class=\"text-sm text-neutral-900\">Results</h3><span class=\"text-xs text-neutral-500\" x-text=\"getEvalResultsCount() + ' flags'\"></span></div><ul class=\"divide-y divide-neutral-100 max-h-[550px] overflow-y-auto\"><template x-for=\"(res, key) in evalResults\" :key=\"key\"><li @click=\"selectFlagAndEvaluate(key)\" class=\"px-4 py-2 flex items-center justify-between gap-4 hover:bg-neutral-50 cursor-pointer transition-colors\"><div class=\"min-w-0\"><div class=\"font-mono text-sm text-neutral-900 truncate\" x-text=\"key\"></div><div class=\"font-mono text-2xs text-neutral-500 truncate\" x-text=\"res.reason\"></div></div><span class=\"text-xs font-medium shrink-0\" :class=\"res.enabled ? 'text-ok-700' : 'text-neutral-500'\" x-text=\"res.enabled ? 'On' : 'Off'\"></span></li></template></ul></section></template><section class=\"panel p-3 bg-neutral-900 code-scope\"><div class=\"flex items-center justify-between cursor-pointer\" @click=\"openCurl = !openCurl\"><span class=\"text-xs text-neutral-200\">cURL</span><div class=\"flex items-center gap-3\"><button type=\"button\" @click.stop=\"copyCurl()\" class=\"text-xs text-neutral-200 hover:underline cursor-pointer\" x-text=\"copiedCurl ? 'Copied' : 'Copy'\"></button> <span class=\"text-xs text-neutral-400\" x-text=\"openCurl ? 'Hide' : 'Show'\"></span></div></div><pre x-show=\"openCurl\" class=\"overflow-x-auto text-neutral-200 pt-2 text-xs font-mono leading-relaxed\" x-text=\"getCurlCommand()\"></pre></section></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

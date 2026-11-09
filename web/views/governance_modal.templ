@@ -107,7 +107,7 @@ templ GovernanceModal(user *domain.User, changeRequests []domain.ChangeRequest) 
 													</span>
 												</div>
 											} else {
-												<div class="flex items-center gap-2 font-mono">
+												<div class="flex items-center gap-2">
 													<button
 														data-cr-id={ cr.ID }
 														data-approved="true"
@@ -139,7 +139,7 @@ templ GovernanceModal(user *domain.User, changeRequests []domain.ChangeRequest) 
 				</div>
 
 				<!-- Footer -->
-				<div class="flex items-center justify-between border-t border-neutral-100 bg-neutral-50 px-6 py-4 text-xs text-neutral-500 font-mono">
+				<div class="flex items-center justify-between border-t border-neutral-100 bg-neutral-50 px-6 py-4 text-xs text-neutral-500">
 					<span></span>
 					<button @click="close" class="rounded-md bg-neutral-200 px-4 py-2 font-semibold text-neutral-800 hover:bg-neutral-300 transition cursor-pointer">
 						Close

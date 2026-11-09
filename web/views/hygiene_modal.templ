@@ -39,7 +39,7 @@ templ HygieneModal() {
 			</div>
 
 			<!-- Body -->
-			<div class="p-4 overflow-y-auto space-y-5 flex-1 text-xs font-mono">
+			<div class="p-4 overflow-y-auto space-y-5 flex-1 text-xs">
 				<!-- Diagnostic Card -->
 				<div 
 					class="p-4 rounded-md border space-y-2"
@@ -72,21 +72,21 @@ templ HygieneModal() {
 							<button
 								@click="cleanupLang = 'go'"
 								class="px-2.5 py-1 rounded font-medium transition cursor-pointer"
-								:class="cleanupLang === 'go' ? 'bg-accent-600 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
+								:class="cleanupLang === 'go' ? 'bg-neutral-900 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
 							>
 								Go
 							</button>
 							<button
 								@click="cleanupLang = 'ts'"
 								class="px-2.5 py-1 rounded font-medium transition cursor-pointer"
-								:class="cleanupLang === 'ts' ? 'bg-accent-600 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
+								:class="cleanupLang === 'ts' ? 'bg-neutral-900 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
 							>
 								TypeScript
 							</button>
 							<button
 								@click="cleanupLang = 'py'"
 								class="px-2.5 py-1 rounded font-medium transition cursor-pointer"
-								:class="cleanupLang === 'py' ? 'bg-accent-600 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
+								:class="cleanupLang === 'py' ? 'bg-neutral-900 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
 							>
 								Python
 							</button>
@@ -127,7 +127,7 @@ templ HygieneModal() {
 			</div>
 
 			<!-- Footer -->
-			<div class="px-6 py-4 border-t border-neutral-100 bg-neutral-50 flex items-center justify-between font-mono">
+			<div class="px-6 py-4 border-t border-neutral-100 bg-neutral-50 flex items-center justify-between">
 				<button
 					@click="deleteFlag(flagKey)"
 					class="px-3.5 py-2 rounded-md text-xs font-medium text-danger-600 hover:bg-danger-50 border border-danger-200 transition cursor-pointer flex items-center gap-1.5"

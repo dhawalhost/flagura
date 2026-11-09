@@ -4,30 +4,13 @@ templ SDKModal() {
 	<div class="space-y-5" x-show="activeView === 'sdk'" x-cloak x-data="sdkViewComponent()" x-init="fetchAPIKeys()">
 		<!-- Top Header Card -->
 		<div class="page-head flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-			<div class="flex items-center gap-3.5">
-				<button
-					@click="navigateTo('overview')"
-					class="p-2 text-neutral-500 hover:text-neutral-900 transition-colors rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-					title="Return to overview"
-				>
-					<i data-lucide="arrow-left" class="h-4 w-4"></i>
-					<span class="hidden sm:inline">Back</span>
-				</button>
-				<div>
-					<div class="flex items-center gap-2">
-						<h2 class="text-base font-semibold text-neutral-900">SDKs and API keys</h2>
-					</div>
-					<p class="text-xs text-neutral-500 mt-0.5 font-sans">
-						Create API keys and connect SDKs.
-					</p>
-				</div>
-			</div>
+			<p class="text-sm text-neutral-500">Create API keys and connect SDKs.</p>
 
-			<div class="flex items-center gap-2 self-end sm:self-auto font-mono">
+			<div class="flex items-center gap-2 self-end sm:self-auto">
 				<button
 					x-show="sdkTab !== 'apikeys'"
 					@click="copySnippet()"
-					class="px-4 py-2 rounded-md bg-accent-600 hover:bg-accent-700 text-surface font-medium text-xs transition-colors flex items-center gap-2 cursor-pointer"
+					class="px-4 py-2 rounded-md bg-neutral-900 hover:bg-neutral-700 text-surface font-medium text-xs transition-colors flex items-center gap-2 cursor-pointer"
 				>
 					<i data-lucide="copy" class="h-3.5 w-3.5 text-surface"></i>
 					<span x-text="copied ? 'Copied to Clipboard!' : 'Copy Code Snippet'"></span>
@@ -35,7 +18,7 @@ templ SDKModal() {
 				<button
 					x-show="sdkTab === 'apikeys'"
 					@click="showKeyModal = true"
-					class="px-4 py-2 rounded-md bg-accent-600 hover:bg-accent-700 text-surface font-medium text-xs transition-colors flex items-center gap-2 cursor-pointer"
+					class="px-4 py-2 rounded-md bg-neutral-900 hover:bg-neutral-700 text-surface font-medium text-xs transition-colors flex items-center gap-2 cursor-pointer"
 				>
 					<i data-lucide="key" class="h-3.5 w-3.5 text-surface"></i>
 					<span>Generate New API Key</span>
@@ -46,11 +29,11 @@ templ SDKModal() {
 		<!-- Main SDK Tabs & Container -->
 		<div class="panel p-4 space-y-6">
 			<!-- Language & API Key Tabs -->
-			<div class="flex items-center gap-2 border-b border-neutral-100 pb-4 overflow-x-auto font-mono">
+			<div class="flex items-center gap-2 border-b border-neutral-100 pb-4 overflow-x-auto">
 				<button 
 					@click="sdkTab = 'apikeys'"
 					class="px-4 py-2 rounded-md text-xs font-medium transition cursor-pointer flex items-center gap-1.5"
-					:class="sdkTab === 'apikeys' ? 'bg-accent-600 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
+					:class="sdkTab === 'apikeys' ? 'bg-neutral-900 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
 				>
 					<i data-lucide="key" class="h-3.5 w-3.5"></i>
 					<span>API Keys</span>
@@ -59,35 +42,35 @@ templ SDKModal() {
 				<button 
 					@click="sdkTab = 'go'"
 					class="px-4 py-2 rounded-md text-xs font-medium transition cursor-pointer"
-					:class="sdkTab === 'go' ? 'bg-accent-600 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
+					:class="sdkTab === 'go' ? 'bg-neutral-900 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
 				>
 					Go SDK
 				</button>
 				<button 
 					@click="sdkTab = 'ts'"
 					class="px-4 py-2 rounded-md text-xs font-medium transition cursor-pointer"
-					:class="sdkTab === 'ts' ? 'bg-accent-600 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
+					:class="sdkTab === 'ts' ? 'bg-neutral-900 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
 				>
 					TypeScript / Node
 				</button>
 				<button 
 					@click="sdkTab = 'python'"
 					class="px-4 py-2 rounded-md text-xs font-medium transition cursor-pointer"
-					:class="sdkTab === 'python' ? 'bg-accent-600 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
+					:class="sdkTab === 'python' ? 'bg-neutral-900 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
 				>
 					Python 3
 				</button>
 				<button 
 					@click="sdkTab = 'rust'"
 					class="px-4 py-2 rounded-md text-xs font-medium transition cursor-pointer"
-					:class="sdkTab === 'rust' ? 'bg-accent-600 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
+					:class="sdkTab === 'rust' ? 'bg-neutral-900 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
 				>
 					Rust SDK
 				</button>
 				<button 
 					@click="sdkTab = 'openfeature'"
 					class="px-4 py-2 rounded-md text-xs font-medium transition cursor-pointer flex items-center gap-1.5"
-					:class="sdkTab === 'openfeature' ? 'bg-accent-600 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
+					:class="sdkTab === 'openfeature' ? 'bg-neutral-900 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
 				>
 					<span class="inline-block w-2 h-2 rounded-full bg-ok-400"></span>
 					<span>OpenFeature (CNCF)</span>
@@ -95,14 +78,14 @@ templ SDKModal() {
 				<button 
 					@click="sdkTab = 'cli'"
 					class="px-4 py-2 rounded-md text-xs font-medium transition cursor-pointer"
-					:class="sdkTab === 'cli' ? 'bg-accent-600 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
+					:class="sdkTab === 'cli' ? 'bg-neutral-900 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
 				>
 					Developer CLI
 				</button>
 				<button 
 					@click="sdkTab = 'curl'"
 					class="px-4 py-2 rounded-md text-xs font-medium transition cursor-pointer"
-					:class="sdkTab === 'curl' ? 'bg-accent-600 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
+					:class="sdkTab === 'curl' ? 'bg-neutral-900 text-surface' : 'bg-neutral-50 text-neutral-600 hover:text-neutral-900 border border-neutral-200'"
 				>
 					Raw cURL
 				</button>
@@ -111,7 +94,7 @@ templ SDKModal() {
 			<!-- TAB 1: API Keys Management Table -->
 			<div x-show="sdkTab === 'apikeys'" class="space-y-6">
 				<!-- Newly Generated Key Alert Dialog -->
-				<div x-show="newlyCreatedKey" class="p-5 rounded-md bg-ok-50 border border-ok-200 space-y-3 font-mono">
+				<div x-show="newlyCreatedKey" class="p-5 rounded-md bg-ok-50 border border-ok-200 space-y-3">
 					<div class="flex items-start justify-between gap-3">
 						<div class="flex items-center gap-2 text-ok-800 font-medium text-sm">
 							<i data-lucide="check-circle-2" class="w-5 h-5 text-ok-600"></i>
@@ -133,7 +116,7 @@ templ SDKModal() {
 						/>
 						<button 
 							@click="copyKeyToken()" 
-							class="px-4 py-2 rounded-md bg-accent-600 hover:bg-accent-700 text-surface text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shrink-0"
+							class="px-4 py-2 rounded-md bg-neutral-900 hover:bg-neutral-700 text-surface text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shrink-0"
 						>
 							<i data-lucide="copy" class="w-3.5 h-3.5 text-surface"></i>
 							<span x-text="keyCopied ? 'Copied!' : 'Copy Secret Key'"></span>
@@ -207,7 +190,7 @@ templ SDKModal() {
 			<!-- TAB 2: Code Snippets Display -->
 			<div x-show="sdkTab !== 'apikeys'" class="space-y-4">
 				<!-- OpenFeature Language Switcher & Badge -->
-				<div x-show="sdkTab === 'openfeature'" class="p-4 rounded-md bg-accent-50 border border-accent-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-mono">
+				<div x-show="sdkTab === 'openfeature'" class="p-4 rounded-md bg-accent-50 border border-accent-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 					<div class="flex items-center gap-2 text-xs text-accent-950 font-medium">
 						<i data-lucide="shield-check" class="w-4 h-4 text-accent-600"></i>
 						<span>CNCF OpenFeature Standard — Zero Vendor Lock-In</span>
@@ -216,21 +199,21 @@ templ SDKModal() {
 						<button
 							@click="openfeatureLang = 'go'"
 							class="px-3 py-1 rounded font-medium transition cursor-pointer"
-							:class="openfeatureLang === 'go' ? 'bg-accent-600 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
+							:class="openfeatureLang === 'go' ? 'bg-neutral-900 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
 						>
 							Go
 						</button>
 						<button
 							@click="openfeatureLang = 'ts'"
 							class="px-3 py-1 rounded font-medium transition cursor-pointer"
-							:class="openfeatureLang === 'ts' ? 'bg-accent-600 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
+							:class="openfeatureLang === 'ts' ? 'bg-neutral-900 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
 						>
 							TypeScript
 						</button>
 						<button
 							@click="openfeatureLang = 'python'"
 							class="px-3 py-1 rounded font-medium transition cursor-pointer"
-							:class="openfeatureLang === 'python' ? 'bg-accent-600 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
+							:class="openfeatureLang === 'python' ? 'bg-neutral-900 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
 						>
 							Python
 						</button>
@@ -263,14 +246,14 @@ templ SDKModal() {
 					</button>
 				</div>
 
-				<div class="space-y-4 font-mono">
+				<div class="space-y-4">
 					<div>
 						<label class="block text-xs font-semibold text-neutral-700 mb-1">Key Name / Description</label>
 						<input 
 							type="text" 
 							x-model="keyForm.name" 
 							placeholder="e.g. Production Go Worker SDK" 
-							class="w-full bg-neutral-50 border border-neutral-200 rounded-md px-3 py-2 text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors"
+							class="w-full bg-surface border border-neutral-200 rounded-md px-3 py-2 text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors"
 						/>
 					</div>
 
@@ -278,7 +261,7 @@ templ SDKModal() {
 						<label class="block text-xs font-semibold text-neutral-700 mb-1">Environment Scope</label>
 						<select 
 							x-model="keyForm.environment" 
-							class="w-full bg-neutral-50 border border-neutral-200 rounded-md px-3 py-2 text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors"
+							class="w-full bg-surface border border-neutral-200 rounded-md px-3 py-2 text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors"
 						>
 							<option value="production">Production (Default)</option>
 							<option value="staging">Staging</option>
@@ -292,7 +275,7 @@ templ SDKModal() {
 						<label class="block text-xs font-semibold text-neutral-700 mb-1">Assigned Role</label>
 						<select 
 							x-model="keyForm.role" 
-							class="w-full bg-neutral-50 border border-neutral-200 rounded-md px-3 py-2 text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors"
+							class="w-full bg-surface border border-neutral-200 rounded-md px-3 py-2 text-xs text-neutral-900 focus:outline-none focus:border-accent-500 transition-colors"
 						>
 							<option value="developer">Developer (Evaluations &amp; Read access)</option>
 							<option value="admin">Administrator (Mutations &amp; Management)</option>
@@ -300,7 +283,7 @@ templ SDKModal() {
 					</div>
 				</div>
 
-				<div class="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100 font-mono">
+				<div class="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100">
 					<button 
 						@click="showKeyModal = false" 
 						class="px-4 py-2 rounded-md text-xs font-semibold text-neutral-600 hover:bg-neutral-100 transition cursor-pointer"
@@ -309,7 +292,7 @@ templ SDKModal() {
 					</button>
 					<button 
 						@click="generateKey()" 
-						class="px-4 py-2 rounded-md bg-accent-600 hover:bg-accent-700 text-surface text-xs font-medium transition flex items-center gap-1.5 cursor-pointer"
+						class="px-4 py-2 rounded-md bg-neutral-900 hover:bg-neutral-700 text-surface text-xs font-medium transition flex items-center gap-1.5 cursor-pointer"
 					>
 						<span>Generate Token</span>
 					</button>

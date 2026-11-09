@@ -34,20 +34,20 @@ func FlagMatrix(flags []domain.FeatureFlag) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-5\" x-show=\"activeView === 'flags'\" x-cloak x-data=\"flagMatrixEnterpriseComponent()\"><!-- Filter & Actions Toolbar --><div class=\"bg-surface p-4 rounded-md border border-neutral-200 space-y-3 font-mono\"><div class=\"flex flex-col lg:flex-row lg:items-center justify-between gap-3\"><!-- Left: Search & Filter Inputs --><div class=\"flex flex-wrap items-center gap-2.5 flex-1\"><!-- Search Input --><div class=\"relative w-full sm:w-72\"><i data-lucide=\"search\" class=\"w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2\"></i> <input type=\"text\" x-model=\"searchQuery\" placeholder=\"Filter flags by key, name, or #tag...\" class=\"w-full bg-neutral-50 border border-neutral-200 rounded pl-9 pr-3 py-1.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors\"></div><!-- Environment Filter Dropdown --><select x-model=\"envFilter\" class=\"bg-neutral-50 border border-neutral-200 rounded px-2.5 py-1.5 text-xs text-neutral-700 focus:outline-none focus:border-accent-500 transition-colors\"><option value=\"all\">All Environments</option> <option value=\"prod_enabled\">Live in Production</option> <option value=\"prod_disabled\">Off in Production</option> <option value=\"canary\">Canary Rollouts</option></select><!-- Tag Filter Dropdown --><select x-model=\"selectedTag\" class=\"bg-neutral-50 border border-neutral-200 rounded px-2.5 py-1.5 text-xs text-neutral-700 focus:outline-none focus:border-accent-500 transition-colors\"><option value=\"all\">All Tags</option> <option value=\"core-ai\">#core-ai</option> <option value=\"billing\">#billing</option> <option value=\"infra\">#infra</option> <option value=\"ui\">#ui</option></select><!-- Health Filter --><select x-model=\"healthFilter\" class=\"bg-neutral-50 border border-neutral-200 rounded px-2.5 py-1.5 text-xs text-neutral-700 focus:outline-none focus:border-accent-500 transition-colors\"><option value=\"all\">All Health States</option> <option value=\"stale\">Stale (100% Launched)</option> <option value=\"dead\">Dead (0% / Disabled)</option> <option value=\"active\">Active / Healthy</option></select></div><!-- Right: Actions --><div class=\"flex items-center gap-2\"><span class=\"text-xs text-neutral-500 pr-2 border-r border-neutral-200\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-5\" x-show=\"activeView === 'flags'\" x-cloak x-data=\"flagMatrixEnterpriseComponent()\"><!-- Filters --><div class=\"flex flex-wrap items-center gap-2\"><div class=\"relative w-full sm:w-64\"><i data-lucide=\"search\" class=\"w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2\"></i> <input type=\"text\" x-model=\"searchQuery\" placeholder=\"Filter by key, name or #tag\" class=\"field !pl-8\"></div><select x-model=\"envFilter\" class=\"field w-auto\"><option value=\"all\">All Environments</option> <option value=\"prod_enabled\">Live in Production</option> <option value=\"prod_disabled\">Off in Production</option> <option value=\"canary\">Canary Rollouts</option></select> <select x-model=\"selectedTag\" class=\"field w-auto\"><option value=\"all\">All Tags</option> <option value=\"core-ai\">#core-ai</option> <option value=\"billing\">#billing</option> <option value=\"infra\">#infra</option> <option value=\"ui\">#ui</option></select> <select x-model=\"healthFilter\" class=\"field w-auto\"><option value=\"all\">All Health States</option> <option value=\"stale\">Stale (100% Launched)</option> <option value=\"dead\">Dead (0% / Disabled)</option> <option value=\"active\">Active / Healthy</option></select> <span class=\"ml-auto font-mono text-xs text-neutral-500\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
-		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d Flags", len(flags)))
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d flags", len(flags)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 65, Col: 43}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 45, Col: 97}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</span> <button @click=\"openNewFlagEditor()\" class=\"px-3.5 py-1.5 rounded bg-accent-600 hover:bg-accent-700 text-surface text-xs font-medium flex items-center gap-1.5 transition cursor-pointer\"><i data-lucide=\"plus\" class=\"h-3.5 w-3.5 text-surface\"></i> <span>Create Flag</span></button></div></div><!-- Floating Bulk Actions Bar (Appears when 1+ rows selected) --><div x-show=\"selectedFlags.length > 0\" x-transition class=\"p-2.5 bg-accent-50 border border-accent-200 rounded flex flex-wrap items-center justify-between gap-3 text-xs\"><div class=\"flex items-center gap-2\"><span class=\"font-medium text-accent-900\" x-text=\"selectedFlags.length + ' flags selected'\"></span> <button @click=\"selectedFlags = []\" class=\"text-accent-600 hover:underline cursor-pointer\">Clear</button></div><div class=\"flex items-center gap-2\"><button @click=\"bulkToggleEnv('production', true)\" class=\"px-2.5 py-1 rounded bg-ok-600 hover:bg-ok-700 text-surface text-2xs font-medium cursor-pointer\">Enable in Prod</button> <button @click=\"bulkToggleEnv('production', false)\" class=\"px-2.5 py-1 rounded bg-danger-600 hover:bg-danger-700 text-surface text-2xs font-medium cursor-pointer\">Disable in Prod</button> <button @click=\"bulkDelete()\" class=\"px-2.5 py-1 rounded bg-surface hover:bg-danger-50 text-danger-600 border border-danger-200 text-2xs font-medium cursor-pointer\">Delete Selected</button></div></div></div><!-- High-Density Multi-Environment Data Table --><div class=\"bg-surface rounded-md border border-neutral-200 overflow-hidden\"><div class=\"overflow-x-auto\"><table class=\"w-full text-left text-xs border-collapse\"><thead class=\"bg-neutral-50 border-b border-neutral-200 text-2xs text-neutral-500 font-semibold\"><tr><th class=\"py-3 px-3 w-8 text-center\"><input type=\"checkbox\" @change=\"toggleSelectAll($event.target.checked)\" class=\"rounded border-neutral-300 text-accent-600 focus:ring-accent-500 cursor-pointer\"></th><th class=\"py-3 px-4 min-w-[220px]\">Flag Key &amp; Name</th><th class=\"py-3 px-3 min-w-[140px]\">Development</th><th class=\"py-3 px-3 min-w-[140px]\">Staging</th><th class=\"py-3 px-3 min-w-[160px]\">Production</th><th class=\"py-3 px-3\">Type &amp; Tags</th><th class=\"py-3 px-3\">Health</th><th class=\"py-3 px-3 text-right\">Actions</th></tr></thead> <tbody class=\"divide-y divide-neutral-100 font-mono\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</span></div><!-- Bulk Actions --><div x-show=\"selectedFlags.length > 0\" class=\"panel shadow-pop sticky bottom-4 z-20 px-3 py-2 flex flex-wrap items-center justify-between gap-2\"><div class=\"flex items-center gap-3 text-sm\"><span class=\"text-neutral-900\" x-text=\"selectedFlags.length + ' selected'\"></span> <button @click=\"selectedFlags = []\" class=\"text-xs text-accent-600 hover:underline cursor-pointer\">Clear</button></div><div class=\"flex items-center gap-1.5\"><button @click=\"bulkToggleEnv('production', true)\" class=\"btn\">Enable in production</button> <button @click=\"bulkToggleEnv('production', false)\" class=\"btn\">Disable in production</button> <button @click=\"bulkDelete()\" class=\"btn text-danger-600\">Delete</button></div></div><!-- High-Density Multi-Environment Data Table --><div class=\"panel overflow-hidden\"><div class=\"overflow-x-auto\"><table class=\"w-full text-left text-xs border-collapse\"><thead class=\"border-b border-neutral-200 text-xs text-neutral-500\"><tr><th class=\"sticky left-0 z-10 bg-surface py-2 px-3 font-normal min-w-[190px]\"><label class=\"flex items-center gap-2.5 font-normal cursor-pointer\"><input type=\"checkbox\" @change=\"toggleSelectAll($event.target.checked)\" aria-label=\"Select all flags\" class=\"cursor-pointer\"> <span>Flag</span></label></th><th class=\"py-2 px-3 font-normal min-w-[92px]\">Development</th><th class=\"py-2 px-3 font-normal min-w-[92px]\">Staging</th><th class=\"py-2 px-3 font-normal min-w-[110px]\">Production</th><th class=\"py-2 px-3 font-normal\">Tags</th><th class=\"py-2 px-3 font-normal\">Health</th><th class=\"py-2 px-3 font-normal\" aria-label=\"Actions\"></th></tr></thead> <tbody class=\"divide-y divide-neutral-100\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -59,7 +59,7 @@ func FlagMatrix(flags []domain.FeatureFlag) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue("flag-row-" + f.Key)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 135, Col: 32}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 84, Col: 32}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 			if templ_7745c5c3_Err != nil {
@@ -72,7 +72,7 @@ func FlagMatrix(flags []domain.FeatureFlag) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 137, Col: 24}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 86, Col: 24}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 			if templ_7745c5c3_Err != nil {
@@ -85,7 +85,7 @@ func FlagMatrix(flags []domain.FeatureFlag) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 138, Col: 26}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 87, Col: 26}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {
@@ -98,7 +98,7 @@ func FlagMatrix(flags []domain.FeatureFlag) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Tags)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 139, Col: 26}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 88, Col: 26}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 			if templ_7745c5c3_Err != nil {
@@ -111,7 +111,7 @@ func FlagMatrix(flags []domain.FeatureFlag) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(domain.AnalyzeFlagHealth(f).Status)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 140, Col: 56}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 89, Col: 56}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 			if templ_7745c5c3_Err != nil {
@@ -124,292 +124,326 @@ func FlagMatrix(flags []domain.FeatureFlag) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.EnvironmentsJSON())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 141, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 90, Col: 40}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" x-show=\"matchesRow($el, isProd, prodPct)\" class=\"hover:bg-neutral-50/80 transition-colors\"><!-- Checkbox --><td class=\"py-3 px-3 text-center\"><input type=\"checkbox\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" x-show=\"matchesRow($el, isProd, prodPct)\" class=\"group hover:bg-neutral-50 transition-colors\"><!-- Flag Identity --><td class=\"sticky left-0 z-10 bg-surface group-hover:bg-neutral-50 transition-colors py-2 px-3 min-w-[190px]\"><div class=\"flex items-center gap-2.5\"><input type=\"checkbox\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 149, Col: 23}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 97, Col: 46}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" x-model=\"selectedFlags\" class=\"rounded border-neutral-300 text-accent-600 focus:ring-accent-500 cursor-pointer\"></td><!-- Flag Key & Identity --><td class=\"py-3 px-4 min-w-[220px]\"><div class=\"flex items-center gap-1.5\"><button @click=\"copyKey\" class=\"font-medium text-neutral-900 hover:text-accent-600 transition flex items-center gap-1 text-xs cursor-pointer group\" title=\"Copy flag key\"><span class=\"font-mono\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" x-model=\"selectedFlags\" aria-label=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var10 string
-			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(f.Key)
+			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue("Select " + f.Key)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 163, Col: 42}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 97, Col: 103}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</span> <i data-lucide=\"check\" class=\"h-3 w-3 text-ok-600\" x-show=\"copied\"></i> <i data-lucide=\"copy\" class=\"h-3 w-3 text-neutral-300 group-hover:text-neutral-600\" x-show=\"!copied\"></i></button></div><div class=\"text-2xs text-neutral-500 font-sans truncate max-w-xs mt-0.5\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" class=\"cursor-pointer\"><div class=\"min-w-0\"><button @click=\"copyKey\" class=\"font-mono text-sm text-neutral-900 hover:text-accent-600 transition-colors flex items-center gap-1 cursor-pointer\" title=\"Copy flag key\"><span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var11 string
-			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(f.Name)
+			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(f.Key)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 168, Col: 91}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 100, Col: 25}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div></td><!-- Development Environment Column --><td class=\"py-3 px-3 min-w-[140px]\"><div class=\"flex items-center gap-2\"><button @click.stop=\"toggleDev\" class=\"relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none\" :class=\"isDev ? 'bg-ok-600' : 'bg-neutral-200'\" title=\"Toggle Development\"><span class=\"pointer-events-none inline-block h-3 w-3 transform rounded-full bg-surface shadow ring-0 transition duration-200 ease-in-out\" :class=\"isDev ? 'translate-x-3' : 'translate-x-0'\"></span></button> <span class=\"text-2xs font-medium px-1.5 py-0.2 rounded\" :class=\"isDev ? 'text-ok-700 bg-ok-50' : 'text-neutral-400 bg-neutral-100'\" x-text=\"isDev ? (devPct < 100 ? devPct + '%' : 'ON') : 'OFF'\"></span></div></td><!-- Staging Environment Column --><td class=\"py-3 px-3 min-w-[140px]\"><div class=\"flex items-center gap-2\"><button @click.stop=\"toggleStg\" class=\"relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none\" :class=\"isStg ? 'bg-ok-600' : 'bg-neutral-300'\" title=\"Toggle Staging\"><span class=\"pointer-events-none inline-block h-3 w-3 transform rounded-full bg-surface shadow ring-0 transition duration-200 ease-in-out\" :class=\"isStg ? 'translate-x-3' : 'translate-x-0'\"></span></button> <span class=\"text-2xs font-medium px-1.5 py-0.2 rounded\" :class=\"isStg ? 'text-ok-700 bg-ok-50' : 'text-neutral-500 bg-neutral-100'\" x-text=\"isStg ? (stgPct < 100 ? stgPct + '%' : 'ON') : 'OFF'\"></span></div></td><!-- Production Environment Column --><td class=\"py-3 px-3 min-w-[160px]\"><div class=\"flex items-center gap-2\"><button @click.stop=\"toggleProd\" class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none\" :class=\"isProd ? 'bg-ok-600' : 'bg-neutral-300'\" title=\"Toggle Production Kill Switch\"><span class=\"pointer-events-none inline-block h-4 w-4 transform rounded-full bg-surface shadow ring-0 transition duration-200 ease-in-out\" :class=\"isProd ? 'translate-x-4' : 'translate-x-0'\"></span></button> <span class=\"text-2xs font-medium px-2 py-0.5 rounded border\" :class=\"isProd ? (prodPct < 100 ? 'text-warn-700 bg-warn-50 border-warn-200' : 'text-ok-700 bg-ok-50 border-ok-200') : 'text-neutral-500 bg-neutral-100 border-neutral-200'\" x-text=\"isProd ? (prodPct < 100 ? 'On, ' + prodPct + '%' : 'On') : 'Off'\"></span></div></td><!-- Type & Tags --><td class=\"py-3 px-3\"><div class=\"flex items-center gap-1.5 flex-wrap\"><span class=\"px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 text-2xs font-medium border border-neutral-200\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</span> <span x-show=\"copied\" class=\"inline-flex\"><i data-lucide=\"check\" class=\"h-3 w-3 text-ok-600\"></i></span></button><div class=\"text-xs text-neutral-500 truncate max-w-[150px] sm:max-w-xs\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var12 string
-			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(f.Type)
+			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(f.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 241, Col: 19}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 103, Col: 92}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</span> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div></div></div></td><!-- Development Environment Column --><td class=\"py-2 px-3\"><div class=\"flex items-center gap-2\"><button @click.stop=\"toggleDev\" class=\"relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150\" :class=\"isDev ? 'bg-ok-600' : 'bg-neutral-300'\" title=\"Toggle development\" aria-label=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var13 string
+			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue("Toggle " + f.Key + " in development")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 115, Col: 88}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"><span class=\"pointer-events-none inline-block h-3 w-3 transform rounded-full bg-surface transition duration-150\" :class=\"isDev ? 'translate-x-3' : 'translate-x-0'\"></span></button> <span class=\"font-mono text-2xs\" :class=\"isDev ? 'text-ok-700' : 'text-neutral-500'\" x-text=\"isDev ? (devPct < 100 ? devPct + '%' : 'on') : 'off'\"></span></div></td><!-- Staging Environment Column --><td class=\"py-2 px-3\"><div class=\"flex items-center gap-2\"><button @click.stop=\"toggleStg\" class=\"relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150\" :class=\"isStg ? 'bg-ok-600' : 'bg-neutral-300'\" title=\"Toggle staging\" aria-label=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var14 string
+			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue("Toggle " + f.Key + " in staging")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 137, Col: 80}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\"><span class=\"pointer-events-none inline-block h-3 w-3 transform rounded-full bg-surface transition duration-150\" :class=\"isStg ? 'translate-x-3' : 'translate-x-0'\"></span></button> <span class=\"font-mono text-2xs\" :class=\"isStg ? 'text-ok-700' : 'text-neutral-500'\" x-text=\"isStg ? (stgPct < 100 ? stgPct + '%' : 'on') : 'off'\"></span></div></td><!-- Production Environment Column --><td class=\"py-2 px-3\"><div class=\"flex items-center gap-2\"><button @click.stop=\"toggleProd\" class=\"relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150\" :class=\"isProd ? 'bg-ok-600' : 'bg-neutral-300'\" title=\"Toggle production\" aria-label=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var15 string
+			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue("Toggle " + f.Key + " in production")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 159, Col: 86}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\"><span class=\"pointer-events-none inline-block h-3 w-3 transform rounded-full bg-surface transition duration-150\" :class=\"isProd ? 'translate-x-3' : 'translate-x-0'\"></span></button> <span class=\"font-mono text-2xs font-medium\" :class=\"isProd ? (prodPct < 100 ? 'text-warn-700' : 'text-ok-700') : 'text-neutral-500'\" x-text=\"isProd ? (prodPct < 100 ? prodPct + '%' : 'on') : 'off'\"></span></div></td><!-- Type & Tags --><td class=\"py-2 px-3 font-mono text-2xs text-neutral-500 whitespace-nowrap\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, tag := range f.Tags {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<span class=\"text-2xs text-neutral-500 bg-neutral-50 px-1 rounded border border-neutral-200\">#")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var13 string
-				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(tag)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 245, Col: 18}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</span>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</div></td><!-- Health Alert Column --><td class=\"py-3 px-3\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if report := domain.AnalyzeFlagHealth(f); report.Status == domain.HealthStatusStale {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<button type=\"button\" data-health-key=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var14 string
-				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 256, Col: 34}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" data-health-name=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var15 string
-				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Name)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 257, Col: 36}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" data-health-status=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<span class=\"mr-1.5\">#")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var16 string
-				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(report.Status)
+				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(tag)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 258, Col: 45}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 177, Col: 37}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\" data-health-reason=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</span>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</td><!-- Health Alert Column --><td class=\"py-2 px-3\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if report := domain.AnalyzeFlagHealth(f); report.Status == domain.HealthStatusStale {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<button type=\"button\" data-health-key=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var17 string
-				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(report.Reason)
+				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 259, Col: 45}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 186, Col: 34}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" data-health-action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" data-health-name=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var18 string
-				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue(report.SuggestedAction)
+				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 260, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 187, Col: 36}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" @click=\"openHygiene($el)\" class=\"inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-warn-50 hover:bg-warn-100 border border-warn-200 text-warn-800 text-2xs font-medium transition cursor-pointer group\" title=\"100% launched in production. Click for automated cleanup guide.\"><i data-lucide=\"sparkles\" class=\"h-3 w-3 text-warn-600 transition-transform\"></i> <span>Ready for Cleanup</span></button>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			} else if report.Status == domain.HealthStatusDead {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<button type=\"button\" data-health-key=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" data-health-status=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var19 string
-				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
+				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(report.Status)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 271, Col: 34}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 188, Col: 45}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" data-health-name=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" data-health-reason=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var20 string
-				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Name)
+				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(report.Reason)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 272, Col: 36}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 189, Col: 45}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" data-health-status=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" data-health-action=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var21 string
-				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue(report.Status)
+				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue(report.SuggestedAction)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 273, Col: 45}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 190, Col: 54}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" data-health-reason=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" @click=\"openHygiene($el)\" class=\"text-xs text-warn-700 hover:underline whitespace-nowrap cursor-pointer\" title=\"100% launched in production. Click for automated cleanup guide.\">Ready for cleanup</button>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else if report.Status == domain.HealthStatusDead {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<button type=\"button\" data-health-key=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var22 string
-				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(report.Reason)
+				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 274, Col: 45}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 200, Col: 34}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" data-health-action=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" data-health-name=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var23 string
-				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.ResolveAttributeValue(report.SuggestedAction)
+				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 275, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 201, Col: 36}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var23)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" @click=\"openHygiene($el)\" class=\"inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-danger-50 hover:bg-danger-100 border border-danger-200 text-danger-800 text-2xs font-medium transition cursor-pointer group\" title=\"Kill-switched / 0% traffic. Click for cleanup guide.\"><i data-lucide=\"alert-triangle\" class=\"h-3 w-3 text-danger-600 transition-transform\"></i> <span>Dead Flag</span></button>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" data-health-status=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<span class=\"inline-flex items-center gap-1 px-2.5 py-1 rounded bg-ok-50 border border-ok-200 text-ok-700 text-2xs font-medium\"><i data-lucide=\"check\" class=\"h-3 w-3 text-ok-600\"></i> <span>Active</span></span>")
+				var templ_7745c5c3_Var24 string
+				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue(report.Status)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 202, Col: 45}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" data-health-reason=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var25 string
+				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue(report.Reason)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 203, Col: 45}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\" data-health-action=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var26 string
+				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.ResolveAttributeValue(report.SuggestedAction)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 204, Col: 54}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var26)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\" @click=\"openHygiene($el)\" class=\"text-xs text-danger-700 hover:underline whitespace-nowrap cursor-pointer\" title=\"Kill-switched / 0% traffic. Click for cleanup guide.\">Dead flag</button>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</td><!-- Row Quick Actions --><td class=\"py-3 px-3 text-right\"><div class=\"flex items-center justify-end gap-1 font-sans\"><button data-key=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</td><!-- Row Quick Actions --><td class=\"py-2 px-3 text-right\"><div class=\"flex items-center justify-end gap-0.5 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-within:opacity-100 transition-opacity\"><button data-key=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var24 string
-			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
+			var templ_7745c5c3_Var27 string
+			templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 295, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 218, Col: 27}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\" @click=\"openEditFlag($el)\" class=\"p-1.5 text-neutral-500 hover:text-accent-600 hover:bg-neutral-100 rounded transition cursor-pointer\" title=\"Edit targeting rules\"><i data-lucide=\"edit-3\" class=\"h-3.5 w-3.5\"></i></button> <button data-key=\"")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var27)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var25 string
-			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 303, Col: 27}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "\" @click=\"openEditFlag($el)\" class=\"p-1.5 text-neutral-500 hover:text-accent-600 hover:bg-neutral-100 rounded transition cursor-pointer\" title=\"Edit targeting rules\"><i data-lucide=\"edit-3\" class=\"h-3.5 w-3.5\"></i></button> <button data-key=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\" @click=\"openExperiment($el)\" class=\"p-1.5 text-neutral-500 hover:text-accent-600 hover:bg-neutral-100 rounded transition cursor-pointer\" title=\"A/B Experiment Stats\"><i data-lucide=\"flask-conical\" class=\"h-3.5 w-3.5\"></i></button> <button data-key=\"")
+			var templ_7745c5c3_Var28 string
+			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 226, Col: 27}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var28)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var26 string
-			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 311, Col: 27}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var26)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\" @click=\"openExperiment($el)\" class=\"p-1.5 text-neutral-500 hover:text-accent-600 hover:bg-neutral-100 rounded transition cursor-pointer\" title=\"A/B Experiment Stats\"><i data-lucide=\"flask-conical\" class=\"h-3.5 w-3.5\"></i></button> <button data-key=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "\" @click=\"deleteFlag($el)\" class=\"p-1.5 text-neutral-400 hover:text-danger-600 hover:bg-danger-50 rounded transition cursor-pointer\" title=\"Delete flag\"><i data-lucide=\"trash-2\" class=\"h-3.5 w-3.5\"></i></button></div></td></tr>")
+			var templ_7745c5c3_Var29 string
+			templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.Key)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/flag_matrix.templ`, Line: 234, Col: 27}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var29)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "\" @click=\"deleteFlag($el)\" class=\"p-1.5 text-neutral-400 hover:text-danger-600 hover:bg-danger-50 rounded transition cursor-pointer\" title=\"Delete flag\"><i data-lucide=\"trash-2\" class=\"h-3.5 w-3.5\"></i></button></div></td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "</tbody></table></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</tbody></table></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(flags) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<div class=\"p-12 text-center space-y-3\"><div class=\"w-10 h-10 rounded-md bg-accent-50 text-accent-600 border border-accent-200 flex items-center justify-center mx-auto\"><i data-lucide=\"flag\" class=\"w-5 h-5\"></i></div><div class=\"space-y-1\"><h3 class=\"text-sm font-semibold text-neutral-900\">No Feature Flags Configured</h3><p class=\"text-xs text-neutral-500 max-w-sm mx-auto font-sans\">Create your first flag to start toggling features and controlling rollouts.</p></div><button @click=\"openNewFlagEditor()\" class=\"px-3.5 py-1.5 rounded bg-accent-600 hover:bg-accent-700 text-surface text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer\"><i data-lucide=\"plus\" class=\"h-3.5 w-3.5 text-surface\"></i> <span>Create Feature Flag</span></button></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<div class=\"p-12 text-center space-y-3\"><div class=\"space-y-1\"><h3 class=\"text-sm font-semibold text-neutral-900\">No flags yet</h3><p class=\"text-xs text-neutral-500 max-w-sm mx-auto font-sans\">Create a flag to control a feature per environment.</p></div><button @click=\"openNewFlagEditor()\" class=\"btn btn-primary\"><span>Create flag</span></button></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

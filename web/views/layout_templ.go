@@ -42,7 +42,7 @@ func Layout(title string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " — Flagura</title><link rel=\"icon\" href=\"/static/img/flagura-logo-circle.svg\"><!-- Applied before first paint so the stored theme never flashes. --><script nonce=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " — Flagura</title><link rel=\"icon\" href=\"/static/img/flagura-mark.svg\"><!-- Applied before first paint so the stored theme never flashes. --><script nonce=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

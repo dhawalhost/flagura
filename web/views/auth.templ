@@ -8,8 +8,8 @@ templ AuthPage(showLanding ...bool) {
 				<!-- Left Product Summary (Desktop) -->
 				<div class="hidden lg:flex lg:col-span-6 flex-col space-y-4 pr-6">
 					<a href="/" class="flex items-center gap-2 w-fit">
-						<img src="/static/img/flagura-logo.png" alt="" class="h-6 w-6 rounded"/>
-						<span class="text-base font-semibold text-neutral-900">Flagura</span>
+						@LogoMark("h-7 w-7")
+						@LogoWordmark("h-[22px] translate-y-[3px]")
 					</a>
 					<h1 class="text-2xl font-semibold text-neutral-900">Feature flags you run yourself.</h1>
 					<ul class="text-sm text-neutral-600 space-y-1.5">
@@ -42,7 +42,7 @@ templ AuthPage(showLanding ...bool) {
 								type="button"
 								@click="setMode('signin')"
 								class="flex-1 py-2 rounded transition-colors text-center cursor-pointer font-medium"
-								:class="mode === 'signin' ? 'bg-accent-600 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
+								:class="mode === 'signin' ? 'bg-neutral-900 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
 							>
 								Sign In
 							</button>
@@ -50,7 +50,7 @@ templ AuthPage(showLanding ...bool) {
 								type="button"
 								@click="setMode('signup')"
 								class="flex-1 py-2 rounded transition-colors text-center cursor-pointer font-medium"
-								:class="mode === 'signup' ? 'bg-accent-600 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
+								:class="mode === 'signup' ? 'bg-neutral-900 text-surface' : 'text-neutral-600 hover:text-neutral-900'"
 							>
 								Create Account
 							</button>
@@ -82,13 +82,13 @@ templ AuthPage(showLanding ...bool) {
 										type="email" 
 										x-model="loginForm.email" 
 										required
-										class="w-full bg-neutral-50 border border-neutral-200 rounded-md pl-9 pr-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors font-mono"
+										class="w-full bg-surface border border-neutral-200 rounded-md pl-9 pr-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition-colors font-mono"
 										placeholder="you@company.com"
 									/>
 								</div>
 							</div>
 							<div>
-								<div class="flex items-center justify-between mb-1.5 font-mono">
+								<div class="flex items-center justify-between mb-1.5">
 									<label class="text-xs font-semibold text-neutral-700">Password</label>
 									<button 
 										type="button" 
@@ -104,7 +104,7 @@ templ AuthPage(showLanding ...bool) {
 										:type="showPassword ? 'text' : 'password'" 
 										x-model="loginForm.passphrase" 
 										required
-										class="w-full bg-neutral-50 border border-neutral-200 rounded-md pl-9 pr-10 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors font-mono"
+										class="w-full bg-surface border border-neutral-200 rounded-md pl-9 pr-10 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition-colors font-mono"
 										placeholder="••••••••••••"
 									/>
 									<button 
@@ -112,20 +112,20 @@ templ AuthPage(showLanding ...bool) {
 										@click="showPassword = !showPassword"
 										class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
 									>
-										<i data-lucide="eye" class="w-4 h-4" x-show="!showPassword"></i>
-										<i data-lucide="eye-off" class="w-4 h-4" x-show="showPassword"></i>
+										<span class="inline-flex" x-show="!showPassword"><i data-lucide="eye" class="w-4 h-4"></i></span>
+										<span class="inline-flex" x-show="showPassword"><i data-lucide="eye-off" class="w-4 h-4"></i></span>
 									</button>
 								</div>
 							</div>
 
 							<button 
 								type="submit" 
-								class="w-full py-3 rounded-md text-xs font-medium flex items-center justify-center gap-2 bg-accent-600 hover:bg-accent-700 text-surface transition-colors cursor-pointer"
+								class="w-full py-3 rounded-md text-xs font-medium flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-700 text-surface transition-colors cursor-pointer"
 								:disabled="loading"
 							>
-								<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-surface" x-show="loading"></i>
+								<span class="inline-flex" x-show="loading"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-surface"></i></span>
 								<span x-text="loading ? 'Authenticating...' : 'Sign in'"></span>
-								<i data-lucide="arrow-right" class="w-3.5 h-3.5 text-surface" x-show="!loading"></i>
+								<span class="inline-flex" x-show="!loading"><i data-lucide="arrow-right" class="w-3.5 h-3.5 text-surface"></i></span>
 							</button>
 
 							<div class="relative my-3.5">
@@ -172,7 +172,7 @@ templ AuthPage(showLanding ...bool) {
 
 						<!-- Enterprise SSO Form -->
 						<form x-show="mode === 'sso'" @submit.prevent="submitSSO()" class="space-y-4 text-xs" style="display: none;">
-							<div class="p-3.5 rounded-md bg-accent-50 border border-accent-200 text-neutral-700 space-y-1 font-mono">
+							<div class="p-3.5 rounded-md bg-accent-50 border border-accent-200 text-neutral-700 space-y-1">
 								<div class="font-medium flex items-center gap-1.5 text-accent-700">
 									<i data-lucide="shield-check" class="w-4 h-4"></i>
 									<span>Enterprise Single Sign-On</span>
@@ -190,7 +190,7 @@ templ AuthPage(showLanding ...bool) {
 										type="text" 
 										x-model="ssoForm.domain" 
 										required
-										class="w-full bg-neutral-50 border border-neutral-200 rounded-md pl-9 pr-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors font-mono"
+										class="w-full bg-surface border border-neutral-200 rounded-md pl-9 pr-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition-colors font-mono"
 										placeholder="company.com or you@company.com"
 									/>
 								</div>
@@ -198,12 +198,12 @@ templ AuthPage(showLanding ...bool) {
 
 							<button 
 								type="submit" 
-								class="w-full py-3 rounded-md text-xs font-medium flex items-center justify-center gap-2 bg-accent-600 hover:bg-accent-700 text-surface transition-colors cursor-pointer"
+								class="w-full py-3 rounded-md text-xs font-medium flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-700 text-surface transition-colors cursor-pointer"
 								:disabled="loading"
 							>
-								<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-surface" x-show="loading"></i>
+								<span class="inline-flex" x-show="loading"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-surface"></i></span>
 								<span x-text="loading ? 'Redirecting to IdP...' : 'Continue with SSO'"></span>
-								<i data-lucide="arrow-right" class="w-3.5 h-3.5 text-surface" x-show="!loading"></i>
+								<span class="inline-flex" x-show="!loading"><i data-lucide="arrow-right" class="w-3.5 h-3.5 text-surface"></i></span>
 							</button>
 
 							<div class="text-center pt-2">
@@ -226,7 +226,7 @@ templ AuthPage(showLanding ...bool) {
 									type="text" 
 									x-model="signUpForm.name" 
 									required
-									class="w-full bg-neutral-50 border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors"
+									class="w-full bg-surface border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition-colors"
 									placeholder="Jane Doe"
 								/>
 							</div>
@@ -237,7 +237,7 @@ templ AuthPage(showLanding ...bool) {
 									type="email" 
 									x-model="signUpForm.email" 
 									required
-									class="w-full bg-neutral-50 border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors font-mono"
+									class="w-full bg-surface border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition-colors font-mono"
 									placeholder="you@company.com"
 								/>
 							</div>
@@ -252,7 +252,7 @@ templ AuthPage(showLanding ...bool) {
 											@input="evaluatePassword(signUpForm.passphrase)"
 											required
 											minlength="8"
-											class="w-full bg-neutral-50 border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors font-mono"
+											class="w-full bg-surface border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition-colors font-mono"
 											placeholder="Min 8 characters"
 										/>
 									</div>
@@ -263,7 +263,7 @@ templ AuthPage(showLanding ...bool) {
 											x-model="signUpForm.confirmPassphrase" 
 											required
 											minlength="8"
-											class="w-full bg-neutral-50 border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors font-mono"
+											class="w-full bg-surface border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition-colors font-mono"
 											placeholder="Repeat password"
 										/>
 									</div>
@@ -271,14 +271,14 @@ templ AuthPage(showLanding ...bool) {
 
 								<!-- Real-Time Password Complexity Requirements -->
 								<div x-show="signUpForm.passphrase.length > 0" class="p-3 rounded-md bg-neutral-50 border border-neutral-200 space-y-2 text-2xs">
-									<div class="flex items-center justify-between font-semibold font-mono">
+									<div class="flex items-center justify-between font-semibold">
 										<span class="text-neutral-500">Password Strength:</span>
 										<span :class="passwordStrengthColor" x-text="passwordStrengthText"></span>
 									</div>
 									<div class="h-1.5 w-full bg-neutral-200 rounded-full overflow-hidden flex gap-1">
 										<div class="h-full rounded-full transition-all duration-150" :class="passwordStrengthClass" :style="'width: ' + passwordStrengthPct + '%'"></div>
 									</div>
-									<div class="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1 text-2xs font-mono">
+									<div class="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1 text-2xs">
 										<div class="flex items-center gap-1.5" :class="criteria.len ? 'text-ok-700 font-medium' : 'text-neutral-400'">
 											<span x-text="criteria.len ? '✓' : '○'"></span>
 											<span>8+ characters</span>
@@ -306,12 +306,12 @@ templ AuthPage(showLanding ...bool) {
 
 							<button 
 								type="submit" 
-								class="w-full py-3 rounded-md text-xs font-medium flex items-center justify-center gap-2 bg-accent-600 hover:bg-accent-700 text-surface transition-colors cursor-pointer"
+								class="w-full py-3 rounded-md text-xs font-medium flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-700 text-surface transition-colors cursor-pointer"
 								:disabled="loading"
 							>
-								<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-surface" x-show="loading"></i>
+								<span class="inline-flex" x-show="loading"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-surface"></i></span>
 								<span x-text="loading ? 'Creating Account...' : 'Create Account & Enter Console'"></span>
-								<i data-lucide="arrow-right" class="w-3.5 h-3.5 text-surface" x-show="!loading"></i>
+								<span class="inline-flex" x-show="!loading"><i data-lucide="arrow-right" class="w-3.5 h-3.5 text-surface"></i></span>
 							</button>
 
 							<div x-show="oauthProviders.google || oauthProviders.github" class="relative my-3.5">
@@ -349,7 +349,7 @@ templ AuthPage(showLanding ...bool) {
 
 						<!-- 3. Forgot Password View -->
 						<div x-show="mode === 'forgot'" class="space-y-5 text-xs" style="display: none;">
-							<div class="p-4 rounded-md bg-accent-50 border border-accent-200 text-neutral-700 space-y-1 font-mono">
+							<div class="p-4 rounded-md bg-accent-50 border border-accent-200 text-neutral-700 space-y-1">
 								<div class="font-medium flex items-center gap-1.5 text-accent-700">
 									<i data-lucide="key-round" class="w-4 h-4"></i>
 									<span>Account Recovery</span>
@@ -366,19 +366,19 @@ templ AuthPage(showLanding ...bool) {
 										type="email" 
 										x-model="forgotForm.email" 
 										required
-										class="w-full bg-neutral-50 border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors font-mono"
+										class="w-full bg-surface border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition-colors font-mono"
 										placeholder="you@company.com"
 									/>
 								</div>
 
 								<button 
 									type="submit" 
-									class="w-full py-3 rounded-md text-xs font-medium flex items-center justify-center gap-2 bg-accent-600 hover:bg-accent-700 text-surface transition-colors cursor-pointer"
+									class="w-full py-3 rounded-md text-xs font-medium flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-700 text-surface transition-colors cursor-pointer"
 									:disabled="loading"
 								>
-									<i data-lucide="loader-2" class="w-4 h-4 animate-spin text-surface" x-show="loading"></i>
+									<span class="inline-flex" x-show="loading"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-surface"></i></span>
 									<span x-text="loading ? 'Sending Recovery Link...' : 'Send Password Reset Link'"></span>
-									<i data-lucide="mail" class="w-3.5 h-3.5 text-surface" x-show="!loading"></i>
+									<span class="inline-flex" x-show="!loading"><i data-lucide="mail" class="w-3.5 h-3.5 text-surface"></i></span>
 								</button>
 							</form>
 
@@ -396,7 +396,7 @@ templ AuthPage(showLanding ...bool) {
 
 						<!-- 4. Reset Password View -->
 						<div x-show="mode === 'reset'" class="space-y-5 text-xs" style="display: none;">
-							<div class="p-4 rounded-md bg-accent-50 border border-accent-200 text-neutral-700 space-y-1 font-mono">
+							<div class="p-4 rounded-md bg-accent-50 border border-accent-200 text-neutral-700 space-y-1">
 								<div class="font-medium flex items-center gap-1.5 text-accent-700">
 									<i data-lucide="shield-check" class="w-4 h-4"></i>
 									<span>Set New Password</span>
@@ -416,21 +416,21 @@ templ AuthPage(showLanding ...bool) {
 											@input="evaluatePassword(resetForm.passphrase)"
 											required
 											minlength="8"
-											class="w-full bg-neutral-50 border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors font-mono"
+											class="w-full bg-surface border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition-colors font-mono"
 											placeholder="Min 8 characters"
 										/>
 									</div>
 
 									<!-- Real-Time Password Complexity Requirements -->
 									<div x-show="resetForm.passphrase.length > 0" class="p-3 rounded-md bg-neutral-50 border border-neutral-200 space-y-2 text-2xs">
-										<div class="flex items-center justify-between font-semibold font-mono">
+										<div class="flex items-center justify-between font-semibold">
 											<span class="text-neutral-500">Strength:</span>
 											<span :class="passwordStrengthColor" x-text="passwordStrengthText"></span>
 										</div>
 										<div class="h-1.5 w-full bg-neutral-200 rounded-full overflow-hidden flex gap-1">
 											<div class="h-full rounded-full transition-all duration-150" :class="passwordStrengthClass" :style="'width: ' + passwordStrengthPct + '%'"></div>
 										</div>
-										<div class="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1 text-2xs font-mono">
+										<div class="grid grid-cols-1 sm:grid-cols-2 gap-1 pt-1 text-2xs">
 											<div class="flex items-center gap-1.5" :class="criteria.len ? 'text-ok-700 font-medium' : 'text-neutral-400'">
 												<span x-text="criteria.len ? '✓' : '○'"></span>
 												<span>8+ characters</span>
@@ -461,7 +461,7 @@ templ AuthPage(showLanding ...bool) {
 											x-model="resetForm.confirmPassphrase" 
 											required
 											minlength="8"
-											class="w-full bg-neutral-50 border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 focus:bg-surface transition-colors font-mono"
+											class="w-full bg-surface border border-neutral-200 rounded-md px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-accent-500 transition-colors font-mono"
 											placeholder="Repeat new password"
 										/>
 									</div>
@@ -469,12 +469,12 @@ templ AuthPage(showLanding ...bool) {
 
 								<button 
 									type="submit" 
-									class="w-full py-3 rounded-md text-xs font-medium flex items-center justify-center gap-2 bg-accent-600 hover:bg-accent-700 text-surface transition-colors cursor-pointer"
+									class="w-full py-3 rounded-md text-xs font-medium flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-700 text-surface transition-colors cursor-pointer"
 									:disabled="loading"
 								>
-									<i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="loading"></i>
+									<span class="inline-flex" x-show="loading"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i></span>
 									<span x-text="loading ? 'Updating Password...' : 'Save Strong Password & Sign In'"></span>
-									<i data-lucide="check" class="w-3.5 h-3.5" x-show="!loading"></i>
+									<span class="inline-flex" x-show="!loading"><i data-lucide="check" class="w-3.5 h-3.5"></i></span>
 								</button>
 							</form>
 
@@ -491,7 +491,7 @@ templ AuthPage(showLanding ...bool) {
 						</div>
 
 						<!-- Email Support & Help Links -->
-						<div class="pt-4 border-t border-neutral-100 flex flex-col items-center gap-2 text-center text-2xs text-neutral-500 font-mono">
+						<div class="pt-4 border-t border-neutral-100 flex flex-col items-center gap-2 text-center text-2xs text-neutral-500">
 							if len(showLanding) > 0 && showLanding[0] {
 								<div>
 									<span>Need assistance? Contact our team at </span>

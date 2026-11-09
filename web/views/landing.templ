@@ -9,18 +9,16 @@ templ LandingPage() {
 				<div class="panel px-5 py-3 flex items-center justify-between rounded-md">
 					<!-- Brand -->
 					<a href="/" class="flex items-center gap-3 group">
-						<img src="/static/img/flagura-logo.png" alt="" class="h-6 w-6 rounded"/>
+						@LogoMark("h-7 w-7")
 						<div class="flex flex-col">
-							<span class="font-semibold text-neutral-900 text-base leading-none">
-								Flagura
-							</span>
+							@LogoWordmark("h-[22px] translate-y-[3px]")
 						</div>
 					</a>
 
 					<!-- Nav Links -->
 					<nav class="hidden md:flex items-center gap-6 text-xs font-semibold text-neutral-600">
 						<a href="#section-hero" class="hover:text-neutral-900 transition-colors">Switchboard</a>
-						<a href="#section-bento" class="hover:text-neutral-900 transition-colors">Core Wedges</a>
+						<a href="#section-bento" class="hover:text-neutral-900 transition-colors">Features</a>
 						<a href="#section-benchmark" class="hover:text-neutral-900 transition-colors">Live Benchmark</a>
 						<a href="https://github.com/dhawalhost/flagura/blob/main/docs/product/sdks-and-api.md" target="_blank" class="hover:text-neutral-900 transition-colors">API Docs</a>
 						<a href="https://github.com/dhawalhost/flagura" target="_blank" class="flex items-center gap-1 hover:text-neutral-900 transition-colors">
@@ -30,10 +28,10 @@ templ LandingPage() {
 					</nav>
 
 					<!-- Action Buttons -->
-					<div class="flex items-center gap-2.5 font-mono">
+					<div class="flex items-center gap-2.5">
 						<a 
 							href="/dashboard"
-							class="px-4 py-2 rounded-md bg-accent-600 hover:bg-accent-700 text-surface font-medium text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+							class="px-4 py-2 rounded-md bg-neutral-900 hover:bg-neutral-700 text-surface font-medium text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
 						>
 							<span>Open Dashboard</span>
 							<i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
@@ -58,10 +56,10 @@ templ LandingPage() {
 						</p>
 
 						<!-- Hero Action Buttons -->
-						<div class="flex flex-wrap items-center justify-center gap-4 pt-2 font-mono">
+						<div class="flex flex-wrap items-center justify-center gap-4 pt-2">
 							<a 
 								href="/dashboard"
-								class="px-6 py-3.5 rounded-md bg-accent-600 hover:bg-accent-700 text-surface font-medium text-sm transition-colors flex items-center gap-2 cursor-pointer"
+								class="px-6 py-3.5 rounded-md bg-neutral-900 hover:bg-neutral-700 text-surface font-medium text-sm transition-colors flex items-center gap-2 cursor-pointer"
 							>
 								<span>Open Dashboard</span>
 								<i data-lucide="arrow-right" class="h-4 w-4"></i>
@@ -77,25 +75,25 @@ templ LandingPage() {
 					</div>
 
 					<!-- Strategic Wedge KPI Cards (4 Pillars) -->
-					<div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto font-mono">
+					<div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
 						<div class="panel p-5 text-center space-y-1">
 							<div class="text-2xs text-neutral-500 font-semibold">Flag Hygiene</div>
-							<div class="text-2xl font-semibold text-warn-600 mt-1">Stale flags</div>
+							<div class="text-2xl font-semibold text-neutral-900 mt-1">Stale flags</div>
 							<div class="text-2xs text-neutral-400">Detected and flagged for cleanup</div>
 						</div>
 						<div class="panel p-5 text-center space-y-1">
 							<div class="text-2xs text-neutral-500 font-semibold">Release Safety</div>
-							<div class="text-2xl font-semibold text-accent-600 mt-1">4-Eyes</div>
+							<div class="text-2xl font-semibold text-neutral-900 mt-1">4-Eyes</div>
 							<div class="text-2xs text-neutral-400">Peer dual reviews for prod</div>
 						</div>
 						<div class="panel p-5 text-center space-y-1">
 							<div class="text-2xs text-neutral-500 font-semibold">Customer Privacy</div>
-							<div class="text-2xl font-semibold text-accent-600 mt-1">Zero Egress</div>
+							<div class="text-2xl font-semibold text-neutral-900 mt-1">Zero Egress</div>
 							<div class="text-2xs text-neutral-400">PII never leaves your host</div>
 						</div>
 						<div class="panel p-5 text-center space-y-1">
 							<div class="text-2xs text-neutral-500 font-semibold">In-Memory Speed</div>
-							<div class="text-2xl font-semibold text-ok-600 mt-1">In process</div>
+							<div class="text-2xl font-semibold text-neutral-900 mt-1">In process</div>
 							<div class="text-2xs text-neutral-400">No network hop to evaluate</div>
 						</div>
 					</div>
@@ -114,7 +112,7 @@ templ LandingPage() {
 							</div>
 
 							<!-- Mode Switcher -->
-							<div class="flex items-center gap-2 font-mono text-xs">
+							<div class="flex items-center gap-2 text-xs">
 								<button 
 									@click="consoleMode = 'switchboard'"
 									class="px-3 py-1.5 rounded-md transition cursor-pointer font-medium"
@@ -135,7 +133,7 @@ templ LandingPage() {
 						<!-- Mode 1: Interactive Switchboard -->
 						<div x-show="consoleMode === 'switchboard'" class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
 							<!-- Left Control Box -->
-							<div class="md:col-span-7 space-y-4 font-mono">
+							<div class="md:col-span-7 space-y-4">
 								<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-3">
 									<div class="flex items-center justify-between text-xs">
 										<span class="text-neutral-600 font-semibold">Flag Key:</span>
@@ -213,13 +211,13 @@ templ LandingPage() {
 								</div>
 
 								<div class="text-2xs text-neutral-500 text-center pt-2">
-									Evaluated in 84ns • 0 heap allocs
+									Computed in your browser
 								</div>
 							</div>
 						</div>
 
 						<!-- Mode 2: Multi-Language SDK Code Playground -->
-						<div x-show="consoleMode === 'code'" class="space-y-4 font-mono">
+						<div x-show="consoleMode === 'code'" class="space-y-4">
 							<!-- Language Tabs -->
 							<div class="flex items-center gap-2 border-b border-neutral-100 pb-3 text-xs overflow-x-auto">
 								<button 
@@ -356,7 +354,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				<!-- 2. ASYMMETRICAL BENTO FEATURE SHOWCASE -->
 				<section id="section-bento" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
 					<div class="text-center max-w-3xl mx-auto space-y-4">
-						<div class="inline-flex items-center gap-2 px-3 py-1 rounded bg-accent-50 text-accent-700 border border-accent-200 text-xs font-mono font-medium">
+						<div class="inline-flex items-center gap-2 px-3 py-1 rounded bg-accent-50 text-accent-700 border border-accent-200 text-xs font-medium">
 							<i data-lucide="layers" class="h-3.5 w-3.5"></i>
 							<span>CORE PRODUCT WEDGES &amp; ADVANTAGES</span>
 						</div>
@@ -395,7 +393,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 							</div>
 
 							<!-- Flag Hygiene Interactive Mock Strip -->
-							<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-2.5 font-mono text-xs">
+							<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-2.5 text-xs">
 								<div class="flex items-center justify-between">
 									<div class="flex items-center gap-2">
 										<span class="inline-block w-2 h-2 rounded-full bg-warn-500"></span>
@@ -429,7 +427,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 								</p>
 							</div>
 
-							<div class="p-3.5 rounded-md bg-accent-50/50 border border-accent-200 text-xs font-mono space-y-1.5">
+							<div class="p-3.5 rounded-md bg-accent-50/50 border border-accent-200 text-xs space-y-1.5">
 								<div class="flex items-center justify-between">
 									<span class="text-accent-800 font-medium">CR #108 Approval</span>
 									<span class="text-2xs bg-accent-100 text-accent-800 px-1.5 py-0.5 rounded font-medium">PENDING REVIEW</span>
@@ -452,7 +450,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 							<p class="text-xs text-neutral-600 font-sans leading-relaxed">
 								Flagura sends compiled targeting schemas to your application. Customer emails, IP addresses, and user IDs never leave host process memory—no user PII leaves your infrastructure.
 							</p>
-							<div class="p-3 rounded-md bg-accent-50/50 border border-accent-200 text-xs font-mono space-y-1">
+							<div class="p-3 rounded-md bg-accent-50/50 border border-accent-200 text-xs space-y-1">
 								<div class="text-2xs text-accent-700 font-semibold">Data Sovereignty:</div>
 								<div class="text-accent-800 font-medium">Zero User Context Egress</div>
 							</div>
@@ -470,7 +468,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 								</div>
 							</div>
 							<p class="text-xs text-neutral-600 font-sans leading-relaxed">
-								Evaluated in CPU L1/L2 cache with 64-bit FNV-1a deterministic sticky hashing. 0 heap allocations, 0 blocking HTTP calls, and zero single points of network failure on critical user paths.
+								Evaluated in process with deterministic FNV-1a hashing. 0 heap allocations, 0 blocking HTTP calls, and zero single points of network failure on critical user paths.
 							</p>
 						</div>
 
@@ -488,7 +486,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 							<p class="text-xs text-neutral-600 font-sans leading-relaxed">
 								Integrated health monitoring triggers automatic canary rollback within milliseconds if downstream HTTP error rates or crash exceptions spike during a release.
 							</p>
-							<div class="p-3 rounded-md bg-danger-50/50 border border-danger-200 text-xs font-mono space-y-1">
+							<div class="p-3 rounded-md bg-danger-50/50 border border-danger-200 text-xs space-y-1">
 								<div class="text-2xs text-danger-700 font-semibold">Circuit Threshold:</div>
 								<div class="text-danger-700 font-medium">&gt; 1.5% Error Rate = Auto Rollback</div>
 							</div>
@@ -540,7 +538,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				<!-- 3. ARCHITECTURAL DATA BUS & STREAM PIPELINE -->
 				<section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
 					<div class="text-center space-y-3">
-						<div class="inline-flex items-center gap-2 px-3 py-1 rounded bg-ok-50 text-ok-700 border border-ok-200 text-xs font-mono font-medium">
+						<div class="inline-flex items-center gap-2 px-3 py-1 rounded bg-ok-50 text-ok-700 border border-ok-200 text-xs font-medium">
 							<i data-lucide="git-branch" class="h-3.5 w-3.5"></i>
 							<span>REAL-TIME DATA PROPAGATION</span>
 						</div>
@@ -550,7 +548,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 					</div>
 
 					<div class="panel p-6 sm:p-8 space-y-6">
-						<div class="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono">
+						<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 							<!-- Step 1 -->
 							<div class="p-4 rounded-md bg-neutral-50 border border-neutral-200 space-y-2">
 								<div class="flex items-center justify-between text-xs">
@@ -608,14 +606,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 								:disabled="benchRunning || isRunningBenchmark"
 								class="px-5 py-3 rounded-md bg-accent-600 hover:bg-accent-700 disabled:opacity-60 text-surface font-medium text-xs transition-colors flex items-center gap-2 cursor-pointer shrink-0"
 							>
-								<i data-lucide="play" class="h-4 w-4 fill-white text-surface" x-show="!benchRunning && !isRunningBenchmark"></i>
-								<i data-lucide="loader-2" class="h-4 w-4 animate-spin text-surface" x-show="benchRunning || isRunningBenchmark"></i>
+								<span class="inline-flex" x-show="!benchRunning && !isRunningBenchmark"><i data-lucide="play" class="h-4 w-4 fill-white text-surface"></i></span>
+								<span class="inline-flex" x-show="benchRunning || isRunningBenchmark"><i data-lucide="loader-2" class="h-4 w-4 animate-spin text-surface"></i></span>
 								<span x-text="(benchRunning || isRunningBenchmark) ? 'Benchmarking...' : 'Run 100k Benchmark'">Run 100k Benchmark</span>
 							</button>
 						</div>
 
 						<!-- Benchmark Telemetry Board -->
-						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-center">
+						<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
 							<div class="p-5 rounded-md bg-neutral-50 border border-neutral-200 space-y-1.5">
 								<div class="text-2xs text-neutral-500 font-semibold">Evaluations Run</div>
 								<div class="text-2xl font-semibold text-neutral-900" x-text="benchCount ? benchCount.toLocaleString() : '100,000'">100,000</div>
@@ -644,17 +642,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 								<button 
 									@click="setTab('curl')"
 									class="px-2.5 py-1 rounded transition cursor-pointer font-medium"
-									:class="installTab === 'curl' ? 'bg-accent-600 text-surface' : 'text-neutral-400 hover:text-surface'"
+									:class="installTab === 'curl' ? 'bg-neutral-900 text-surface' : 'text-neutral-400 hover:text-surface'"
 								>curl</button>
 								<button 
 									@click="setTab('go')"
 									class="px-2.5 py-1 rounded transition cursor-pointer font-medium"
-									:class="installTab === 'go' ? 'bg-accent-600 text-surface' : 'text-neutral-400 hover:text-surface'"
+									:class="installTab === 'go' ? 'bg-neutral-900 text-surface' : 'text-neutral-400 hover:text-surface'"
 								>go install</button>
 								<button 
 									@click="setTab('docker')"
 									class="px-2.5 py-1 rounded transition cursor-pointer font-medium"
-									:class="installTab === 'docker' ? 'bg-accent-600 text-surface' : 'text-neutral-400 hover:text-surface'"
+									:class="installTab === 'docker' ? 'bg-neutral-900 text-surface' : 'text-neutral-400 hover:text-surface'"
 								>docker</button>
 							</div>
 						</div>
@@ -689,9 +687,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 			<!-- Clean Light Footer -->
 			<footer class="border-t border-neutral-200 bg-surface py-12 px-4 sm:px-6 lg:px-8">
-				<div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 font-mono text-xs text-neutral-500">
+				<div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-neutral-500">
 					<div class="flex items-center gap-3">
-						<img src="/static/img/flagura-logo.png" alt="Flagura" class="h-6 w-6 rounded object-cover" />
+						@LogoMark("h-7 w-7")
 						<span class="font-semibold text-neutral-900 text-sm">Flagura</span>
 						<span>•</span>
 						<span>OpenFeature Native Engine</span>

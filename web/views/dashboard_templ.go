@@ -68,7 +68,7 @@ func Dashboard(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<!-- Wide-Canvas Fluid Workspace --><main class=\"flex-1 p-5 sm:p-7 lg:p-4 max-w-[1680px] mx-auto w-full space-y-5\"><!-- VIEW 1: Overview Dashboard (Asymmetric Bento Cockpit) -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<!-- Wide-Canvas Fluid Workspace --><main class=\"flex-1 p-4 max-w-[1680px] mx-auto w-full space-y-4\"><!-- VIEW 1: Overview Dashboard (Asymmetric Bento Cockpit) -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

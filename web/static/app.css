@@ -27,11 +27,11 @@
   --n-900: 28 26 23;
   --n-950: 18 17 15;
 
-  --accent-tint: 233 239 251;
-  --accent-line: 190 206 240;
-  --accent-bright: 120 156 235;
-  --accent-mark: 36 86 201;
-  --accent-text: 28 66 156;
+  --accent-tint: 224 242 245;
+  --accent-line: 168 216 224;
+  --accent-bright: 78 190 209;
+  --accent-mark: 11 110 133;
+  --accent-text: 9 86 104;
 
   --ok-tint: 228 243 233;
   --ok-line: 176 219 192;
@@ -72,11 +72,11 @@
   --n-900: 243 241 236;
   --n-950: 250 249 246;
 
-  --accent-tint: 30 41 66;
-  --accent-line: 52 72 118;
-  --accent-bright: 130 163 240;
-  --accent-mark: 130 163 240;
-  --accent-text: 170 195 245;
+  --accent-tint: 16 52 60;
+  --accent-line: 30 92 104;
+  --accent-bright: 92 200 219;
+  --accent-mark: 92 200 219;
+  --accent-text: 150 224 236;
 
   --ok-tint: 22 52 36;
   --ok-line: 38 88 60;
@@ -137,7 +137,7 @@ body {
   overflow-x: hidden;
 }
 
-h1, h2, h3, h4 {
+body h1, body h2, body h3, body h4 {
   font-family: var(--font-sans);
   font-weight: 600;
 }
@@ -151,7 +151,7 @@ code, pre, .font-mono, .mono {
   font-family: var(--font-mono);
 }
 
-:focus-visible {
+body :focus-visible {
   outline: 2px solid rgb(var(--accent-mark));
   outline-offset: 1px;
 }
@@ -166,9 +166,124 @@ code, pre, .font-mono, .mono {
   border-color: rgb(var(--n-800));
 }
 
+/* Matches the leaf in flagura-icon-light.svg and flagura-icon-dark.svg. */
+.logo-leaf {
+  fill: #4EBED1;
+}
+
+:root[data-theme="dark"] .logo-leaf {
+  fill: #0B6E85;
+}
+
 .page-head {
-  border-bottom: 1px solid rgb(var(--n-200));
-  padding-bottom: 12px;
+  min-height: 32px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgb(var(--n-200));
+  border-radius: 6px;
+  background: rgb(var(--surface));
+  color: rgb(var(--n-700));
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:hover {
+  background: rgb(var(--n-50));
+}
+
+.btn-primary {
+  background: rgb(var(--n-900));
+  border-color: rgb(var(--n-900));
+  color: rgb(var(--surface));
+}
+
+.btn-primary:hover {
+  background: rgb(var(--n-700));
+  border-color: rgb(var(--n-700));
+}
+
+.field {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid rgb(var(--n-200));
+  border-radius: 6px;
+  background: rgb(var(--surface));
+  color: rgb(var(--n-900));
+  font-size: 13px;
+  line-height: 18px;
+  transition: border-color 0.15s ease;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 4px;
+  color: rgb(var(--n-600));
+  font-size: 12px;
+}
+
+.seg {
+  display: inline-flex;
+  max-width: 100%;
+  overflow-x: auto;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 6px;
+  background: rgb(var(--n-100));
+}
+
+.seg button {
+  padding: 4px 10px;
+  border-radius: 4px;
+  color: rgb(var(--n-600));
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.seg button.seg-on {
+  background: rgb(var(--surface));
+  color: rgb(var(--n-900));
+  font-weight: 500;
+  box-shadow: 0 0 0 1px rgb(var(--n-200));
+}
+
+.section + .section {
+  border-top: 1px solid rgb(var(--n-100));
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 26px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23857f73' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 12px;
+}
+
+input[type="range"], input[type="checkbox"] {
+  accent-color: rgb(var(--accent-mark));
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: rgb(var(--accent-mark));
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .switch-track {

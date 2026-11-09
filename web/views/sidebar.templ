@@ -33,10 +33,10 @@ templ Sidebar(user *domain.User, flags []domain.FeatureFlag, auditLogs []domain.
 			<!-- Logo & Flagura Brand -->
 			<div class="flex items-center justify-between px-1">
 				<a href="/" class="flex items-center gap-3 group">
-					<img src="/static/img/flagura-logo.png" alt="" class="h-6 w-6 rounded"/>
+					@LogoMark("h-7 w-7")
 					<div class="flex flex-col">
 						<span class="font-semibold text-neutral-900 text-base leading-none flex items-center gap-1.5">
-							Flagura
+							@LogoWordmark("h-[22px] translate-y-[3px]")
 							<span class="text-2xs font-mono font-normal text-neutral-400">v{ domain.CleanVersion() }</span>
 						</span>
 					</div>

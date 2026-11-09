@@ -34,14 +34,14 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-5\" x-show=\"activeView === 'audit'\" x-cloak x-data=\"auditViewComponent()\"><!-- Top Header Card --><div class=\"page-head flex flex-col sm:flex-row sm:items-center justify-between gap-3\"><div class=\"flex items-center gap-3.5\"><button @click=\"navigateTo('overview')\" class=\"p-2 text-neutral-500 hover:text-neutral-900 transition-colors rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 flex items-center gap-1.5 text-xs font-semibold cursor-pointer\" title=\"Return to overview\"><i data-lucide=\"arrow-left\" class=\"h-4 w-4\"></i> <span class=\"hidden sm:inline\">Back</span></button><div><div class=\"flex items-center gap-2\"><h2 class=\"text-base font-semibold text-neutral-900\">Audit trail</h2></div><p class=\"text-xs text-neutral-500 mt-0.5 font-sans\">Hash-chained record of flag, rollout and kill-switch changes.</p></div></div><div class=\"flex flex-wrap items-center gap-2 self-end sm:self-auto font-mono\"><!-- Integrity Verification Status Badge --><template x-if=\"integrityResult && integrityResult.valid\"><span class=\"px-3 py-1.5 rounded-md bg-ok-50 text-ok-700 border border-ok-200 text-xs font-mono font-medium flex items-center gap-1.5\"><i data-lucide=\"shield-check\" class=\"h-3.5 w-3.5 text-ok-600\"></i> <span x-text=\"'Verified (' + integrityResult.total_verified + ' linked)'\"></span></span></template><template x-if=\"integrityResult && !integrityResult.valid\"><span class=\"px-3 py-1.5 rounded-md bg-danger-50 text-danger-700 border border-danger-200 text-xs font-mono font-medium flex items-center gap-1.5\"><i data-lucide=\"alert-triangle\" class=\"h-3.5 w-3.5 text-danger-600\"></i> <span x-text=\"'Tamper: ' + (integrityResult.error_message || 'broken chain')\"></span></span></template><button @click=\"verifyIntegrity()\" class=\"px-3.5 py-2 rounded-md bg-ok-50 hover:bg-ok-100 border border-ok-200 text-ok-800 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors\" :disabled=\"verifying\" title=\"Cryptographically verify SHA-256 hash chaining of audit logs\"><i data-lucide=\"shield-alert\" class=\"h-3.5 w-3.5\" :class=\"verifying ? 'animate-spin' : ''\"></i> <span x-text=\"verifying ? 'Verifying...' : 'Verify Chain'\"></span></button> <button @click=\"exportLogs('csv')\" class=\"px-3 py-2 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors\" title=\"Export audit logs as RFC 4180 CSV\"><i data-lucide=\"file-spreadsheet\" class=\"h-3.5 w-3.5 text-neutral-500\"></i> <span>Export CSV</span></button> <button @click=\"exportLogs('json')\" class=\"px-3 py-2 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors\" title=\"Export audit logs as JSON\"><i data-lucide=\"file-code\" class=\"h-3.5 w-3.5 text-neutral-500\"></i> <span>JSON</span></button> <button @click=\"fetchLogs()\" class=\"px-3.5 py-2 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors\" :disabled=\"loading\"><i data-lucide=\"rotate-ccw\" class=\"h-3.5 w-3.5\" :class=\"loading ? 'animate-spin' : ''\"></i> <span>Refresh</span></button></div></div><!-- Logs Container --><section class=\"panel overflow-hidden\"><div class=\"flex items-center justify-between border-b border-neutral-200 px-4 py-2.5\"><h3 class=\"text-sm text-neutral-900\">Events</h3><span class=\"text-xs text-neutral-500\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-5\" x-show=\"activeView === 'audit'\" x-cloak x-data=\"auditViewComponent()\"><!-- Top Header Card --><div class=\"page-head flex flex-col sm:flex-row sm:items-center justify-between gap-3\"><p class=\"text-sm text-neutral-500\">Hash-chained record of flag, rollout and kill-switch changes.</p><div class=\"flex flex-wrap items-center gap-2 self-end sm:self-auto\"><!-- Integrity Verification Status Badge --><template x-if=\"integrityResult && integrityResult.valid\"><span class=\"px-3 py-1.5 rounded-md bg-ok-50 text-ok-700 border border-ok-200 text-xs font-mono font-medium flex items-center gap-1.5\"><i data-lucide=\"shield-check\" class=\"h-3.5 w-3.5 text-ok-600\"></i> <span x-text=\"'Verified (' + integrityResult.total_verified + ' linked)'\"></span></span></template><template x-if=\"integrityResult && !integrityResult.valid\"><span class=\"px-3 py-1.5 rounded-md bg-danger-50 text-danger-700 border border-danger-200 text-xs font-mono font-medium flex items-center gap-1.5\"><i data-lucide=\"alert-triangle\" class=\"h-3.5 w-3.5 text-danger-600\"></i> <span x-text=\"'Tamper: ' + (integrityResult.error_message || 'broken chain')\"></span></span></template><button @click=\"verifyIntegrity()\" class=\"px-3.5 py-2 rounded-md bg-ok-50 hover:bg-ok-100 border border-ok-200 text-ok-800 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors\" :disabled=\"verifying\" title=\"Cryptographically verify SHA-256 hash chaining of audit logs\"><span class=\"inline-flex\" :class=\"verifying ? 'animate-spin' : ''\"><i data-lucide=\"shield-alert\" class=\"h-3.5 w-3.5\"></i></span> <span x-text=\"verifying ? 'Verifying...' : 'Verify Chain'\"></span></button> <button @click=\"exportLogs('csv')\" class=\"px-3 py-2 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors\" title=\"Export audit logs as RFC 4180 CSV\"><i data-lucide=\"file-spreadsheet\" class=\"h-3.5 w-3.5 text-neutral-500\"></i> <span>Export CSV</span></button> <button @click=\"exportLogs('json')\" class=\"px-3 py-2 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors\" title=\"Export audit logs as JSON\"><i data-lucide=\"file-code\" class=\"h-3.5 w-3.5 text-neutral-500\"></i> <span>JSON</span></button> <button @click=\"fetchLogs()\" class=\"px-3.5 py-2 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors\" :disabled=\"loading\"><span class=\"inline-flex\" :class=\"loading ? 'animate-spin' : ''\"><i data-lucide=\"rotate-ccw\" class=\"h-3.5 w-3.5\"></i></span> <span>Refresh</span></button></div></div><!-- Logs Container --><section class=\"panel overflow-hidden\"><div class=\"flex items-center justify-between border-b border-neutral-200 px-4 py-2.5\"><h3 class=\"text-sm text-neutral-900\">Events</h3><span class=\"text-xs text-neutral-500\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d recorded", len(auditLogs)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 88, Col: 87}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 71, Col: 87}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -59,7 +59,7 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(log.FlagKey)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 95, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 78, Col: 79}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -94,7 +94,7 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(log.Action)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 99, Col: 21}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 82, Col: 21}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -107,7 +107,7 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(log.Timestamp.Format("2006-01-02 15:04:05"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 101, Col: 102}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 84, Col: 102}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -120,7 +120,7 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(log.Details)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 103, Col: 55}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 86, Col: 55}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -133,7 +133,7 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(log.Actor)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 105, Col: 24}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 88, Col: 24}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -146,7 +146,7 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(string(log.Environment))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 106, Col: 66}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 89, Col: 66}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -164,7 +164,7 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(log.EntryHash)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 108, Col: 35}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 91, Col: 35}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 				if templ_7745c5c3_Err != nil {
@@ -178,7 +178,7 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(log.EntryHash[:12])
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 111, Col: 31}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 94, Col: 31}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
@@ -188,7 +188,7 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 					var templ_7745c5c3_Var13 string
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(log.EntryHash)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 113, Col: 26}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 96, Col: 26}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
@@ -208,7 +208,7 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 				var templ_7745c5c3_Var14 string
 				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(log.PrevHash)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 119, Col: 34}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 102, Col: 34}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 				if templ_7745c5c3_Err != nil {
@@ -222,7 +222,7 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 					var templ_7745c5c3_Var15 string
 					templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(log.PrevHash[:12])
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 122, Col: 30}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 105, Col: 30}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 					if templ_7745c5c3_Err != nil {
@@ -232,7 +232,7 @@ func AuditModal(auditLogs []domain.AuditLogEntry) templ.Component {
 					var templ_7745c5c3_Var16 string
 					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(log.PrevHash)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 124, Col: 25}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/views/audit_modal.templ`, Line: 107, Col: 25}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 					if templ_7745c5c3_Err != nil {

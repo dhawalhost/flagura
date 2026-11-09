@@ -9,26 +9,9 @@ templ AuditModal(auditLogs []domain.AuditLogEntry) {
 	<div class="space-y-5" x-show="activeView === 'audit'" x-cloak x-data="auditViewComponent()">
 		<!-- Top Header Card -->
 		<div class="page-head flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-			<div class="flex items-center gap-3.5">
-				<button
-					@click="navigateTo('overview')"
-					class="p-2 text-neutral-500 hover:text-neutral-900 transition-colors rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-					title="Return to overview"
-				>
-					<i data-lucide="arrow-left" class="h-4 w-4"></i>
-					<span class="hidden sm:inline">Back</span>
-				</button>
-				<div>
-					<div class="flex items-center gap-2">
-						<h2 class="text-base font-semibold text-neutral-900">Audit trail</h2>
-					</div>
-					<p class="text-xs text-neutral-500 mt-0.5 font-sans">
-						Hash-chained record of flag, rollout and kill-switch changes.
-					</p>
-				</div>
-			</div>
+			<p class="text-sm text-neutral-500">Hash-chained record of flag, rollout and kill-switch changes.</p>
 
-			<div class="flex flex-wrap items-center gap-2 self-end sm:self-auto font-mono">
+			<div class="flex flex-wrap items-center gap-2 self-end sm:self-auto">
 				<!-- Integrity Verification Status Badge -->
 				<template x-if="integrityResult && integrityResult.valid">
 					<span class="px-3 py-1.5 rounded-md bg-ok-50 text-ok-700 border border-ok-200 text-xs font-mono font-medium flex items-center gap-1.5">
@@ -49,7 +32,7 @@ templ AuditModal(auditLogs []domain.AuditLogEntry) {
 					:disabled="verifying"
 					title="Cryptographically verify SHA-256 hash chaining of audit logs"
 				>
-					<i data-lucide="shield-alert" class="h-3.5 w-3.5" :class="verifying ? 'animate-spin' : ''"></i>
+					<span class="inline-flex" :class="verifying ? 'animate-spin' : ''"><i data-lucide="shield-alert" class="h-3.5 w-3.5"></i></span>
 					<span x-text="verifying ? 'Verifying...' : 'Verify Chain'"></span>
 				</button>
 
@@ -75,7 +58,7 @@ templ AuditModal(auditLogs []domain.AuditLogEntry) {
 					class="px-3.5 py-2 rounded-md bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
 					:disabled="loading"
 				>
-					<i data-lucide="rotate-ccw" class="h-3.5 w-3.5" :class="loading ? 'animate-spin' : ''"></i>
+					<span class="inline-flex" :class="loading ? 'animate-spin' : ''"><i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i></span>
 					<span>Refresh</span>
 				</button>
 			</div>

@@ -174,7 +174,7 @@ func GovernanceModal(user *domain.User, changeRequests []domain.ChangeRequest) t
 							return templ_7745c5c3_Err
 						}
 					} else {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<div class=\"flex items-center gap-2 font-mono\"><button data-cr-id=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<div class=\"flex items-center gap-2\"><button data-cr-id=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -216,7 +216,7 @@ func GovernanceModal(user *domain.User, changeRequests []domain.ChangeRequest) t
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div><!-- Footer --><div class=\"flex items-center justify-between border-t border-neutral-100 bg-neutral-50 px-6 py-4 text-xs text-neutral-500 font-mono\"><span></span> <button @click=\"close\" class=\"rounded-md bg-neutral-200 px-4 py-2 font-semibold text-neutral-800 hover:bg-neutral-300 transition cursor-pointer\">Close</button></div></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div><!-- Footer --><div class=\"flex items-center justify-between border-t border-neutral-100 bg-neutral-50 px-6 py-4 text-xs text-neutral-500\"><span></span> <button @click=\"close\" class=\"rounded-md bg-neutral-200 px-4 py-2 font-semibold text-neutral-800 hover:bg-neutral-300 transition cursor-pointer\">Close</button></div></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

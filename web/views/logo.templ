@@ -1,0 +1,20 @@
+package views
+
+// LogoMark is the flat Flagura icon, using the small-size cut for UI sizes.
+// Tokens let the tile and letterform swap between light and dark themes.
+templ LogoMark(class string) {
+	<svg class={ class } viewBox="0 0 256 256" aria-hidden="true">
+		<rect class="fill-neutral-900" width="256" height="256" rx="58"></rect>
+		<g transform="translate(38.4 38.4) scale(.7)">
+			<path class="fill-surface" d="M221 20H107A72 72 0 0 0 35 92V236H147A74 74 0 0 0 221 162V124H163L127 160H185V162A38 38 0 0 1 147 200H71V92A36 36 0 0 1 107 56H185A36 36 0 0 0 221 20Z"></path>
+			<path class="logo-leaf" d="M183 82H123C99 82 90 98 85 116C82 125 80 133 78 140C87 130 99 124 115 124H131C159 124 177 108 183 82Z"></path>
+		</g>
+	</svg>
+}
+
+// LogoWordmark is the outlined Flagura name, drawn to pair with LogoMark.
+templ LogoWordmark(class string) {
+	<svg class={ class } viewBox="0 40 667 222" role="img" aria-label="Flagura">
+		<path class="fill-neutral-900" d="M36 50H102A20 20 0 0 1 82 70H36A14 14 0 0 0 22 84V190H0V86A36 36 0 0 1 36 50ZM10 112H78V132H10ZM115 40H135V190H115ZM149 140A52 52 0 1 1 253 140A52 52 0 1 1 149 140ZM169 140A32 32 0 1 0 233 140A32 32 0 1 0 169 140ZM233 90H253V190H233ZM268 140A52 52 0 1 1 372 140A52 52 0 1 1 268 140ZM288 140A32 32 0 1 0 352 140A32 32 0 1 0 288 140ZM352 90H372V208H352ZM372 208A52 52 0 0 1 272.87 229.98L291 221.52A32 32 0 0 0 352 208ZM388 90H408V144H388ZM460 90H480V190H460ZM480 144A46 46 0 0 1 388 144L408 144A26 26 0 0 0 460 144ZM496 90H516V190H496ZM496 140A50 50 0 0 1 550.36 90.19L548.61 110.11A30 30 0 0 0 516 140ZM563 140A52 52 0 1 1 667 140A52 52 0 1 1 563 140ZM583 140A32 32 0 1 0 647 140A32 32 0 1 0 583 140ZM647 90H667V190H647Z"></path>
+	</svg>
+}

@@ -27,3 +27,10 @@ The console reads as a generated template: gradients, glows, emoji icons, nested
 - `localStorage` may be unavailable; the theme falls back to the OS preference.
 - Zero flags and zero evaluations render as empty states, not zeros dressed as metrics.
 - Landing page claims of certification (SOC2) are removed because nothing in the repo substantiates them.
+
+## 5. Second Pass Acceptance Criteria
+- [x] AC9: Evaluator, benchmark, editor, SDK and profile have no nested cards, duplicate page titles or repeated primary actions.
+- [x] AC10: The flat ink-and-petrol redraw of the Flagura mark replaces the raster logo; primary actions use ink, and the accent is reserved for selection, links and focus.
+- [x] AC11: The flag matrix keeps the key column visible while scrolling on phones, shows health only when it needs action, and reveals row actions on hover at desktop widths.
+- [x] AC12: Icons render inside dynamically created content, native selects share one style, and keyboard focus is visible on toggles.
+- [x] AC13: Benchmark and evaluator show measured values only.

@@ -1369,7 +1369,7 @@ document.addEventListener("alpine:init", () => {
 
   // Live Evaluator View Component
   Alpine.data("liveEvaluatorComponent", () => ({
-    selectedFlagKey: "ai-smart-search",
+    selectedFlagKey: "all",
     evaluating: false,
     evalResults: {},
     evalTraces: {},
@@ -1559,6 +1559,7 @@ document.addEventListener("alpine:init", () => {
           ],
         },
         options: {
+          animation: false,
           responsive: true,
           maintainAspectRatio: false,
           plugins: { legend: { display: false } },
@@ -1594,7 +1595,9 @@ document.addEventListener("alpine:init", () => {
     getSpeedupFactor() {
       if (!this.networkResults || !this.networkResults.avg) return "0x";
       return (
-        Math.round((this.networkResults.avg * 1000000) / 85).toLocaleString() +
+        Math.round(
+          (this.networkResults.avg * 1000000) / (this.metrics.p50Ns || 1),
+        ).toLocaleString() +
         "x"
       );
     },
@@ -1693,6 +1696,7 @@ document.addEventListener("alpine:init", () => {
           ],
         },
         options: {
+          animation: false,
           responsive: true,
           maintainAspectRatio: false,
           plugins: { legend: { display: false } },
@@ -3149,5 +3153,17 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 document.addEventListener("alpine:initialized", () => {
-  if (window.lucide) window.lucide.createIcons();
+  if (!window.lucide) return;
+  window.lucide.createIcons();
+
+  // Alpine templates add icons after load; hydrate them as they appear.
+  let pending = false;
+  new MutationObserver(() => {
+    if (pending || !document.querySelector("i[data-lucide]")) return;
+    pending = true;
+    requestAnimationFrame(() => {
+      pending = false;
+      window.lucide.createIcons();
+    });
+  }).observe(document.body, { childList: true, subtree: true });
 });
