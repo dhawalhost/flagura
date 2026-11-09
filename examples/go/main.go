@@ -20,6 +20,7 @@ func main() {
 
 	apiKey := os.Getenv("FLAGURA_API_KEY")
 	if apiKey == "" {
+		// #nosec G101 -- placeholder demo key for the example, not a real credential
 		apiKey = "flg_live_demo_key_example"
 	}
 

@@ -482,6 +482,7 @@ func (c *Client) saveSnapshot(path string) {
 }
 
 func (c *Client) loadSnapshot(path string) {
+	// #nosec G304 -- snapshot path is supplied by the SDK caller's configuration
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return
